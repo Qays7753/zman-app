@@ -54,9 +54,10 @@ export default function QueryProvider({
         maxAge: 30 * 60 * 1000, // صلاحية الكاش المحلي تتطابق مع gcTime
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {
-            // لا نحفظ أي استعلامات تحتوي على أسرار أو كلمات مرور
-            const queryKey = query.queryKey;
-            const hasSensitiveData = queryKey.some(
+            // نحفظ فقط الاستعلامات الناجحة (لا نخزّن حالات الفشل أو التحميل)
+            if (query.state.status !== "success") return false;
+            // ولا نحفظ أي استعلام يحتوي مفتاحه على أسرار أو كلمات مرور
+            const hasSensitiveData = query.queryKey.some(
               (k) =>
                 typeof k === "string" &&
                 (k.toLowerCase().includes("auth") ||
