@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  date,
   index,
   integer,
   pgTable,
@@ -15,6 +16,7 @@ export const order = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     customerName: text("customer_name").notNull(),
     customerPhone: text("customer_phone").notNull(),
+    customerPhoneAlt: text("customer_phone_alt"),
     productName: text("product_name").notNull(),
     quantity: integer("quantity").notNull().default(1),
     totalCostCents: integer("total_cost_cents").notNull().default(0),
@@ -22,6 +24,8 @@ export const order = pgTable(
     totalPriceCents: integer("total_price_cents").notNull().default(0),
     status: text("status").notNull().default("draft"),
     notes: text("notes").notNull().default(""),
+    deliveryDate: date("delivery_date"),
+    receivedDate: date("received_date").notNull().default(sql`CURRENT_DATE`),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -39,6 +43,10 @@ export const order = pgTable(
       check(
         "customer_phone_length",
         sql`char_length(${table.customerPhone}) <= 32`,
+      ),
+      check(
+        "customer_phone_alt_length",
+        sql`char_length(${table.customerPhoneAlt}) <= 32`,
       ),
       check(
         "product_name_length",
@@ -106,4 +114,18 @@ export const idempotencyKey = pgTable(
   (table) => {
     return [check("action_length", sql`char_length(${table.action}) <= 32`)];
   },
+);
+
+export const messageTemplate = pgTable(
+  "message_template",
+  {
+    key: text("key").primaryKey(),
+    template: text("template").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check("template_length", sql`char_length(${table.template}) <= 5000`),
+  ],
 );

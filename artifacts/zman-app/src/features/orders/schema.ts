@@ -17,6 +17,11 @@ export const createOrderSchema = z.object({
     .string()
     .min(1, "رقم الهاتف مطلوب")
     .max(32, "رقم الهاتف طويل جداً"),
+  customerPhoneAlt: z
+    .string()
+    .max(32, "رقم الهاتف البديل طويل جداً")
+    .nullable()
+    .optional(),
   productName: z
     .string()
     .min(1, "اسم المنتج مطلوب")
@@ -33,6 +38,8 @@ export const createOrderSchema = z.object({
     .int()
     .nonnegative("السعر الإجمالي يجب أن يكون صفر أو أكثر"),
   notes: z.string().max(1000, "الملاحظات طويلة جداً").optional().default(""),
+  deliveryDate: z.string().nullable().optional(),
+  receivedDate: z.string().optional(),
 });
 
 export const updateOrderSchema = z.object({
@@ -46,6 +53,11 @@ export const updateOrderSchema = z.object({
     .string()
     .min(1, "رقم الهاتف مطلوب")
     .max(32, "رقم الهاتف طويل جداً"),
+  customerPhoneAlt: z
+    .string()
+    .max(32, "رقم الهاتف البديل طويل جداً")
+    .nullable()
+    .optional(),
   productName: z
     .string()
     .min(1, "اسم المنتج مطلوب")
@@ -62,6 +74,8 @@ export const updateOrderSchema = z.object({
     .int()
     .nonnegative("السعر الإجمالي يجب أن يكون صفر أو أكثر"),
   notes: z.string().max(1000, "الملاحظات طويلة جداً").optional().default(""),
+  deliveryDate: z.string().nullable().optional(),
+  receivedDate: z.string().optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

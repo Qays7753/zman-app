@@ -1,8 +1,8 @@
 "use client";
 
-import { Plus, Search } from "lucide-react";
+import { Boxes, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
@@ -19,6 +19,7 @@ import {
 } from "../hooks";
 import type { NewExpense } from "../types";
 import { ExpenseForm } from "./ExpenseForm";
+import { FinanceCatalogModal } from "./FinanceCatalogModal";
 
 export function ExpensesTab() {
   const router = useRouter();
@@ -30,6 +31,7 @@ export function ExpensesTab() {
   const category = searchParams.get("category") || "all";
   const newExpense = searchParams.get("newExpense") === "true";
   const editId = searchParams.get("editExpense");
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
 
   // الفئات المعتمدة للتصفية (§5.1)
   const categoriesList = [
@@ -157,6 +159,14 @@ export function ExpensesTab() {
             className="w-full h-11 ps-10 pe-4 rounded-md border border-hairline bg-paper text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setIsCatalogOpen(true)}
+          className="h-11 w-11 border border-hairline hover:bg-canvas text-ink-2 rounded-md flex items-center justify-center transition-colors shrink-0"
+          title="إدارة فئات المصاريف"
+        >
+          <Boxes className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={() => updateUrl({ newExpense: "true" })}
@@ -294,6 +304,12 @@ export function ExpensesTab() {
           />
         )}
       </ResponsiveModal>
+
+      <FinanceCatalogModal
+        isOpen={isCatalogOpen}
+        onClose={() => setIsCatalogOpen(false)}
+        type="expenses"
+      />
     </div>
   );
 }

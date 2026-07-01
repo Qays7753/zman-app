@@ -13,6 +13,8 @@ import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
 import { useInfiniteOrders } from "../hooks";
 import type { Order } from "../types";
 import { OrderCard } from "./OrderCard";
+import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
+import { WhatsAppTemplateEditor } from "./WhatsAppTemplateEditor";
 
 interface OrderListProps {
   onEdit: (order: Order) => void;
@@ -56,6 +58,7 @@ export function OrderList({
   const currentQuery = searchParams.get("q") || "";
 
   const [searchInput, setSearchInput] = useState(currentQuery);
+  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
 
   // تحديث حقل البحث مع إضافة تأخير (Debounce) لمنع كثرة استعلامات السيرفر
   useEffect(() => {
@@ -145,6 +148,15 @@ export function OrderList({
               </button>
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setIsTemplateOpen(true)}
+            className="w-12 h-12 rounded-md border border-hairline-2 bg-paper text-ink-2 hover:text-ink hover:bg-canvas transition-colors flex items-center justify-center shrink-0 min-h-[44px] min-w-[44px]"
+            title="محرر قالب رسالة WhatsApp"
+            aria-label="محرر قالب رسالة WhatsApp"
+          >
+            <MessageSquare className="w-5 h-5 text-info" />
+          </button>
           {onOpenComponents && (
             <button
               type="button"
@@ -325,6 +337,14 @@ export function OrderList({
           )}
         </>
       )}
+
+      <ResponsiveModal
+        isOpen={isTemplateOpen}
+        onClose={() => setIsTemplateOpen(false)}
+        title="تعديل قالب رسالة WhatsApp"
+      >
+        <WhatsAppTemplateEditor onClose={() => setIsTemplateOpen(false)} />
+      </ResponsiveModal>
     </div>
   );
 }

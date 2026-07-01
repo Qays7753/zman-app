@@ -1,8 +1,8 @@
 "use client";
 
-import { Plus, Search } from "lucide-react";
+import { Boxes, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
@@ -19,6 +19,7 @@ import {
 } from "../hooks";
 import type { NewPurchase } from "../types";
 import { PurchaseForm } from "./PurchaseForm";
+import { FinanceCatalogModal } from "./FinanceCatalogModal";
 
 export function PurchasesTab() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export function PurchasesTab() {
   const search = searchParams.get("search") || "";
   const newPurchase = searchParams.get("newPurchase") === "true";
   const editId = searchParams.get("editPurchase");
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
 
   // هوك جلب البيانات اللانهائي (§10.1)
   const {
@@ -130,6 +132,14 @@ export function PurchasesTab() {
             className="w-full h-11 ps-10 pe-4 rounded-md border border-hairline bg-paper text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setIsCatalogOpen(true)}
+          className="h-11 w-11 border border-hairline hover:bg-canvas text-ink-2 rounded-md flex items-center justify-center transition-colors shrink-0"
+          title="إدارة أصناف المشتريات"
+        >
+          <Boxes className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={() => updateUrl({ newPurchase: "true" })}
@@ -244,6 +254,12 @@ export function PurchasesTab() {
           />
         )}
       </ResponsiveModal>
+
+      <FinanceCatalogModal
+        isOpen={isCatalogOpen}
+        onClose={() => setIsCatalogOpen(false)}
+        type="purchases"
+      />
     </div>
   );
 }

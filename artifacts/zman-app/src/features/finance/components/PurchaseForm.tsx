@@ -2,12 +2,13 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { AmountText } from "@/components/shared/AmountText";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { purchaseInputSchema } from "../schema";
 import type { NewPurchase, Purchase } from "../types";
+import { usePurchaseItemCatalog } from "../hooks";
 
 interface PurchaseFormProps {
   initialData?: Purchase | null;
@@ -23,6 +24,8 @@ export function PurchaseForm({
   isSubmitting,
 }: PurchaseFormProps) {
   const formId = useId();
+  const { data: catalogItems = [] } = usePurchaseItemCatalog();
+  const [isCustomItem, setIsCustomItem] = useState(false);
 
   const defaultValues = {
     date: initialData
@@ -63,8 +66,13 @@ export function PurchaseForm({
       setValue("quantity", initialData.quantity);
       setValue("unitCostCents", initialData.unitCostCents);
       setValue("notes", initialData.notes);
+
+      const inCatalog = catalogItems.some((c) => c.name === initialData.item);
+      if (!inCatalog && catalogItems.length > 0) {
+        setIsCustomItem(true);
+      }
     }
-  }, [initialData, setValue]);
+  }, [initialData, setValue, catalogItems]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -100,17 +108,58 @@ export function PurchaseForm({
           >
             بيان المواد / الأصناف
           </label>
-          <input
-            id={`${formId}-item`}
-            type="text"
-            inputMode="text"
-            autoCapitalize="words"
-            placeholder=""
-            {...register("item")}
-            className={`flex h-11 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
-              errors.item ? "border-alert" : ""
-            }`}
-          />
+          {!isCustomItem && catalogItems.length > 0 ? (
+            <select
+              id={`${formId}-item-select`}
+              value={watch("item")}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "custom") {
+                  setIsCustomItem(true);
+                  setValue("item", "");
+                } else {
+                  setValue("item", val);
+                }
+              }}
+              className={`flex h-11 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
+                errors.item ? "border-alert" : ""
+              }`}
+            >
+              <option value="">-- اختر الصنف --</option>
+              {catalogItems.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+              <option value="custom">أخرى (إدخال يدوي) ...</option>
+            </select>
+          ) : (
+            <div className="flex gap-2 items-center">
+              <input
+                id={`${formId}-item`}
+                type="text"
+                inputMode="text"
+                autoCapitalize="words"
+                placeholder="أدخل اسم الصنف..."
+                {...register("item")}
+                className={`flex-1 h-11 px-3 py-2 rounded-md border border-hairline bg-paper text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
+                  errors.item ? "border-alert" : ""
+                }`}
+              />
+              {catalogItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomItem(false);
+                    setValue("item", catalogItems[0]?.name || "");
+                  }}
+                  className="h-11 px-3 border border-hairline hover:bg-canvas rounded-md text-xs text-ink-2 shrink-0"
+                >
+                  اختر من القائمة
+                </button>
+              )}
+            </div>
+          )}
           {errors.item && (
             <p className="text-xs text-alert mt-1">
               {errors.item.message as string}

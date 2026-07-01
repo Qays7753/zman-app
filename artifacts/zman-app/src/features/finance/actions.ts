@@ -7,7 +7,7 @@ import { db } from "@/lib/db/client";
 import { mapDbError } from "@/lib/db/errors";
 import { ratelimit } from "@/lib/ratelimit";
 import { idempotencyKey, order } from "../orders/db";
-import { expense, purchase, sale } from "./db";
+import { expense, purchase, sale, purchaseItemCatalog, expenseCategoryCatalog } from "./db";
 import {
   expenseInputSchema,
   purchaseInputSchema,
@@ -740,3 +740,208 @@ export async function convertOrderToSale(
     };
   }
 }
+
+// -------------------------------------------------------------
+// 5. أصناف المشتريات (Purchase Item Catalog Actions)
+// -------------------------------------------------------------
+
+export async function getPurchaseItemCatalog() {
+  try {
+    const items = await db
+      .select()
+      .from(purchaseItemCatalog)
+      .where(isNull(purchaseItemCatalog.deletedAt))
+      .orderBy(purchaseItemCatalog.name);
+    return items;
+  } catch (error) {
+    console.error("Failed to fetch purchase item catalog:", error);
+    return [];
+  }
+}
+
+export async function createPurchaseItemCatalog(name: string): Promise<ActionResponse> {
+  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const { success } = await ratelimit.limit(ip);
+  if (!success) {
+    return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
+  }
+
+  if (!name || name.trim().length === 0) {
+    return { status: "error", message: "اسم الصنف مطلوب" };
+  }
+  if (name.length > 200) {
+    return { status: "error", message: "اسم الصنف طويل جداً" };
+  }
+
+  try {
+    const [inserted] = await db
+      .insert(purchaseItemCatalog)
+      .values({ name: name.trim() })
+      .returning();
+
+    revalidatePath("/finance");
+    return { status: "ok", data: inserted };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+export async function updatePurchaseItemCatalog(id: string, name: string): Promise<ActionResponse> {
+  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const { success } = await ratelimit.limit(ip);
+  if (!success) {
+    return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
+  }
+
+  if (!name || name.trim().length === 0) {
+    return { status: "error", message: "اسم الصنف مطلوب" };
+  }
+  if (name.length > 200) {
+    return { status: "error", message: "اسم الصنف طويل جداً" };
+  }
+
+  try {
+    const [updated] = await db
+      .update(purchaseItemCatalog)
+      .set({ name: name.trim(), updatedAt: new Date() })
+      .where(and(eq(purchaseItemCatalog.id, id), isNull(purchaseItemCatalog.deletedAt)))
+      .returning();
+
+    if (!updated) {
+      return { status: "error", message: "الصنف غير موجود أو تم حذفه" };
+    }
+
+    revalidatePath("/finance");
+    return { status: "ok", data: updated };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+export async function deletePurchaseItemCatalog(id: string): Promise<ActionResponse> {
+  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const { success } = await ratelimit.limit(ip);
+  if (!success) {
+    return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
+  }
+
+  try {
+    const [deleted] = await db
+      .update(purchaseItemCatalog)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(purchaseItemCatalog.id, id), isNull(purchaseItemCatalog.deletedAt)))
+      .returning();
+
+    if (!deleted) {
+      return { status: "error", message: "الصنف غير موجود أو تم حذفه مسبقاً" };
+    }
+
+    revalidatePath("/finance");
+    return { status: "ok", data: deleted };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+// -------------------------------------------------------------
+// 6. فئات المصاريف (Expense Category Catalog Actions)
+// -------------------------------------------------------------
+
+export async function getExpenseCategoryCatalog() {
+  try {
+    const items = await db
+      .select()
+      .from(expenseCategoryCatalog)
+      .where(isNull(expenseCategoryCatalog.deletedAt))
+      .orderBy(expenseCategoryCatalog.name);
+    return items;
+  } catch (error) {
+    console.error("Failed to fetch expense category catalog:", error);
+    return [];
+  }
+}
+
+export async function createExpenseCategoryCatalog(name: string): Promise<ActionResponse> {
+  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const { success } = await ratelimit.limit(ip);
+  if (!success) {
+    return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
+  }
+
+  if (!name || name.trim().length === 0) {
+    return { status: "error", message: "اسم الفئة مطلوب" };
+  }
+  if (name.length > 200) {
+    return { status: "error", message: "اسم الفئة طويل جداً" };
+  }
+
+  try {
+    const [inserted] = await db
+      .insert(expenseCategoryCatalog)
+      .values({ name: name.trim() })
+      .returning();
+
+    revalidatePath("/finance");
+    return { status: "ok", data: inserted };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+export async function updateExpenseCategoryCatalog(id: string, name: string): Promise<ActionResponse> {
+  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const { success } = await ratelimit.limit(ip);
+  if (!success) {
+    return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
+  }
+
+  if (!name || name.trim().length === 0) {
+    return { status: "error", message: "اسم الفئة مطلوب" };
+  }
+  if (name.length > 200) {
+    return { status: "error", message: "اسم الفئة طويل جداً" };
+  }
+
+  try {
+    const [updated] = await db
+      .update(expenseCategoryCatalog)
+      .set({ name: name.trim(), updatedAt: new Date() })
+      .where(and(eq(expenseCategoryCatalog.id, id), isNull(expenseCategoryCatalog.deletedAt)))
+      .returning();
+
+    if (!updated) {
+      return { status: "error", message: "الفئة غير موجودة أو تم حذفها" };
+    }
+
+    revalidatePath("/finance");
+    return { status: "ok", data: updated };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+export async function deleteExpenseCategoryCatalog(id: string): Promise<ActionResponse> {
+  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const { success } = await ratelimit.limit(ip);
+  if (!success) {
+    return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
+  }
+
+  try {
+    const [deleted] = await db
+      .update(expenseCategoryCatalog)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(expenseCategoryCatalog.id, id), isNull(expenseCategoryCatalog.deletedAt)))
+      .returning();
+
+    if (!deleted) {
+      return { status: "error", message: "الفئة غير موجودة أو تم حذفها مسبقاً" };
+    }
+
+    revalidatePath("/finance");
+    return { status: "ok", data: deleted };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+

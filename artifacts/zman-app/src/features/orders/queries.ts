@@ -38,7 +38,7 @@ export async function getOrders({
   }
 
   if (date) {
-    conditions.push(sql`(${order.createdAt})::date = ${date}::date`);
+    conditions.push(sql`(${order.deliveryDate})::date = ${date}::date`);
   }
 
   // إذا تم إرسال cursor (وهو ID الطلب الأخير)، نقوم بجلب تاريخه وتصفية ما بعده بشكل ثنائي محدد (Tuple) لمنع تخطي الطلبات ذات نفس التوقيت
@@ -62,6 +62,7 @@ export async function getOrders({
       id: order.id,
       customerName: order.customerName,
       customerPhone: order.customerPhone,
+      customerPhoneAlt: order.customerPhoneAlt,
       productName: order.productName,
       quantity: order.quantity,
       totalCostCents: order.totalCostCents,
@@ -69,6 +70,8 @@ export async function getOrders({
       totalPriceCents: order.totalPriceCents,
       status: order.status,
       notes: sql<string>`''`,
+      deliveryDate: order.deliveryDate,
+      receivedDate: order.receivedDate,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       deletedAt: order.deletedAt,
@@ -99,17 +102,17 @@ export async function getOrderDatesForMonth(
 ): Promise<string[]> {
   const rows = await db
     .select({
-      d: sql<string>`TO_CHAR((${order.createdAt})::date, 'YYYY-MM-DD')`,
+      d: sql<string>`TO_CHAR((${order.deliveryDate})::date, 'YYYY-MM-DD')`,
     })
     .from(order)
     .where(
       and(
         isNull(order.deletedAt),
-        sql`EXTRACT(YEAR FROM ${order.createdAt}) = ${year}`,
-        sql`EXTRACT(MONTH FROM ${order.createdAt}) = ${month}`,
+        sql`EXTRACT(YEAR FROM ${order.deliveryDate}) = ${year}`,
+        sql`EXTRACT(MONTH FROM ${order.deliveryDate}) = ${month}`,
       ),
     )
-    .groupBy(sql`(${order.createdAt})::date`);
+    .groupBy(sql`(${order.deliveryDate})::date`);
 
   return rows.map((r) => r.d);
 }

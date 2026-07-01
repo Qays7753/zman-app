@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { mapDbError } from "@/lib/db/errors";
 import { ratelimit } from "@/lib/ratelimit";
-import { idempotencyKey, order, orderComponent } from "./db";
+import { idempotencyKey, order, orderComponent, messageTemplate } from "./db";
 import { createOrderSchema, updateOrderSchema } from "./schema";
 
 // نوع الإرجاع الموحد (Discriminated Union) (§18 rule 8)
@@ -52,12 +52,15 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
     requestId,
     customerName,
     customerPhone,
+    customerPhoneAlt,
     productName,
     quantity,
     components,
     additionalCostsCents,
     totalPriceCents,
     notes,
+    deliveryDate,
+    receivedDate,
   } = parsed.data;
 
   try {
@@ -94,6 +97,7 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
         .values({
           customerName,
           customerPhone,
+          customerPhoneAlt: customerPhoneAlt || null,
           productName,
           quantity,
           totalCostCents,
@@ -101,6 +105,8 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
           totalPriceCents,
           notes: notes ?? "",
           status: "draft",
+          deliveryDate: deliveryDate || null,
+          receivedDate: receivedDate || new Date().toISOString().split("T")[0],
         })
         .returning();
 
@@ -173,12 +179,15 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
     updatedAt,
     customerName,
     customerPhone,
+    customerPhoneAlt,
     productName,
     quantity,
     components,
     additionalCostsCents,
     totalPriceCents,
     notes,
+    deliveryDate,
+    receivedDate,
   } = parsed.data;
 
   try {
@@ -217,12 +226,15 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
         .set({
           customerName,
           customerPhone,
+          customerPhoneAlt: customerPhoneAlt || null,
           productName,
           quantity,
           totalCostCents,
           additionalCostsCents: additionalCostsCents ?? 0,
           totalPriceCents,
           notes: notes ?? "",
+          deliveryDate: deliveryDate || null,
+          receivedDate: receivedDate || new Date().toISOString().split("T")[0],
           updatedAt: new Date(),
         })
         .where(and(eq(order.id, id), eq(order.updatedAt, existing.updatedAt)))
@@ -382,6 +394,72 @@ export async function updateOrderStatus(
       revalidatePath(`/orders/${id}`);
       return { status: "ok", data: updated };
     });
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+// -------------------------------------------------------------
+// 8. قالب الرسالة المخصصة (WhatsApp Message Template Actions)
+// -------------------------------------------------------------
+
+export async function getMessageTemplate(): Promise<string> {
+  try {
+    const [existing] = await db
+      .select()
+      .from(messageTemplate)
+      .where(eq(messageTemplate.key, "customer_confirmation"))
+      .limit(1);
+
+    if (existing) {
+      return existing.template;
+    }
+
+    return `مرحباً سيد/ة {customerName}،
+
+يسعدنا تأكيد تفاصيل طلبك كالتالي:
+- المنتج: {productName}
+- الكمية: {quantity}
+- السعر الإجمالي: {totalPrice}
+{notes}
+شكراً لثقتك بنا وتعاملك معنا!`;
+  } catch (error) {
+    console.error("Failed to fetch message template:", error);
+    return "";
+  }
+}
+
+export async function updateMessageTemplate(template: string): Promise<ActionResponse<string>> {
+  const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
+  const { success } = await ratelimit.limit(ip);
+  if (!success) {
+    return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
+  }
+
+  if (!template || template.trim().length === 0) {
+    return { status: "error", message: "محتوى القالب مطلوب" };
+  }
+  if (template.length > 5000) {
+    return { status: "error", message: "محتوى القالب طويل جداً" };
+  }
+
+  try {
+    await db
+      .insert(messageTemplate)
+      .values({
+        key: "customer_confirmation",
+        template: template,
+      })
+      .onConflictDoUpdate({
+        target: messageTemplate.key,
+        set: {
+          template: template,
+          updatedAt: new Date(),
+        },
+      });
+
+    revalidatePath("/orders");
+    return { status: "ok", data: template };
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }

@@ -17,6 +17,14 @@ import {
   updateExpense,
   updatePurchase,
   updateSale,
+  getPurchaseItemCatalog,
+  createPurchaseItemCatalog,
+  updatePurchaseItemCatalog,
+  deletePurchaseItemCatalog,
+  getExpenseCategoryCatalog,
+  createExpenseCategoryCatalog,
+  updateExpenseCategoryCatalog,
+  deleteExpenseCategoryCatalog,
 } from "./actions";
 import type {
   GetExpensesFilters,
@@ -321,3 +329,100 @@ export function useConvertOrderToSale() {
     },
   });
 }
+
+// -------------------------------------------------------------
+// 5. أصناف المشتريات (Purchase Item Catalog Hooks)
+// -------------------------------------------------------------
+
+export function usePurchaseItemCatalog() {
+  return useQuery({
+    queryKey: ["finance", "purchase-catalog"] as const,
+    queryFn: () => getPurchaseItemCatalog(),
+  });
+}
+
+export function useCreatePurchaseItemCatalog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createPurchaseItemCatalog,
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "purchase-catalog"] });
+      }
+    },
+  });
+}
+
+export function useUpdatePurchaseItemCatalog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      updatePurchaseItemCatalog(id, name),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "purchase-catalog"] });
+      }
+    },
+  });
+}
+
+export function useDeletePurchaseItemCatalog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deletePurchaseItemCatalog,
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "purchase-catalog"] });
+      }
+    },
+  });
+}
+
+// -------------------------------------------------------------
+// 6. فئات المصاريف (Expense Category Catalog Hooks)
+// -------------------------------------------------------------
+
+export function useExpenseCategoryCatalog() {
+  return useQuery({
+    queryKey: ["finance", "expense-catalog"] as const,
+    queryFn: () => getExpenseCategoryCatalog(),
+  });
+}
+
+export function useCreateExpenseCategoryCatalog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createExpenseCategoryCatalog,
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+      }
+    },
+  });
+}
+
+export function useUpdateExpenseCategoryCatalog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      updateExpenseCategoryCatalog(id, name),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+      }
+    },
+  });
+}
+
+export function useDeleteExpenseCategoryCatalog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteExpenseCategoryCatalog,
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+      }
+    },
+  });
+}
+

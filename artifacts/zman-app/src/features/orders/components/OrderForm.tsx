@@ -50,23 +50,31 @@ export function OrderForm({
             : "",
           customerName: initialData.customerName,
           customerPhone: initialData.customerPhone,
+          customerPhoneAlt: initialData.customerPhoneAlt || "",
           productName: initialData.productName,
           quantity: initialData.quantity,
           components: initialData.components || [],
           additionalCostsCents: initialData.additionalCostsCents ?? 0,
           totalPriceCents: initialData.totalPriceCents,
           notes: initialData.notes || "",
+          deliveryDate: initialData.deliveryDate || "",
+          receivedDate: initialData.receivedDate
+            ? new Date(initialData.receivedDate).toISOString().split("T")[0]
+            : new Date().toISOString().split("T")[0],
         }
       : {
           requestId,
           customerName: "",
           customerPhone: "",
+          customerPhoneAlt: "",
           productName: "",
           quantity: 1,
           components: [],
           additionalCostsCents: 0,
           totalPriceCents: 0,
           notes: "",
+          deliveryDate: "",
+          receivedDate: new Date().toISOString().split("T")[0],
         },
   });
 
@@ -122,7 +130,7 @@ export function OrderForm({
         <h3 className="text-base font-bold text-ink border-b border-hairline pb-2">
           بيانات العميل
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex flex-col gap-1">
             <label htmlFor="customer-name" className="text-sm font-semibold text-ink-2">
               اسم العميل
@@ -157,6 +165,23 @@ export function OrderForm({
             />
             {errors.customerPhone?.message && (
               <span className="text-xs text-alert">{errors.customerPhone.message as string}</span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="customer-phone-alt" className="text-sm font-semibold text-ink-2">
+              الهاتف البديل (اختياري)
+            </label>
+            <input
+              id="customer-phone-alt"
+              type="tel"
+              inputMode="tel"
+              placeholder=""
+              {...register("customerPhoneAlt")}
+              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
+            />
+            {errors.customerPhoneAlt?.message && (
+              <span className="text-xs text-alert">{errors.customerPhoneAlt.message as string}</span>
             )}
           </div>
         </div>
@@ -200,6 +225,38 @@ export function OrderForm({
             />
             {errors.quantity?.message && (
               <span className="text-xs text-alert">{errors.quantity.message as string}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-hairline pt-3 mt-2">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="delivery-date" className="text-sm font-semibold text-ink-2">
+              تاريخ التسليم المتوقع
+            </label>
+            <input
+              id="delivery-date"
+              type="date"
+              {...register("deliveryDate")}
+              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
+            />
+            {errors.deliveryDate?.message && (
+              <span className="text-xs text-alert">{errors.deliveryDate.message as string}</span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="received-date" className="text-sm font-semibold text-ink-2">
+              تاريخ استلام الطلب
+            </label>
+            <input
+              id="received-date"
+              type="date"
+              {...register("receivedDate")}
+              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
+            />
+            {errors.receivedDate?.message && (
+              <span className="text-xs text-alert">{errors.receivedDate.message as string}</span>
             )}
           </div>
         </div>

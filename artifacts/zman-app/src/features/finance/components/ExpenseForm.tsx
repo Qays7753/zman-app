@@ -2,11 +2,12 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { expenseInputSchema } from "../schema";
 import type { Expense, NewExpense } from "../types";
+import { useExpenseCategoryCatalog } from "../hooks";
 
 interface ExpenseFormProps {
   initialData?: Expense | null;
@@ -24,6 +25,12 @@ export function ExpenseForm({
   categories,
 }: ExpenseFormProps) {
   const formId = useId();
+  const { data: dbCategories = [] } = useExpenseCategoryCatalog();
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+
+  const finalCategories = dbCategories.length > 0
+    ? dbCategories.map((c) => c.name)
+    : categories;
 
   const defaultValues = {
     date: initialData
@@ -39,6 +46,7 @@ export function ExpenseForm({
     handleSubmit,
     control,
     setValue,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(expenseInputSchema),
@@ -54,8 +62,13 @@ export function ExpenseForm({
       setValue("category", initialData.category);
       setValue("amountCents", initialData.amountCents);
       setValue("description", initialData.description);
+
+      const inList = finalCategories.includes(initialData.category);
+      if (!inList && finalCategories.length > 0) {
+        setIsCustomCategory(true);
+      }
     }
-  }, [initialData, setValue]);
+  }, [initialData, setValue, finalCategories]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -91,17 +104,56 @@ export function ExpenseForm({
           >
             الفئة
           </label>
-          <select
-            id={`${formId}-category`}
-            {...register("category")}
-            className="flex h-11 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink"
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
+          {!isCustomCategory && finalCategories.length > 0 ? (
+            <select
+              id={`${formId}-category-select`}
+              value={watch("category")}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "custom") {
+                  setIsCustomCategory(true);
+                  setValue("category", "");
+                } else {
+                  setValue("category", val);
+                }
+              }}
+              className="flex h-11 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink"
+            >
+              <option value="">-- اختر الفئة --</option>
+              {finalCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+              <option value="custom">أخرى (إدخال يدوي) ...</option>
+            </select>
+          ) : (
+            <div className="flex gap-2 items-center">
+              <input
+                id={`${formId}-category`}
+                type="text"
+                inputMode="text"
+                autoCapitalize="words"
+                placeholder="أدخل اسم الفئة..."
+                {...register("category")}
+                className={`flex-1 h-11 px-3 py-2 rounded-md border border-hairline bg-paper text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
+                  errors.category ? "border-alert" : ""
+                }`}
+              />
+              {finalCategories.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomCategory(false);
+                    setValue("category", finalCategories[0] || "");
+                  }}
+                  className="h-11 px-3 border border-hairline hover:bg-canvas rounded-md text-xs text-ink-2 shrink-0"
+                >
+                  اختر من القائمة
+                </button>
+              )}
+            </div>
+          )}
           {errors.category && (
             <p className="text-xs text-alert mt-1">
               {errors.category.message as string}

@@ -9,6 +9,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { cn } from "@/lib/utils";
 import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
 import type { Order } from "../types";
+import { useMessageTemplate, useUpdateOrderStatus } from "../hooks";
 
 interface OrderCardProps {
   order: Order;
@@ -33,6 +34,38 @@ export function OrderCard({
   onClick,
 }: OrderCardProps) {
   const [isActionsOpen, setIsActionsOpen] = useState(false);
+  const { data: templateText } = useMessageTemplate();
+  const updateStatusMutation = useUpdateOrderStatus();
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  const handleWhatsApp = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsActionsOpen(false);
+    const link = buildOrderWhatsAppLink(order, templateText);
+    window.open(link, "_blank");
+    toast.info("تم الانتقال لتطبيق WhatsApp لإرسال الطلب");
+  };
+
+  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await updateStatusMutation.mutateAsync({
+        id: order.id,
+        newStatus,
+        updatedAt: new Date(order.updatedAt).toISOString(),
+      });
+      if (res.status === "ok") {
+        toast.success("تم تحديث حالة الطلب بنجاح");
+      } else {
+        toast.error(res.message);
+      }
+    } catch {
+      toast.error("حدث خطأ أثناء تحديث الحالة");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   // مواءمة الألوان الدلالية للحالة مع العقد (§14.3.2)
   const getStatusClasses = (status: string) => {
@@ -42,17 +75,8 @@ export function OrderCard({
       case "draft":
         return "bg-warn-soft text-warn-deep border-warn/20";
       default:
-        // الحالات المؤكدة والموصولة والمرسلة تشترك في اللون الأزرق (لا وجود للأخضر في المرحلة 1) (§14.3.2)
         return "bg-info-soft text-info border-info/20";
     }
-  };
-
-  const handleWhatsApp = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsActionsOpen(false);
-    const link = buildOrderWhatsAppLink(order);
-    window.open(link, "_blank");
-    toast.info("تم الانتقال لتطبيق WhatsApp لإرسال الطلب");
   };
 
   return (
@@ -76,14 +100,26 @@ export function OrderCard({
             <span className="font-bold text-ink truncate text-base leading-tight">
               {order.customerName}
             </span>
-            <span
-              className={cn(
-                "px-2.5 py-0.5 rounded-full text-xs font-semibold border leading-none flex items-center justify-center h-5",
-                getStatusClasses(order.status),
-              )}
-            >
-              {statusTranslations[order.status] || order.status}
-            </span>
+            {isUpdatingStatus ? (
+              <span className="text-[10px] text-ink-3">جاري التحديث...</span>
+            ) : (
+              <select
+                value={order.status}
+                onClick={(e) => e.stopPropagation()}
+                onChange={handleStatusChange}
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-xs font-semibold border leading-none h-6 bg-paper cursor-pointer focus:outline-none focus:ring-1 focus:ring-info",
+                  getStatusClasses(order.status),
+                )}
+                aria-label="تغيير حالة الطلب"
+              >
+                {Object.entries(statusTranslations).map(([val, label]) => (
+                  <option key={val} value={val} className="bg-paper text-ink">
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* زر الخيارات: متجاوب وأكبر من 44px لملاءمة اللمس (§9.1) */}

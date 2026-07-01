@@ -130,3 +130,54 @@ export const sale = pgTable(
     ];
   },
 );
+
+// 4. Purchase Item Catalog Table
+export const purchaseItemCatalog = pgTable(
+  "purchase_item_catalog",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check("purchase_item_catalog_name_length", sql`char_length(${table.name}) <= 200`),
+    index("purchase_item_catalog_name_idx")
+      .on(table.name)
+      .where(sql`deleted_at is null`),
+  ],
+);
+
+export type PurchaseItemCatalog = typeof purchaseItemCatalog.$inferSelect;
+export type NewPurchaseItemCatalog = Pick<PurchaseItemCatalog, "name">;
+
+// 5. Expense Category Catalog Table
+export const expenseCategoryCatalog = pgTable(
+  "expense_category_catalog",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check("expense_category_catalog_name_length", sql`char_length(${table.name}) <= 200`),
+    index("expense_category_catalog_name_idx")
+      .on(table.name)
+      .where(sql`deleted_at is null`),
+  ],
+);
+
+export type ExpenseCategoryCatalog = typeof expenseCategoryCatalog.$inferSelect;
+export type NewExpenseCategoryCatalog = Pick<ExpenseCategoryCatalog, "name">;
+

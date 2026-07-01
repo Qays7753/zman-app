@@ -18,7 +18,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { cn } from "@/lib/utils";
 import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
 import { useConvertOrderToSale } from "../../finance/hooks";
-import { useDeleteOrder, useOrder, useUpdateOrderStatus } from "../hooks";
+import { useDeleteOrder, useOrder, useUpdateOrderStatus, useMessageTemplate } from "../hooks";
 
 interface OrderDetailProps {
   orderId: string;
@@ -41,6 +41,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
 
   // 1. جلب بيانات الطلب ومكوناته الفرعية (§1.2)
   const { data: orderData, isLoading, isError, refetch } = useOrder(orderId);
+  const { data: templateText } = useMessageTemplate();
   const deleteOrderMutation = useDeleteOrder();
   const updateStatusMutation = useUpdateOrderStatus();
   const convertOrderToSaleMutation = useConvertOrderToSale();
@@ -155,7 +156,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   };
 
   const handleWhatsApp = () => {
-    const link = buildOrderWhatsAppLink(orderData);
+    if (!orderData) return;
+    const link = buildOrderWhatsAppLink(orderData, templateText);
     window.open(link, "_blank");
     toast.info("تم الانتقال لتطبيق WhatsApp لإرسال تفاصيل العرض");
   };
@@ -203,6 +205,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             </h3>
             <span className="text-sm text-ink-2 block mt-1" dir="ltr">
               {orderData.customerPhone}
+              {orderData.customerPhoneAlt && ` / ${orderData.customerPhoneAlt}`}
             </span>
           </div>
 
@@ -233,9 +236,21 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               {orderData.quantity} قطعة
             </span>
           </div>
+          <div>
+            <span className="text-xs text-ink-3 block mb-1">تاريخ استلام الطلب</span>
+            <span className="text-sm text-ink-2 font-semibold">
+              {orderData.receivedDate ? <DateText date={orderData.receivedDate} /> : "غير محدد"}
+            </span>
+          </div>
+          <div>
+            <span className="text-xs text-ink-3 block mb-1">تاريخ التسليم المتوقع</span>
+            <span className="text-sm text-ink-2 font-semibold">
+              {orderData.deliveryDate ? <DateText date={orderData.deliveryDate} /> : "غير محدد"}
+            </span>
+          </div>
           <div className="col-span-2">
-            <span className="text-xs text-ink-3 block mb-1">تاريخ الإنشاء</span>
-            <span className="text-sm text-ink-2">
+            <span className="text-xs text-ink-3 block mb-1">تاريخ الإنشاء الفعلي</span>
+            <span className="text-sm text-ink-3">
               <DateText date={orderData.createdAt} />
             </span>
           </div>
@@ -371,7 +386,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             >
               <ShoppingCart className="w-5 h-5" />
               <span>
-                {isConverting ? "جاري التحويل..." : "تحويل إلى مبيعات"}
+                {isConverting ? "جاري التحويل..." : "تحويل إلى مبيعات (تسجيل إيراد)"}
               </span>
             </button>
           )}

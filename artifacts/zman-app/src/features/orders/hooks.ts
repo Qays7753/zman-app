@@ -6,7 +6,14 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { createOrder, deleteOrder, updateOrder, updateOrderStatus } from "./actions";
+import {
+  createOrder,
+  deleteOrder,
+  updateOrder,
+  updateOrderStatus,
+  getMessageTemplate,
+  updateMessageTemplate,
+} from "./actions";
 import type { GetOrdersFilters } from "./queries";
 import { getOrder, getOrderDatesForMonth, getOrders } from "./queries";
 
@@ -133,6 +140,25 @@ export function useUpdateOrderStatus() {
       if (res.status === "ok") {
         queryClient.invalidateQueries({ queryKey: orderKeys.all });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
+      }
+    },
+  });
+}
+
+export function useMessageTemplate() {
+  return useQuery({
+    queryKey: ["orders", "message-template"] as const,
+    queryFn: () => getMessageTemplate(),
+  });
+}
+
+export function useUpdateMessageTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateMessageTemplate,
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["orders", "message-template"] });
       }
     },
   });
