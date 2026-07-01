@@ -4,7 +4,6 @@ import { ArrowDownRight, ArrowUpRight, ShoppingCart } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
-import { AppShell } from "@/components/layout/AppShell";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 

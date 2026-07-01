@@ -3,7 +3,7 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import dynamic from "next/dynamic";
 
 export const metadata = {
-  title: "المقتطفات | Zman",
+  title: "الملاحظات | Zman",
 };
 
 const SnippetsClient = dynamic(() => import("./SnippetsClient"), {

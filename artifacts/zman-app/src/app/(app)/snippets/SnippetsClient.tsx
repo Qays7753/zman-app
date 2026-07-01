@@ -4,7 +4,6 @@ import { Edit3, Plus, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { AppShell } from "@/components/layout/AppShell";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
@@ -69,7 +68,7 @@ export default function SnippetsClient() {
 
   return (
     <>
-      <AppShellHeader title="المقتطفات النصية" />
+      <AppShellHeader title="الملاحظات" />
       <div className="flex-1 flex flex-col gap-4">
         {/* شريط البحث والإضافة */}
         <div className="flex gap-2">
@@ -80,7 +79,7 @@ export default function SnippetsClient() {
               type="search"
               value={search}
               onChange={handleSearch}
-              placeholder="بحث في المقتطفات..."
+              placeholder="بحث في الملاحظات..."
               className="w-full h-11 pr-9 pl-4 rounded-lg border border-hairline bg-paper text-sm focus:outline-none focus:ring-2 focus:ring-ink"
             />
           </div>
@@ -101,7 +100,7 @@ export default function SnippetsClient() {
           </div>
         ) : items.length === 0 ? (
           <EmptyState
-            title="لا توجد مقتطفات"
+            title="لا توجد ملاحظات"
             description={search ? "لا توجد نتائج للبحث" : "أضف نصوصاً جاهزة تُستخدم بشكل متكرر"}
           />
         ) : (
@@ -132,7 +131,7 @@ export default function SnippetsClient() {
       <ResponsiveModal
         isOpen={creating}
         onClose={() => setCreating(false)}
-        title="إضافة مقتطف"
+        title="إضافة ملاحظة"
       >
         <SnippetForm
           onSubmit={async (values) => {
@@ -152,7 +151,7 @@ export default function SnippetsClient() {
       <ResponsiveModal
         isOpen={!!editing}
         onClose={() => setEditing(null)}
-        title="تعديل المقتطف"
+        title="تعديل الملاحظة"
       >
         {editing && (
           <SnippetForm
@@ -261,7 +260,7 @@ function SnippetForm({
 
   const handleDelete = async () => {
     if (!onDelete) return;
-    if (!confirm("هل أنت متأكد من حذف هذا المقتطف؟")) return;
+    if (!confirm("هل أنت متأكد من حذف هذه الملاحظة؟")) return;
     setIsSubmitting(true);
     try {
       await onDelete();
@@ -312,7 +311,7 @@ function SnippetForm({
           disabled={isSubmitting}
           className="flex-1 min-h-[48px] bg-ink text-paper rounded-md font-bold text-sm disabled:opacity-60 hover:bg-ink/90 transition-colors"
         >
-          {isSubmitting ? "جاري الحفظ..." : initialData ? "حفظ التعديلات" : "إضافة المقتطف"}
+          {isSubmitting ? "جاري الحفظ..." : initialData ? "حفظ التعديلات" : "إضافة الملاحظة"}
         </button>
         {onDelete && (
           <button

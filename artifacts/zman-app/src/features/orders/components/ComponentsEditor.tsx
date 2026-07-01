@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { Boxes, Loader2, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray } from "react-hook-form";
 import { toast } from "sonner";
@@ -44,7 +44,7 @@ export function ComponentsEditor({
       const items = await getCatalogComponents(q);
       setCatalogItems(items);
     } catch {
-      toast.error("تعذّر تحميل الكتالوج");
+      toast.error("تعذّر تحميل المكوّنات");
     } finally {
       setIsCatalogLoading(false);
     }
@@ -69,7 +69,7 @@ export function ComponentsEditor({
 
   const handleSelectCatalogItem = (item: CatalogComponent) => {
     append({ name: item.name, costCents: item.defaultCostCents, quantity: 1 });
-    toast.success(`تمت إضافة "${item.name}" من الكتالوج`);
+    toast.success(`تمت إضافة "${item.name}" من المكوّنات`);
   };
 
   // ===== حذف مع تراجع =====
@@ -198,8 +198,8 @@ export function ComponentsEditor({
           onClick={() => setIsPickerOpen(true)}
           className="min-h-[44px] py-3 rounded-md border border-info/30 text-info hover:bg-info-soft transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
         >
-          <BookOpen className="w-4 h-4" />
-          <span>من الكتالوج</span>
+          <Boxes className="w-4 h-4" />
+          <span>من المكوّنات</span>
         </button>
       </div>
 
@@ -226,7 +226,7 @@ export function ComponentsEditor({
 
             {/* الترويسة */}
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-hairline flex-shrink-0">
-              <h3 className="text-base font-bold text-ink">اختر من الكتالوج</h3>
+              <h3 className="text-base font-bold text-ink">اختر من المكوّنات</h3>
               <button
                 type="button"
                 onClick={() => setIsPickerOpen(false)}
@@ -246,7 +246,7 @@ export function ComponentsEditor({
                   type="text"
                   value={catalogSearch}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="ابحث في الكتالوج…"
+                  placeholder="ابحث في المكوّنات…"
                   className="w-full h-11 ps-10 pe-4 rounded-md border border-hairline bg-canvas text-sm focus:outline-none focus:ring-2 focus:ring-ink"
                 />
               </div>
@@ -262,7 +262,7 @@ export function ComponentsEditor({
               ) : catalogItems.length === 0 ? (
                 <div className="text-center py-10 px-4">
                   <p className="text-sm text-ink/50">
-                    {catalogSearch ? `لا نتائج لـ "${catalogSearch}"` : "الكتالوج فارغ — أضف مكوّنات من صفحة الكتالوج"}
+                    {catalogSearch ? `لا نتائج لـ "${catalogSearch}"` : "المكوّنات فارغة — أضف مكوّنات من صفحة المكوّنات"}
                   </p>
                 </div>
               ) : (

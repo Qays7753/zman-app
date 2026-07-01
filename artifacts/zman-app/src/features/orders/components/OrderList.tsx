@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit, MessageSquare, Search, Trash2, X } from "lucide-react";
+import { Boxes, Edit, MessageSquare, Search, Trash2, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AmountText } from "@/components/shared/AmountText";
@@ -19,6 +19,7 @@ interface OrderListProps {
   onDelete: (order: Order) => void;
   onViewDetail: (order: Order) => void;
   onCreateNew: () => void;
+  onOpenComponents?: () => void;
 }
 
 // خيارات الحالات للمرشح العلوي
@@ -44,6 +45,7 @@ export function OrderList({
   onDelete,
   onViewDetail,
   onCreateNew,
+  onOpenComponents,
 }: OrderListProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -120,25 +122,38 @@ export function OrderList({
     <div className="space-y-4">
       {/* شريط البحث وتصفية الحالات: لاصق بأعلى منطقة المحتوى القابلة للتمرير */}
       <div className="sticky top-0 bg-canvas/95 backdrop-blur-sm pt-1 pb-3 z-sticky space-y-2.5">
-        {/* صندوق البحث */}
-        <div className="relative">
-          <input
-            type="text"
-            inputMode="text"
-            placeholder="ابحث باسم العميل أو المنتج المطلوب..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full h-12 ps-11 pe-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base leading-tight py-2.5 transition-colors"
-          />
-          <Search className="w-5 h-5 text-ink-3 absolute inset-s-4 top-3.5" />
-          {searchInput && (
+        {/* صندوق البحث وزر إدارة المكوّنات */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              inputMode="text"
+              placeholder="ابحث باسم العميل أو المنتج المطلوب..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full h-12 ps-11 pe-10 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base leading-tight py-2.5 transition-colors"
+            />
+            <Search className="w-5 h-5 text-ink-3 absolute inset-s-4 top-3.5" />
+            {searchInput && (
+              <button
+                type="button"
+                onClick={() => setSearchInput("")}
+                className="absolute inset-e-4 top-3.5 text-ink-3 hover:text-ink"
+                aria-label="مسح البحث"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          {onOpenComponents && (
             <button
               type="button"
-              onClick={() => setSearchInput("")}
-              className="absolute inset-e-4 top-3.5 text-ink-3 hover:text-ink"
-              aria-label="مسح البحث"
+              onClick={onOpenComponents}
+              className="w-12 h-12 rounded-md border border-hairline-2 bg-paper text-ink-2 hover:text-ink hover:bg-canvas transition-colors flex items-center justify-center shrink-0 min-h-[44px] min-w-[44px]"
+              title="إدارة المكوّنات"
+              aria-label="إدارة المكوّنات"
             >
-              <X className="w-5 h-5" />
+              <Boxes className="w-5 h-5" />
             </button>
           )}
         </div>

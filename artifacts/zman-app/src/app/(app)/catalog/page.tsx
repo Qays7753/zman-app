@@ -3,7 +3,7 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import dynamic from "next/dynamic";
 
 export const metadata = {
-  title: "كتالوج المكوّنات | Zman",
+  title: "المكوّنات | Zman",
 };
 
 const CatalogClient = dynamic(() => import("./CatalogClient"), {

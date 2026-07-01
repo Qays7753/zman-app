@@ -16,7 +16,6 @@ import {
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AppShell } from "@/components/layout/AppShell";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -339,7 +338,7 @@ export function DashboardClient() {
                   جديد أو مبيعات ومشتريات للورشة.
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 justify-center">
                 <Link
                   href="/orders?newOrder=true"
                   className="min-h-[44px] px-4 py-2 bg-ink text-paper rounded-md text-xs font-bold shadow-sm hover:bg-ink/90 flex items-center justify-center gap-1.5"
@@ -394,19 +393,19 @@ export function DashboardClient() {
                   <Link
                     key={act.id}
                     href={linkHref}
-                    className="py-3.5 flex items-center justify-between hover:bg-canvas px-2 -mx-2 rounded transition-colors"
+                    className="py-3.5 flex items-center justify-between hover:bg-canvas px-2 -mx-2 rounded transition-colors min-w-0 gap-3"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <span
-                        className={`px-2.5 py-1 rounded text-[10px] font-bold ${details.color}`}
+                        className={`px-2.5 py-1 rounded text-[10px] font-bold shrink-0 ${details.color}`}
                       >
                         {details.label}
                       </span>
-                      <span className="text-sm font-semibold text-ink/85 truncate max-w-[200px] md:max-w-[400px]">
+                      <span className="text-sm font-semibold text-ink/85 truncate flex-1 min-w-0">
                         {act.title}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <span
                         className={`text-sm font-bold ${act.type === "order" || act.type === "sale" ? "text-info" : "text-alert"}`}
                       >
@@ -415,7 +414,7 @@ export function DashboardClient() {
                           : "−"}
                         <AmountText amount={act.amount} />
                       </span>
-                      <ArrowLeft className="h-4 w-4 text-ink/30" />
+                      <ArrowLeft className="h-4 w-4 text-ink/30 shrink-0" />
                     </div>
                   </Link>
                 );

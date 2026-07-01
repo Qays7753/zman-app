@@ -60,7 +60,7 @@ export async function updateSnippet(rawInput: unknown): Promise<ActionResponse> 
         .where(and(eq(snippet.id, id), isNull(snippet.deletedAt)))
         .for("update");
 
-      if (!existing) return { status: "error", message: "المقتطف غير موجود" };
+      if (!existing) return { status: "error", message: "الملاحظة غير موجودة" };
 
       if (new Date(updatedAt).getTime() !== new Date(existing.updatedAt).getTime()) {
         return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
@@ -94,7 +94,7 @@ export async function deleteSnippet(id: string, updatedAt: string): Promise<Acti
         .where(and(eq(snippet.id, id), isNull(snippet.deletedAt)))
         .for("update");
 
-      if (!existing) return { status: "error", message: "المقتطف غير موجود" };
+      if (!existing) return { status: "error", message: "الملاحظة غير موجودة" };
 
       if (new Date(updatedAt).getTime() !== new Date(existing.updatedAt).getTime()) {
         return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };

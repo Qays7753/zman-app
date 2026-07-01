@@ -24,12 +24,7 @@ export const navItems: NavItem[] = [
     icon: Wallet,
   },
   {
-    label: "الكتالوج",
-    href: "/catalog",
-    icon: BookOpen,
-  },
-  {
-    label: "المقتطفات",
+    label: "الملاحظات",
     href: "/snippets",
     icon: MessageSquare,
   },
@@ -45,11 +40,10 @@ export const mainNavItems: NavItem[] = [
   navItems[0], // الرئيسية
   navItems[1], // الطلبات
   navItems[2], // المالية
-  navItems[5], // التقارير
+  navItems[4], // التقارير
 ];
 
 /** العناصر الإضافية التي تظهر في sheet "المزيد" */
 export const moreNavItems: NavItem[] = [
-  navItems[3], // الكتالوج
-  navItems[4], // المقتطفات
+  navItems[3], // الملاحظات
 ];

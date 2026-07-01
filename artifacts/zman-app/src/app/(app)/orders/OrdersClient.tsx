@@ -3,7 +3,7 @@
 import { CalendarDays, LayoutList, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AppShell } from "@/components/layout/AppShell";
+import { useState } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { SkeletonList } from "@/components/shared/SkeletonList";
@@ -14,6 +14,16 @@ import type { Order } from "@/features/orders/types";
 const OrderList = dynamic(
   () => import("@/features/orders/components/OrderList").then((m) => m.OrderList),
   { loading: () => <SkeletonList count={3} /> },
+);
+
+const ResponsiveModal = dynamic(
+  () => import("@/components/shared/ResponsiveModal").then((m) => m.ResponsiveModal),
+  { ssr: false },
+);
+
+const CatalogClient = dynamic(
+  () => import("../catalog/CatalogClient"),
+  { ssr: false, loading: () => <SkeletonList count={3} /> },
 );
 
 const OrderForm = dynamic(
@@ -40,6 +50,7 @@ export default function OrdersClient() {
   const editId = searchParams.get("edit");
   const isNew = searchParams.get("new") === "true";
   const tab = searchParams.get("tab") ?? "list";
+  const [isComponentsOpen, setIsComponentsOpen] = useState(false);
 
   const {
     data: editOrder,
@@ -174,8 +185,17 @@ export default function OrdersClient() {
           onDelete={(order: Order) => navigateTo({ view: order.id })}
           onViewDetail={handleShowDetail}
           onCreateNew={handleShowCreate}
+          onOpenComponents={() => setIsComponentsOpen(true)}
         />
       )}
+
+      <ResponsiveModal
+        isOpen={isComponentsOpen}
+        onClose={() => setIsComponentsOpen(false)}
+        title="إدارة المكوّنات"
+      >
+        <CatalogClient hideHeader={true} />
+      </ResponsiveModal>
     </>
   );
 }
