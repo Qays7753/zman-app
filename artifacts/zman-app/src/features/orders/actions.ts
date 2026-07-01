@@ -61,7 +61,16 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
     notes,
     deliveryDate,
     receivedDate,
+    depositCents,
+    depositDate,
   } = parsed.data;
+
+  if (depositCents > totalPriceCents) {
+    return {
+      status: "error",
+      message: "العربون لا يمكن أن يتجاوز السعر الإجمالي المتفق عليه",
+    };
+  }
 
   try {
     return await db.transaction(async (tx) => {
@@ -107,6 +116,8 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
           status: "draft",
           deliveryDate: deliveryDate || null,
           receivedDate: receivedDate || new Date().toISOString().split("T")[0],
+          depositCents: depositCents ?? 0,
+          depositDate: depositDate || null,
         })
         .returning();
 
@@ -188,7 +199,16 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
     notes,
     deliveryDate,
     receivedDate,
+    depositCents,
+    depositDate,
   } = parsed.data;
+
+  if (depositCents > totalPriceCents) {
+    return {
+      status: "error",
+      message: "العربون لا يمكن أن يتجاوز السعر الإجمالي المتفق عليه",
+    };
+  }
 
   try {
     return await db.transaction(async (tx) => {
@@ -235,6 +255,8 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
           notes: notes ?? "",
           deliveryDate: deliveryDate || null,
           receivedDate: receivedDate || new Date().toISOString().split("T")[0],
+          depositCents: depositCents ?? 0,
+          depositDate: depositDate || null,
           updatedAt: new Date(),
         })
         .where(and(eq(order.id, id), eq(order.updatedAt, existing.updatedAt)))

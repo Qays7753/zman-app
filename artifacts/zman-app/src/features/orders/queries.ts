@@ -72,6 +72,8 @@ export async function getOrders({
       notes: sql<string>`''`,
       deliveryDate: order.deliveryDate,
       receivedDate: order.receivedDate,
+      depositCents: order.depositCents,
+      depositDate: order.depositDate,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       deletedAt: order.deletedAt,

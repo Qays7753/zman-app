@@ -40,6 +40,15 @@ export const createOrderSchema = z.object({
   notes: z.string().max(1000, "الملاحظات طويلة جداً").optional().default(""),
   deliveryDate: z.string().nullable().optional(),
   receivedDate: z.string().optional(),
+  depositCents: z
+    .number()
+    .int()
+    .nonnegative("العربون يجب أن يكون صفر أو أكثر")
+    .default(0),
+  depositDate: z.string().nullable().optional(),
+}).refine((data) => data.depositCents <= data.totalPriceCents, {
+  message: "العربون لا يمكن أن يتجاوز السعر الإجمالي المتفق عليه",
+  path: ["depositCents"],
 });
 
 export const updateOrderSchema = z.object({
@@ -76,6 +85,15 @@ export const updateOrderSchema = z.object({
   notes: z.string().max(1000, "الملاحظات طويلة جداً").optional().default(""),
   deliveryDate: z.string().nullable().optional(),
   receivedDate: z.string().optional(),
+  depositCents: z
+    .number()
+    .int()
+    .nonnegative("العربون يجب أن يكون صفر أو أكثر")
+    .default(0),
+  depositDate: z.string().nullable().optional(),
+}).refine((data) => data.depositCents <= data.totalPriceCents, {
+  message: "العربون لا يمكن أن يتجاوز السعر الإجمالي المتفق عليه",
+  path: ["depositCents"],
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

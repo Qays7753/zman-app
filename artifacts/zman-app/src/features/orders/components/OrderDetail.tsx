@@ -324,6 +324,29 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             </span>
           </div>
 
+          {orderData.depositCents > 0 && (
+            <>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-ink-2">العربون المستلم:</span>
+                <span className="font-semibold text-info">
+                  <AmountText amount={orderData.depositCents} />
+                  {orderData.depositDate && (
+                    <span className="text-xs text-ink-3 font-normal mr-1">
+                      (بتاريخ {orderData.depositDate})
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-ink-2">المبلغ المتبقي للاستيفاء:</span>
+                <span className="font-bold text-ink">
+                  <AmountText amount={orderData.totalPriceCents - orderData.depositCents} />
+                </span>
+              </div>
+            </>
+          )}
+
           <div className="flex justify-between items-center text-sm">
             <span className="text-ink-2">إجمالي التكلفة الفعلية للمكونات:</span>
             <span className="font-semibold text-alert-deep">

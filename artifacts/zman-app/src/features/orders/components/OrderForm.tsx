@@ -61,6 +61,8 @@ export function OrderForm({
           receivedDate: initialData.receivedDate
             ? new Date(initialData.receivedDate).toISOString().split("T")[0]
             : new Date().toISOString().split("T")[0],
+          depositCents: initialData.depositCents ?? 0,
+          depositDate: initialData.depositDate || "",
         }
       : {
           requestId,
@@ -75,6 +77,8 @@ export function OrderForm({
           notes: "",
           deliveryDate: "",
           receivedDate: new Date().toISOString().split("T")[0],
+          depositCents: 0,
+          depositDate: "",
         },
   });
 
@@ -82,6 +86,8 @@ export function OrderForm({
   const watchedComponents = watch("components") || [];
   const watchedAdditionalCosts = Number(watch("additionalCostsCents")) || 0;
   const watchedTotalPrice = Number(watch("totalPriceCents")) || 0;
+  const watchedDeposit = Number(watch("depositCents")) || 0;
+  const remainingCents = Math.max(0, watchedTotalPrice - watchedDeposit);
 
   // المعادلات الصحيحة:
   // تكلفة المكونات = مجموع (تكلفة كل مكون × كميته)
@@ -315,6 +321,45 @@ export function OrderForm({
           )}
         />
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Controller
+            control={control}
+            name="depositCents"
+            render={({ field: { value, onChange } }) => (
+              <div className="flex flex-col gap-1">
+                <MoneyInput
+                  label="العربون المدفوع (إن وجد)"
+                  value={value}
+                  onChange={onChange}
+                  placeholder="0.000"
+                  error={errors.depositCents?.message as string}
+                />
+                {watchedDeposit > 0 && (
+                  <span className="text-xs text-info font-medium">
+                    المبلغ المتبقي للاستيفاء: <AmountText amount={remainingCents} />
+                  </span>
+                )}
+              </div>
+            )}
+          />
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="deposit-date" className="text-sm font-semibold text-ink-2">
+              تاريخ استلام العربون
+            </label>
+            <input
+              id="deposit-date"
+              type="date"
+              {...register("depositDate")}
+              disabled={watchedDeposit === 0}
+              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors disabled:opacity-50 disabled:bg-canvas"
+            />
+            {errors.depositDate?.message && (
+              <span className="text-xs text-alert">{errors.depositDate.message as string}</span>
+            )}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1">
           <label htmlFor="notes" className="text-sm font-semibold text-ink-2">
             ملاحظات
@@ -362,6 +407,22 @@ export function OrderForm({
               <AmountText amount={watchedTotalPrice} />
             </span>
           </div>
+          {watchedDeposit > 0 && (
+            <>
+              <div className="flex justify-between items-center px-5 py-3">
+                <span className="text-sm text-ink-2">العربون المستلم</span>
+                <span className="text-sm font-semibold text-info">
+                  <AmountText amount={watchedDeposit} />
+                </span>
+              </div>
+              <div className="flex justify-between items-center px-5 py-3 bg-canvas">
+                <span className="text-sm font-bold text-ink">المبلغ المتبقي للتسوية</span>
+                <span className="text-sm font-bold text-ink">
+                  <AmountText amount={remainingCents} />
+                </span>
+              </div>
+            </>
+          )}
           {/* صافي الربح / الخسارة */}
           <div
             className={`flex justify-between items-center px-5 py-4 ${

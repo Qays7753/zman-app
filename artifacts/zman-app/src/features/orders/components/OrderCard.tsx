@@ -149,9 +149,16 @@ export function OrderCard({
           </span>
 
           {/* السعر النهائي عريض باللون الدلالي الأساسي (§10.1) */}
-          <span className="text-lg font-bold text-info leading-none">
-            <AmountText amount={order.totalPriceCents} />
-          </span>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-lg font-bold text-info leading-none">
+              <AmountText amount={order.totalPriceCents} />
+            </span>
+            {order.depositCents > 0 && order.status !== "delivered" && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-canvas border border-hairline text-ink-2 font-medium">
+                متبقي: <AmountText amount={order.totalPriceCents - order.depositCents} />
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
