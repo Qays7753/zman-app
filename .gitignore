@@ -23,6 +23,9 @@ next-env.d.ts
 # scratch / prompt files
 GEMINI_*.md
 
+# one-off migration runner scripts (migrations live in drizzle/migrations)
+artifacts/zman-app/scripts/migrate-new.*
+
 # dependencies
 node_modules
 
