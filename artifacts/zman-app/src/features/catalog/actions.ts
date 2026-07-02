@@ -75,7 +75,7 @@ export async function updateCatalogComponent(rawInput: unknown): Promise<ActionR
       const [updated] = await tx
         .update(catalogComponent)
         .set(fields)
-        .where(and(eq(catalogComponent.id, id), eq(catalogComponent.updatedAt, existing.updatedAt)))
+        .where(eq(catalogComponent.id, id))
         .returning();
 
       if (!updated) return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
@@ -109,7 +109,7 @@ export async function deleteCatalogComponent(id: string, updatedAt: string): Pro
       await tx
         .update(catalogComponent)
         .set({ deletedAt: new Date() })
-        .where(and(eq(catalogComponent.id, id), eq(catalogComponent.updatedAt, existing.updatedAt)));
+        .where(eq(catalogComponent.id, id));
 
       revalidatePath("/catalog");
       return { status: "ok", data: null };

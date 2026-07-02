@@ -259,7 +259,7 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
           depositDate: depositDate || null,
           updatedAt: new Date(),
         })
-        .where(and(eq(order.id, id), eq(order.updatedAt, existing.updatedAt)))
+        .where(eq(order.id, id))
         .returning();
 
       if (!updatedOrder) {
@@ -340,7 +340,7 @@ export async function deleteOrder(
         .set({
           deletedAt: new Date(),
         })
-        .where(and(eq(order.id, id), eq(order.updatedAt, existing.updatedAt)))
+        .where(eq(order.id, id))
         .returning();
 
       if (!deleted) {
@@ -405,7 +405,7 @@ export async function updateOrderStatus(
       const [updated] = await tx
         .update(order)
         .set({ status: newStatus as OrderStatus })
-        .where(and(eq(order.id, id), eq(order.updatedAt, existing.updatedAt)))
+        .where(eq(order.id, id))
         .returning();
 
       if (!updated) {

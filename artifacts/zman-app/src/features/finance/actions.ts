@@ -164,7 +164,7 @@ export async function updatePurchase(
           updatedAt: new Date(),
         })
         .where(
-          and(eq(purchase.id, id), eq(purchase.updatedAt, existing.updatedAt)),
+          eq(purchase.id, id),
         )
         .returning();
 
@@ -220,7 +220,7 @@ export async function deletePurchase(
           updatedAt: new Date(),
         })
         .where(
-          and(eq(purchase.id, id), eq(purchase.updatedAt, existing.updatedAt)),
+          eq(purchase.id, id),
         )
         .returning();
 
@@ -365,7 +365,7 @@ export async function updateExpense(
           updatedAt: new Date(),
         })
         .where(
-          and(eq(expense.id, id), eq(expense.updatedAt, existing.updatedAt)),
+          eq(expense.id, id),
         )
         .returning();
 
@@ -421,7 +421,7 @@ export async function deleteExpense(
           updatedAt: new Date(),
         })
         .where(
-          and(eq(expense.id, id), eq(expense.updatedAt, existing.updatedAt)),
+          eq(expense.id, id),
         )
         .returning();
 
@@ -567,7 +567,7 @@ export async function updateSale(
           description: parsed.data.description,
           updatedAt: new Date(),
         })
-        .where(and(eq(sale.id, id), eq(sale.updatedAt, existing.updatedAt)))
+        .where(eq(sale.id, id))
         .returning();
 
       revalidatePath("/finance");
@@ -621,7 +621,7 @@ export async function deleteSale(
           deletedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(and(eq(sale.id, id), eq(sale.updatedAt, existing.updatedAt)))
+        .where(eq(sale.id, id))
         .returning();
 
       revalidatePath("/finance");

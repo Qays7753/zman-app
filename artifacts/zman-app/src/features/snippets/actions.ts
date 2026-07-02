@@ -74,7 +74,7 @@ export async function updateSnippet(rawInput: unknown): Promise<ActionResponse> 
       const [updated] = await tx
         .update(snippet)
         .set(fields)
-        .where(and(eq(snippet.id, id), eq(snippet.updatedAt, existing.updatedAt)))
+        .where(eq(snippet.id, id))
         .returning();
 
       if (!updated) return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
@@ -108,7 +108,7 @@ export async function deleteSnippet(id: string, updatedAt: string): Promise<Acti
       await tx
         .update(snippet)
         .set({ deletedAt: new Date() })
-        .where(and(eq(snippet.id, id), eq(snippet.updatedAt, existing.updatedAt)));
+        .where(eq(snippet.id, id));
 
       revalidatePath("/snippets");
       return { status: "ok", data: null };
