@@ -6,7 +6,6 @@ import {
   eq,
   isNull,
   like,
-  lt,
   or,
   type SQL,
   sql,
@@ -58,8 +57,13 @@ export async function getPurchases(filters: GetPurchasesFilters) {
       ),
     );
   }
+  // الترتيب حسب وقت الإنشاء الفعلي (created_at) لا تاريخ الفاتورة، والـ cursor
+  // ثنائي (created_at, id) ليطابق الترتيب ويمنع تخطّي/تكرار الصفوف
   if (filters.cursor) {
-    conditions.push(lt(purchase.id, filters.cursor));
+    const [cursorTime, cursorId] = filters.cursor.split("|");
+    conditions.push(
+      sql`(${purchase.createdAt}, ${purchase.id}) < (${cursorTime}::timestamptz, ${cursorId})`,
+    );
   }
 
   const items = await db
@@ -78,13 +82,15 @@ export async function getPurchases(filters: GetPurchasesFilters) {
     })
     .from(purchase)
     .where(and(...conditions))
-    .orderBy(desc(purchase.date), desc(purchase.id))
+    .orderBy(desc(purchase.createdAt), desc(purchase.id))
     .limit(limit + 1);
 
   let nextCursor: string | undefined;
   if (items.length > limit) {
     const nextItem = items.pop();
-    nextCursor = nextItem?.id;
+    nextCursor = nextItem
+      ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+      : undefined;
   }
 
   return { items, nextCursor };
@@ -121,7 +127,10 @@ export async function getExpenses(filters: GetExpensesFilters) {
     );
   }
   if (filters.cursor) {
-    conditions.push(lt(expense.id, filters.cursor));
+    const [cursorTime, cursorId] = filters.cursor.split("|");
+    conditions.push(
+      sql`(${expense.createdAt}, ${expense.id}) < (${cursorTime}::timestamptz, ${cursorId})`,
+    );
   }
 
   const items = await db
@@ -137,13 +146,15 @@ export async function getExpenses(filters: GetExpensesFilters) {
     })
     .from(expense)
     .where(and(...conditions))
-    .orderBy(desc(expense.date), desc(expense.id))
+    .orderBy(desc(expense.createdAt), desc(expense.id))
     .limit(limit + 1);
 
   let nextCursor: string | undefined;
   if (items.length > limit) {
     const nextItem = items.pop();
-    nextCursor = nextItem?.id;
+    nextCursor = nextItem
+      ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+      : undefined;
   }
 
   return { items, nextCursor };
@@ -175,7 +186,10 @@ export async function getSales(filters: GetSalesFilters) {
     conditions.push(like(sale.description, `%${filters.search}%`));
   }
   if (filters.cursor) {
-    conditions.push(lt(sale.id, filters.cursor));
+    const [cursorTime, cursorId] = filters.cursor.split("|");
+    conditions.push(
+      sql`(${sale.createdAt}, ${sale.id}) < (${cursorTime}::timestamptz, ${cursorId})`,
+    );
   }
 
   const items = await db
@@ -192,13 +206,15 @@ export async function getSales(filters: GetSalesFilters) {
     })
     .from(sale)
     .where(and(...conditions))
-    .orderBy(desc(sale.date), desc(sale.id))
+    .orderBy(desc(sale.createdAt), desc(sale.id))
     .limit(limit + 1);
 
   let nextCursor: string | undefined;
   if (items.length > limit) {
     const nextItem = items.pop();
-    nextCursor = nextItem?.id;
+    nextCursor = nextItem
+      ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+      : undefined;
   }
 
   return { items, nextCursor };
