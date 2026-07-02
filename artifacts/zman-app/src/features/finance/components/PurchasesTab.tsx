@@ -12,6 +12,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { ListHeader } from "@/components/shared/ListHeader";
+import { Button } from "@/components/shared/Button";
 import {
   useCreatePurchase,
   useDeletePurchase,
@@ -139,14 +140,12 @@ export function PurchasesTab() {
             >
               <Boxes className="h-5 w-5" />
             </button>
-            <button
-              type="button"
+            <Button
               onClick={() => updateUrl({ newPurchase: "true" })}
-              className="h-12 px-4 bg-ink text-paper rounded-lg flex items-center gap-1.5 text-sm font-bold shadow-sm hover:bg-ink/90 transition-colors shrink-0"
+              icon={<Plus className="h-4.5 w-4.5" />}
             >
-              <Plus className="h-4.5 w-4.5" />
-              <span>مشتريات</span>
-            </button>
+              مشتريات
+            </Button>
           </>
         }
       />
@@ -185,7 +184,7 @@ export function PurchasesTab() {
                     updateUrl({ editPurchase: item.id });
                   }
                 }}
-                className="p-4 bg-paper rounded-lg border border-hairline flex flex-col gap-2 hover:border-ink/20 cursor-pointer transition-colors"
+                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 cursor-pointer transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-ink text-base">

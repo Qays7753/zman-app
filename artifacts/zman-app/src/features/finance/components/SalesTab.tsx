@@ -8,6 +8,7 @@ import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { Button } from "@/components/shared/Button";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -141,14 +142,12 @@ export function SalesTab() {
         onSearchChange={handleSearchChange}
         searchPlaceholder="البحث في بيان المبيعات..."
         actions={
-          <button
-            type="button"
+          <Button
             onClick={() => updateUrl({ newSale: "true" })}
-            className="h-12 px-4 bg-ink text-paper rounded-lg flex items-center gap-1.5 text-sm font-bold shadow-sm hover:bg-ink/90 transition-colors shrink-0"
+            icon={<Plus className="h-4.5 w-4.5" />}
           >
-            <Plus className="h-4.5 w-4.5" />
-            <span>مبيعات</span>
-          </button>
+            مبيعات
+          </Button>
         }
         filters={
           <>
@@ -161,8 +160,8 @@ export function SalesTab() {
                   onClick={() => handleSourceFilter(filt.value)}
                   className={`flex-1 min-h-[44px] h-11 px-3 rounded-full text-xs font-bold border transition-all ${
                     isActive
-                      ? "bg-ink text-paper border-ink"
-                      : "bg-paper text-ink/75 border-hairline hover:border-ink/20"
+                      ? "bg-info text-paper border-info"
+                      : "bg-paper text-ink-2 border-hairline hover:border-hairline-2"
                   }`}
                 >
                   {filt.label}
@@ -213,7 +212,7 @@ export function SalesTab() {
                     updateUrl({ editSale: item.id });
                   }
                 }}
-                className="p-4 bg-paper rounded-lg border border-hairline flex flex-col gap-2 hover:border-ink/20 cursor-pointer transition-colors"
+                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 cursor-pointer transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-ink text-base">

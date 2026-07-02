@@ -8,6 +8,8 @@ import { AppShellHeader } from "@/providers/app-shell-context";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Button } from "@/components/shared/Button";
+import { TextField } from "@/components/shared/TextField";
 import {
   useSnippets,
   useCreateSnippet,
@@ -69,14 +71,12 @@ export default function SnippetsClient() {
           onSearchChange={handleSearchChange}
           searchPlaceholder="بحث في الملاحظات..."
           actions={
-            <button
-              type="button"
+            <Button
               onClick={() => setCreating(true)}
-              className="h-12 px-4 rounded-lg bg-ink text-paper text-sm font-bold flex items-center gap-1.5 hover:bg-ink/90 transition-colors shrink-0"
+              icon={<Plus className="w-4 h-4" />}
             >
-              <Plus className="w-4 h-4" />
               إضافة
-            </button>
+            </Button>
           }
         />
 
@@ -185,7 +185,7 @@ function SnippetCard({
   onEdit: () => void;
 }) {
   return (
-    <li className="bg-paper border border-hairline rounded-xl p-4 flex flex-col gap-2">
+    <li className="bg-paper border border-hairline rounded-lg shadow-sm p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
         <span className="font-bold text-ink text-sm">{snippet.title}</span>
         <div className="flex items-center gap-1 shrink-0">
@@ -258,16 +258,12 @@ function SnippetForm({
 
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-4 pt-2">
-      <div>
-        <label className="text-xs font-semibold text-ink/60 block mb-1">العنوان *</label>
-        <input
-          type="text"
-          placeholder="مثال: رسالة شحن"
-          {...register("title", { required: "العنوان مطلوب" })}
-          className="w-full h-12 px-4 rounded-md border border-hairline focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base"
-        />
-        {errors.title && <span className="text-xs text-alert mt-1 block">{errors.title.message}</span>}
-      </div>
+      <TextField
+        label="العنوان *"
+        placeholder="مثال: رسالة شحن"
+        error={errors.title?.message as string}
+        {...register("title", { required: "العنوان مطلوب" })}
+      />
 
       <div>
         <label className="text-xs font-semibold text-ink/60 block mb-1">الفئة</label>
@@ -293,22 +289,21 @@ function SnippetForm({
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="flex-1 min-h-[48px] bg-ink text-paper rounded-md font-bold text-sm disabled:opacity-60 hover:bg-ink/90 transition-colors"
+          isLoading={isSubmitting}
+          className="flex-1"
         >
-          {isSubmitting ? "جاري الحفظ..." : initialData ? "حفظ التعديلات" : "إضافة الملاحظة"}
-        </button>
+          {initialData ? "حفظ التعديلات" : "إضافة الملاحظة"}
+        </Button>
         {onDelete && (
-          <button
-            type="button"
+          <Button
+            variant="destructive"
             onClick={handleDelete}
-            disabled={isSubmitting}
-            className="min-h-[48px] px-4 rounded-md border border-alert text-alert hover:bg-alert-soft transition-colors disabled:opacity-60 flex items-center justify-center"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            isLoading={isSubmitting}
+            icon={<Trash2 className="w-4 h-4" />}
+            className="px-4"
+          />
         )}
       </div>
       <ConfirmDialog

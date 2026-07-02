@@ -16,6 +16,7 @@ import { OrderCard } from "./OrderCard";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { WhatsAppTemplateEditor } from "./WhatsAppTemplateEditor";
 import { ListHeader } from "@/components/shared/ListHeader";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 
 interface OrderListProps {
   onEdit: (order: Order) => void;
@@ -35,13 +36,7 @@ const statusFilters = [
   { value: "cancelled", label: "ملغى" },
 ];
 
-const statusTranslations: Record<string, string> = {
-  draft: "مسودة",
-  sent: "تم الإرسال",
-  confirmed: "مؤكد",
-  delivered: "تم التوصيل",
-  cancelled: "ملغى",
-};
+
 
 export function OrderList({
   onEdit,
@@ -241,18 +236,7 @@ export function OrderList({
                     <td className="px-6 py-4 text-ink-2">{ord.productName}</td>
                     <td className="px-6 py-4 text-ink-2">{ord.quantity}</td>
                     <td className="px-6 py-4">
-                      <span
-                        className={cn(
-                          "px-2.5 py-0.5 rounded-full text-xs font-semibold border leading-none inline-flex items-center justify-center h-5",
-                          ord.status === "cancelled"
-                            ? "bg-alert-soft text-alert-deep border-alert/20"
-                            : ord.status === "draft"
-                              ? "bg-warn-soft text-warn-deep border-warn/20"
-                              : "bg-info-soft text-info border-info/20",
-                        )}
-                      >
-                        {statusTranslations[ord.status] || ord.status}
-                      </span>
+                      <StatusBadge status={ord.status} />
                     </td>
                     <td className="px-6 py-4 font-bold text-info">
                       <AmountText amount={ord.totalPriceCents} />

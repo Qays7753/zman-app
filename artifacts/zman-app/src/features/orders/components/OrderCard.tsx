@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
 import type { Order } from "../types";
 import { useMessageTemplate, useUpdateOrderStatus } from "../hooks";
+import { STATUS_COLORS, STATUS_LABELS } from "@/lib/status-colors";
 
 interface OrderCardProps {
   order: Order;
@@ -18,14 +19,7 @@ interface OrderCardProps {
   onClick: (order: Order) => void;
 }
 
-// ترجمة الحالات للعربية
-const statusTranslations: Record<string, string> = {
-  draft: "مسودة",
-  sent: "تم الإرسال",
-  confirmed: "مؤكد",
-  delivered: "تم التوصيل",
-  cancelled: "ملغى",
-};
+
 
 export function OrderCard({
   order,
@@ -67,17 +61,7 @@ export function OrderCard({
     }
   };
 
-  // مواءمة الألوان الدلالية للحالة مع العقد (§14.3.2)
-  const getStatusClasses = (status: string) => {
-    switch (status) {
-      case "cancelled":
-        return "bg-alert-soft text-alert-deep border-alert/20";
-      case "draft":
-        return "bg-warn-soft text-warn-deep border-warn/20";
-      default:
-        return "bg-info-soft text-info border-info/20";
-    }
-  };
+
 
   return (
     <>
@@ -92,7 +76,7 @@ export function OrderCard({
             onClick(order);
           }
         }}
-        className="p-4 rounded-lg bg-paper border border-hairline shadow-sm hover:border-hairline-2 transition-colors cursor-pointer flex flex-col gap-3 relative"
+        className="p-4 rounded-lg bg-paper border border-hairline shadow-sm hover:border-hairline-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 transition-colors cursor-pointer flex flex-col gap-3 relative"
       >
         {/* السطر الأول: اسم العميل وحالة الطلب + زر الخيارات */}
         <div className="flex justify-between items-center gap-2">
@@ -108,12 +92,12 @@ export function OrderCard({
                 onClick={(e) => e.stopPropagation()}
                 onChange={handleStatusChange}
                 className={cn(
-                  "px-2 py-0.5 rounded-full text-xs font-semibold border leading-none h-6 bg-paper cursor-pointer focus:outline-none focus:ring-1 focus:ring-info",
-                  getStatusClasses(order.status),
+                  "px-2 py-0.5 rounded-full text-xs font-semibold border leading-none h-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-info transition-colors duration-200",
+                  STATUS_COLORS[order.status] || "bg-info-soft text-info border-info/20",
                 )}
                 aria-label="تغيير حالة الطلب"
               >
-                {Object.entries(statusTranslations).map(([val, label]) => (
+                {Object.entries(STATUS_LABELS).map(([val, label]) => (
                   <option key={val} value={val} className="bg-paper text-ink">
                     {label}
                   </option>

@@ -1,7 +1,8 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 interface ResponsiveModalProps {
@@ -17,6 +18,12 @@ export function ResponsiveModal({
   title,
   children,
 }: ResponsiveModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -28,9 +35,9 @@ export function ResponsiveModal({
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-modal flex items-end justify-center lg:items-center"
       role="dialog"
@@ -76,6 +83,7 @@ export function ResponsiveModal({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

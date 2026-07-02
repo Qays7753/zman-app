@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertCircle,
   ArrowRight,
   CheckCircle2,
   Edit,
@@ -8,6 +9,7 @@ import {
   ShoppingCart,
   Trash2,
 } from "lucide-react";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -27,13 +29,7 @@ interface OrderDetailProps {
   onBack: () => void;
 }
 
-const statusTranslations: Record<string, string> = {
-  draft: "مسودة",
-  sent: "تم الإرسال",
-  confirmed: "مؤكد",
-  delivered: "تم التوصيل",
-  cancelled: "ملغى",
-};
+
 
 export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   const _router = useRouter();
@@ -90,16 +86,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
     );
   }
 
-  const getStatusClasses = (status: string) => {
-    switch (status) {
-      case "cancelled":
-        return "bg-alert-soft text-alert-deep border-alert/20";
-      case "draft":
-        return "bg-warn-soft text-warn-deep border-warn/20";
-      default:
-        return "bg-info-soft text-info border-info/20";
-    }
-  };
+
 
   // احتساب الهامش المرجعي غير المخزن (§5.5)
   const estimatedProfit = orderData.totalPriceCents - orderData.totalCostCents;
@@ -210,14 +197,10 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             </span>
           </div>
 
-          <span
-            className={cn(
-              "px-3 py-1 rounded-full text-xs font-semibold border leading-none h-6 flex items-center justify-center",
-              getStatusClasses(orderData.status),
-            )}
-          >
-            {statusTranslations[orderData.status] || orderData.status}
-          </span>
+          <StatusBadge
+            status={orderData.status}
+            className="px-3 py-1 h-6 text-xs font-semibold border leading-none flex items-center justify-center"
+          />
         </div>
 
         <hr className="border-hairline" />
@@ -483,25 +466,4 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   );
 }
 
-// مكون أيقونة تنبيه مفقود في الاستيراد الفعلي
-function AlertCircle(props: React.ComponentProps<typeof Trash2>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <title>تنبيه</title>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
+

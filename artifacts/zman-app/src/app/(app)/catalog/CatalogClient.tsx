@@ -9,6 +9,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Button } from "@/components/shared/Button";
+import { TextField } from "@/components/shared/TextField";
 import {
   useCatalogComponents,
   useCreateCatalogComponent,
@@ -53,14 +55,12 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
           onSearchChange={handleSearch}
           searchPlaceholder="بحث في المكوّنات..."
           actions={
-            <button
-              type="button"
+            <Button
               onClick={() => setCreating(true)}
-              className="h-12 px-4 rounded-lg bg-ink text-paper text-sm font-bold flex items-center gap-1.5 hover:bg-ink/90 transition-colors shrink-0"
+              icon={<Plus className="w-4 h-4" />}
             >
-              <Plus className="w-4 h-4" />
               إضافة
-            </button>
+            </Button>
           }
         />
 
@@ -155,7 +155,7 @@ function CatalogCard({
 }) {
   const costJOD = (item.defaultCostCents / 1000).toFixed(3);
   return (
-    <li className="bg-paper border border-hairline rounded-xl p-4 flex items-center justify-between gap-3">
+    <li className="bg-paper border border-hairline rounded-lg shadow-sm p-4 flex items-center justify-between gap-3">
       <div className="flex flex-col gap-0.5 min-w-0">
         <span className="font-bold text-ink text-sm truncate">{item.name}</span>
         <span className="text-xs text-ink/60">
@@ -221,16 +221,12 @@ function CatalogForm({
 
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-4 pt-2">
-      <div>
-        <label className="text-xs font-semibold text-ink/60 block mb-1">اسم المكوّن *</label>
-        <input
-          type="text"
-          placeholder="مثال: وعاء خرساني 7سم"
-          {...register("name", { required: "الاسم مطلوب" })}
-          className="w-full h-12 px-4 rounded-md border border-hairline focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base"
-        />
-        {errors.name && <span className="text-xs text-alert mt-1 block">{errors.name.message}</span>}
-      </div>
+      <TextField
+        label="اسم المكوّن *"
+        placeholder="مثال: وعاء خرساني 7سم"
+        error={errors.name?.message as string}
+        {...register("name", { required: "الاسم مطلوب" })}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <Controller
@@ -269,22 +265,21 @@ function CatalogForm({
       </div>
 
       <div className="flex gap-3 pt-2">
-        <button
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="flex-1 min-h-[48px] bg-ink text-paper rounded-md font-bold text-sm disabled:opacity-60 hover:bg-ink/90 transition-colors"
+          isLoading={isSubmitting}
+          className="flex-1"
         >
-          {isSubmitting ? "جاري الحفظ..." : initialData ? "حفظ التعديلات" : "إضافة للمكوّنات"}
-        </button>
+          {initialData ? "حفظ التعديلات" : "إضافة للمكوّنات"}
+        </Button>
         {onDelete && (
-          <button
-            type="button"
+          <Button
+            variant="destructive"
             onClick={handleDelete}
-            disabled={isSubmitting}
-            className="min-h-[48px] px-4 rounded-md border border-alert text-alert hover:bg-alert-soft transition-colors disabled:opacity-60 flex items-center gap-2"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+            isLoading={isSubmitting}
+            icon={<Trash2 className="w-4 h-4" />}
+            className="px-4"
+          />
         )}
       </div>
       <ConfirmDialog

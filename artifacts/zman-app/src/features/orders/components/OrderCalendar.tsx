@@ -287,13 +287,13 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
                 {hasOrders && (
                   <div className="flex gap-0.5 mt-1 justify-center">
                     {dayStatuses.includes("delivered") && (
-                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/80" : "bg-info")} />
+                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/85" : "bg-emerald")} />
                     )}
                     {dayStatuses.includes("confirmed") && (
-                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/60" : "bg-info/60")} />
+                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/70" : "bg-info")} />
                     )}
                     {dayStatuses.includes("sent") && (
-                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/40" : "bg-info/40")} />
+                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/55" : "bg-info/60")} />
                     )}
                     {dayStatuses.includes("draft") && (
                       <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/80" : "bg-warn")} />

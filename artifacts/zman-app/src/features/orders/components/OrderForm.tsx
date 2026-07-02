@@ -7,6 +7,8 @@ import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { MoneyInput } from "@/components/shared/MoneyInput";
+import { Button } from "@/components/shared/Button";
+import { TextField } from "@/components/shared/TextField";
 import type { CreateOrderInput, UpdateOrderInput } from "../schema";
 import { createOrderSchema, updateOrderSchema } from "../schema";
 import type { OrderWithComponents } from "../types";
@@ -175,59 +177,33 @@ export function OrderForm({
           بيانات العميل
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="customer-name" className="text-sm font-semibold text-ink-2">
-              اسم العميل
-            </label>
-            <input
-              id="customer-name"
-              type="text"
-              inputMode="text"
-              autoCapitalize="words"
-              autoComplete="name"
-              placeholder=""
-              {...register("customerName")}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
-            />
-            {errors.customerName?.message && (
-              <span className="text-xs text-alert">{errors.customerName.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="customer-name"
+            label="اسم العميل"
+            autoCapitalize="words"
+            autoComplete="name"
+            error={errors.customerName?.message as string}
+            {...register("customerName")}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="customer-phone" className="text-sm font-semibold text-ink-2">
-              رقم الهاتف
-            </label>
-            <input
-              id="customer-phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder=""
-              {...register("customerPhone")}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
-            />
-            {errors.customerPhone?.message && (
-              <span className="text-xs text-alert">{errors.customerPhone.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="customer-phone"
+            label="رقم الهاتف"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            error={errors.customerPhone?.message as string}
+            {...register("customerPhone")}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="customer-phone-alt" className="text-sm font-semibold text-ink-2">
-              الهاتف البديل (اختياري)
-            </label>
-            <input
-              id="customer-phone-alt"
-              type="tel"
-              inputMode="tel"
-              placeholder=""
-              {...register("customerPhoneAlt")}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
-            />
-            {errors.customerPhoneAlt?.message && (
-              <span className="text-xs text-alert">{errors.customerPhoneAlt.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="customer-phone-alt"
+            label="الهاتف البديل (اختياري)"
+            type="tel"
+            inputMode="tel"
+            error={errors.customerPhoneAlt?.message as string}
+            {...register("customerPhoneAlt")}
+          />
         </div>
       </div>
 
@@ -237,72 +213,40 @@ export function OrderForm({
           تفاصيل الطلب
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 flex flex-col gap-1">
-            <label htmlFor="product-name" className="text-sm font-semibold text-ink-2">
-              اسم المنتج
-            </label>
-            <input
-              id="product-name"
-              type="text"
-              inputMode="text"
-              placeholder=""
-              {...register("productName")}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
-            />
-            {errors.productName?.message && (
-              <span className="text-xs text-alert">{errors.productName.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="product-name"
+            label="اسم المنتج"
+            containerClassName="md:col-span-2"
+            error={errors.productName?.message as string}
+            {...register("productName")}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="quantity" className="text-sm font-semibold text-ink-2">
-              الكمية
-            </label>
-            <input
-              id="quantity"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder=""
-              {...register("quantity", { valueAsNumber: true })}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
-            />
-            {errors.quantity?.message && (
-              <span className="text-xs text-alert">{errors.quantity.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="quantity"
+            label="الكمية"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            error={errors.quantity?.message as string}
+            {...register("quantity", { valueAsNumber: true })}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-hairline pt-3 mt-2">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="delivery-date" className="text-sm font-semibold text-ink-2">
-              تاريخ التسليم المتوقع
-            </label>
-            <input
-              id="delivery-date"
-              type="date"
-              {...register("deliveryDate")}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
-            />
-            {errors.deliveryDate?.message && (
-              <span className="text-xs text-alert">{errors.deliveryDate.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="delivery-date"
+            label="تاريخ التسليم المتوقع"
+            type="date"
+            error={errors.deliveryDate?.message as string}
+            {...register("deliveryDate")}
+          />
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="received-date" className="text-sm font-semibold text-ink-2">
-              تاريخ استلام الطلب
-            </label>
-            <input
-              id="received-date"
-              type="date"
-              {...register("receivedDate")}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors"
-            />
-            {errors.receivedDate?.message && (
-              <span className="text-xs text-alert">{errors.receivedDate.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="received-date"
+            label="تاريخ استلام الطلب"
+            type="date"
+            error={errors.receivedDate?.message as string}
+            {...register("receivedDate")}
+          />
         </div>
       </div>
 
@@ -381,21 +325,16 @@ export function OrderForm({
             )}
           />
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="deposit-date" className="text-sm font-semibold text-ink-2">
-              تاريخ استلام العربون
-            </label>
-            <input
-              id="deposit-date"
-              type="date"
-              {...register("depositDate")}
-              disabled={watchedDeposit === 0}
-              className="w-full h-11 px-4 rounded-md border border-hairline-2 focus:outline-none focus:ring-2 focus:ring-ink bg-paper text-base transition-colors disabled:opacity-50 disabled:bg-canvas"
-            />
-            {errors.depositDate?.message && (
-              <span className="text-xs text-alert">{errors.depositDate.message as string}</span>
-            )}
-          </div>
+          <TextField
+            id="deposit-date"
+            label="تاريخ استلام العربون"
+            type="date"
+            disabled={watchedDeposit === 0}
+            containerClassName="disabled:opacity-50"
+            className="disabled:bg-canvas"
+            error={errors.depositDate?.message as string}
+            {...register("depositDate")}
+          />
         </div>
 
         <div className="flex flex-col gap-1">
@@ -487,28 +426,21 @@ export function OrderForm({
 
       {/* أزرار الحفظ */}
       <div className="fixed bottom-0 inset-x-0 p-4 bg-paper/95 backdrop-blur-md border-t border-hairline flex gap-3 lg:static lg:p-0 lg:bg-transparent lg:border-none z-dropdown lg:z-auto">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={onCancel}
-          disabled={isSubmitting}
-          className="flex-1 min-h-[44px] py-3 px-4 rounded-md border border-hairline-2 text-ink-2 hover:bg-canvas font-semibold transition-colors disabled:opacity-50"
+          isLoading={isSubmitting}
+          className="flex-1"
         >
           إلغاء
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="flex-1 min-h-[44px] py-3 px-4 rounded-md bg-info text-paper font-bold hover:bg-info/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          isLoading={isSubmitting}
+          className="flex-1"
         >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>جاري الحفظ...</span>
-            </>
-          ) : (
-            <span>{isEditMode ? "حفظ التعديلات" : "حفظ الطلب"}</span>
-          )}
-        </button>
+          {isEditMode ? "حفظ التعديلات" : "حفظ الطلب"}
+        </Button>
       </div>
     </form>
   );

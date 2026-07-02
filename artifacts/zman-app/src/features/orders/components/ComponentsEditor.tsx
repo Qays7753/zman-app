@@ -1,6 +1,7 @@
 "use client";
 
 import { Boxes, Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray } from "react-hook-form";
 import { toast } from "sonner";
@@ -29,6 +30,11 @@ export function ComponentsEditor({
     control,
     name: "components",
   });
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ===== منتقي الكتالوج =====
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -193,7 +199,7 @@ export function ComponentsEditor({
       </div>
 
       {/* ===== مودال منتقي الكتالوج ===== */}
-      {isPickerOpen && (
+      {isPickerOpen && mounted && createPortal(
         <div
           className="fixed inset-0 z-modal flex items-end justify-center lg:items-center"
           role="dialog"
@@ -294,7 +300,8 @@ export function ComponentsEditor({
               </p>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
