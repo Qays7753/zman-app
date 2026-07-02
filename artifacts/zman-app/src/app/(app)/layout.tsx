@@ -37,7 +37,7 @@ export default function AppLayout({
     queryClient.prefetchInfiniteQuery({
       queryKey: ["orders", "list", "infinite", { status: "all", q: "" }],
       queryFn: () => getOrders({ status: "all", q: "" }),
-      initialPageParam: null as any,
+      initialPageParam: null as string | null,
     });
   }, [queryClient]);
 

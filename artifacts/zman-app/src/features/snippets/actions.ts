@@ -46,7 +46,12 @@ export async function updateSnippet(rawInput: unknown): Promise<ActionResponse> 
   const { success } = await checkRL();
   if (!success) return { status: "error", message: "تجاوزت الحد المسموح" };
 
-  const schema = snippetInputSchema.extend({ id: z.string().uuid(), updatedAt: z.string() });
+  const schema = snippetInputSchema.extend({
+    id: z.string().uuid(),
+    updatedAt: z.union([z.string(), z.date()]).transform((val) =>
+      val instanceof Date ? val.toISOString() : val
+    ),
+  });
   const parsed = schema.safeParse(rawInput);
   if (!parsed.success) return { status: "error", message: "بيانات غير صالحة" };
 
@@ -129,10 +134,5 @@ export async function getSnippets(search?: string) {
     .where(and(...conditions))
     .orderBy(snippet.category, snippet.title);
 
-  return rows.map((r) => ({
-    ...r,
-    createdAt: new Date(r.createdAt),
-    updatedAt: new Date(r.updatedAt),
-    deletedAt: r.deletedAt ? new Date(r.deletedAt) : null,
-  }));
+  return rows;
 }

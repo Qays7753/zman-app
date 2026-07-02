@@ -8,6 +8,8 @@ const client = postgres(env.DATABASE_URL, {
   prepare: false,
   connect_timeout: 10,
   idle_timeout: 30,
+  // @ts-expect-error postgres-js types may not include retry in Options
+  retry: 1,
   // إعادة تدوير الاتصالات قبل أن ينهيها Supabase بعد الخمول؛ يمنع فشل أول طلب
   max_lifetime: 60 * 30,
 });

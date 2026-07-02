@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray } from "react-hook-form";
 import { toast } from "sonner";
 import { MoneyInput } from "@/components/shared/MoneyInput";
-import { getCatalogComponents } from "@/features/catalog/actions";
+import { useCatalogComponents } from "@/features/catalog/hooks";
 import type { CatalogComponent } from "@/features/catalog/db";
 
 interface ComponentsEditorProps {
@@ -32,38 +32,27 @@ export function ComponentsEditor({
 
   // ===== منتقي الكتالوج =====
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [catalogItems, setCatalogItems] = useState<CatalogComponent[]>([]);
   const [catalogSearch, setCatalogSearch] = useState("");
-  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadCatalog = useCallback(async (q?: string) => {
-    setIsCatalogLoading(true);
-    try {
-      const items = await getCatalogComponents(q);
-      setCatalogItems(items);
-    } catch {
-      toast.error("تعذّر تحميل المكوّنات");
-    } finally {
-      setIsCatalogLoading(false);
-    }
-  }, []);
+  const { data: catalogItems = [], isLoading: isCatalogLoading } = useCatalogComponents(debouncedSearch);
 
   useEffect(() => {
     if (isPickerOpen) {
-      void loadCatalog();
       setTimeout(() => searchRef.current?.focus(), 100);
     } else {
       setCatalogSearch("");
+      setDebouncedSearch("");
     }
-  }, [isPickerOpen, loadCatalog]);
+  }, [isPickerOpen]);
 
   const handleSearchChange = (q: string) => {
     setCatalogSearch(q);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      void loadCatalog(q);
+      setDebouncedSearch(q);
     }, 300);
   };
 

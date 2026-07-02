@@ -53,7 +53,9 @@ export const createOrderSchema = z.object({
 
 export const updateOrderSchema = z.object({
   id: z.string().uuid("معرف الطلب غير صالح"),
-  updatedAt: z.string().min(1, "طابع التعديل مطلوب لمنع التضارب"),
+  updatedAt: z.union([z.string(), z.date()]).transform((val) =>
+    val instanceof Date ? val.toISOString() : val
+  ),
   customerName: z
     .string()
     .min(1, "اسم العميل مطلوب")

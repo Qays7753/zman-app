@@ -11,6 +11,7 @@ import type { CreateOrderInput, UpdateOrderInput } from "../schema";
 import { createOrderSchema, updateOrderSchema } from "../schema";
 import type { OrderWithComponents } from "../types";
 import { ComponentsEditor } from "./ComponentsEditor";
+import { useCreateOrder, useUpdateOrder } from "../hooks";
 
 interface OrderFormProps {
   initialData?: OrderWithComponents | null;
@@ -28,6 +29,9 @@ export function OrderForm({
   const [requestId] = useState(() =>
     typeof window !== "undefined" ? window.crypto.randomUUID() : "",
   );
+
+  const createOrderMutation = useCreateOrder();
+  const updateOrderMutation = useUpdateOrder();
 
   const schema = isEditMode ? updateOrderSchema : createOrderSchema;
 
@@ -108,10 +112,9 @@ export function OrderForm({
   const onSubmit = async (data: CreateOrderInput | UpdateOrderInput) => {
     setIsSubmitting(true);
     try {
-      const { createOrder, updateOrder } = await import("../actions");
       const response = isEditMode
-        ? await updateOrder(data as UpdateOrderInput)
-        : await createOrder(data as CreateOrderInput);
+        ? await updateOrderMutation.mutateAsync(data as UpdateOrderInput)
+        : await createOrderMutation.mutateAsync(data as CreateOrderInput);
 
       if (response.status === "ok") {
         toast.success(isEditMode ? "تم تحديث الطلب بنجاح" : "تم إنشاء الطلب بنجاح");
