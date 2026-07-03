@@ -66,6 +66,14 @@ export default function FinancialChart({
 
   const selected = chartData.find((d) => d.dateStr === selectedDate) ?? null;
 
+  // تنسيق مختصر لأرقام المحور (بالدينار) حتى لا تزدحم: ألف=ك، مليون=م
+  const formatAxis = (cents: number) => {
+    const jod = cents / 1000;
+    if (jod >= 1_000_000) return `${(jod / 1_000_000).toFixed(1)}م`;
+    if (jod >= 1000) return `${Math.round(jod / 1000)}ك`;
+    return Math.round(jod).toString();
+  };
+
   return (
     <div className="bg-paper p-4 lg:p-6 rounded-lg border border-hairline shadow-sm space-y-4 min-w-0 overflow-hidden">
       <div className="flex items-center justify-between flex-wrap gap-2 border-b border-hairline pb-3">
@@ -103,10 +111,10 @@ export default function FinancialChart({
 
       {/* الرسم البياني: صف واحد = محور القيم (ثابت) + منطقة الأعمدة (قابلة للتمرير) */}
       <div className="flex w-full min-w-0" style={{ height: "16rem" }}>
-        {/* محور القيم الرأسي — ثابت، محاذٍ تماماً لمنطقة الرسم */}
-        <div className="flex flex-col justify-between shrink-0 pe-2 text-[11px] text-ink/35 select-none text-end leading-none">
-          <span className="flex justify-end"><AmountText amount={maxVal} /></span>
-          <span className="flex justify-end"><AmountText amount={maxVal / 2} /></span>
+        {/* محور القيم الرأسي — ثابت، محاذٍ تماماً لمنطقة الرسم (أرقام مختصرة وواضحة) */}
+        <div className="flex flex-col justify-between shrink-0 pe-2 text-[11px] font-mono font-semibold text-ink/55 select-none text-end leading-none">
+          <span className="flex justify-end">{formatAxis(maxVal)}</span>
+          <span className="flex justify-end">{formatAxis(maxVal / 2)}</span>
           <span className="flex justify-end">٠</span>
         </div>
 
@@ -114,9 +122,9 @@ export default function FinancialChart({
         <div className="relative flex-1 min-w-0">
           {/* خطوط الشبكة الأفقية — تحاذي المحور تماماً (نفس الحاوية، نفس الارتفاع) */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-            <div className="w-full border-t border-hairline/40" />
-            <div className="w-full border-t border-hairline/40" />
             <div className="w-full border-t border-hairline" />
+            <div className="w-full border-t border-hairline" />
+            <div className="w-full border-t border-hairline-2" />
           </div>
 
           {/* الأعمدة المكدّسة (تمرير أفقي على الموبايل — بدون طبقات z طافية) */}
@@ -142,13 +150,13 @@ export default function FinancialChart({
                     className="relative flex-shrink-0 w-8 flex flex-col items-center justify-end h-full focus:outline-none group cursor-pointer pb-5"
                     title={item.dateStr}
                   >
-                    {/* عمود مكدس واحد */}
+                    {/* عمود مكدس واحد — ألوان صريحة وواضحة */}
                     <div className="w-full flex items-end justify-center flex-1 min-w-0">
                       {total > 0 ? (
                         <div
                           style={{ height: `${totalPct}%` }}
-                          className={`w-3.5 rounded-t-[3px] overflow-hidden flex flex-col justify-end transition-all duration-150
-                            ${isSelected ? "opacity-100 ring-2 ring-ink/30" : "opacity-70 group-hover:opacity-90"}
+                          className={`w-4 rounded-t-[3px] overflow-hidden flex flex-col justify-end transition-all duration-150
+                            ${isSelected ? "ring-2 ring-ink/40 ring-offset-1" : "group-hover:brightness-95"}
                           `}
                         >
                           {item.sales > 0 && (
@@ -165,11 +173,11 @@ export default function FinancialChart({
                           )}
                         </div>
                       ) : (
-                        <div className="w-3.5 h-[2px] bg-hairline rounded-sm" />
+                        <div className="w-4 h-[2px] bg-hairline-2 rounded-sm" />
                       )}
                     </div>
                     {/* تسمية اليوم — مثبّتة أسفل، لا تزيح ارتفاع العمود */}
-                    <span className="absolute bottom-0 inset-x-0 text-[11px] text-ink/40 font-mono select-none leading-none h-4 flex items-center justify-center">
+                    <span className="absolute bottom-0 inset-x-0 text-[11px] text-ink/60 font-mono font-semibold select-none leading-none h-4 flex items-center justify-center">
                       {showLabel ? dayNum : ""}
                     </span>
                   </button>

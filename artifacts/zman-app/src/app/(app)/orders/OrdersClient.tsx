@@ -136,7 +136,9 @@ export default function OrdersClient() {
 
   const isInSubView = isNew || !!editId || !!viewId;
 
-  let pageTitle = "الطلبات الجارية";
+  // لا عنوان للعرض الرئيسي (القائمة/التقويم) — يوفّر مساحة للأزرار.
+  // نُبقيه فقط في الشاشات الفرعية كسياق (إنشاء/تعديل/تفاصيل).
+  let pageTitle = "";
   if (isNew) pageTitle = "إنشاء طلب جديد";
   else if (editId) pageTitle = "تعديل بيانات الطلب";
   else if (viewId) pageTitle = "تفاصيل الطلب";
@@ -184,9 +186,14 @@ export default function OrdersClient() {
         },
       ]}
       trailing={
-        // زر طلب جديد — مستطيل بنص دائم
-        <Button onClick={handleShowCreate} icon={<Plus className="w-4 h-4" />}>
-          طلب جديد
+        // زر طلب جديد — مربّع بعلامة + (يوفّر المساحة، يمنع القص)
+        <Button
+          onClick={handleShowCreate}
+          size="icon"
+          aria-label="طلب جديد"
+          title="طلب جديد"
+        >
+          <Plus className="w-5 h-5" />
         </Button>
       }
     />

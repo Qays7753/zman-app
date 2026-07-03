@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X, SlidersHorizontal, Check } from "lucide-react";
+import { Search, X, Filter, Settings2, Check } from "lucide-react";
 import React, { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { HeaderIconButton } from "./HeaderIconButton";
@@ -119,7 +119,7 @@ export function PageToolbar({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-nowrap justify-end w-full">
       {leading}
 
       {search && (
@@ -140,7 +140,7 @@ export function PageToolbar({
             badge={hasActiveFilter}
             onClick={() => setFilterOpen((o) => !o)}
           >
-            <SlidersHorizontal className="w-5 h-5" />
+            <Filter className="w-5 h-5" />
           </HeaderIconButton>
           {filterOpen && (
             <div className="absolute end-0 top-full mt-2 z-dropdown w-60 max-w-[80vw] bg-paper rounded-lg border border-hairline-2 shadow-lg p-3 space-y-4 animate-fade-in">
@@ -187,7 +187,7 @@ export function PageToolbar({
             isActive={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            <SlidersHorizontal className="w-5 h-5 rotate-90" />
+            <Settings2 className="w-5 h-5" />
           </HeaderIconButton>
           {menuOpen && (
             <div className="absolute end-0 top-full mt-2 z-dropdown w-56 max-w-[80vw] bg-paper rounded-lg border border-hairline-2 shadow-lg p-1.5 animate-fade-in">

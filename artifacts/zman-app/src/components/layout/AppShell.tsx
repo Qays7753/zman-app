@@ -130,16 +130,26 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       </aside>
 
       {/* هيدر الموبايل */}
-      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper/90 backdrop-blur-sm shadow-sm border-b border-hairline flex items-center justify-between px-4 z-sticky">
-        <h1 className="text-base font-bold text-ink truncate">{title || "Zman"}</h1>
-        {action && <div className="flex items-center ms-3">{action}</div>}
+      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper/90 backdrop-blur-sm shadow-sm border-b border-hairline flex items-center justify-between px-3 z-sticky">
+        {title ? (
+          <h1 className="text-base font-bold text-ink truncate">{title}</h1>
+        ) : null}
+        {action && (
+          <div className={`flex items-center ${title ? "ms-3" : "flex-1 w-full"}`}>
+            {action}
+          </div>
+        )}
       </header>
 
       {/* المنطقة الرئيسية */}
       <main className="flex-1 overflow-hidden flex flex-col lg:pe-[240px]">
         {/* شريط الأدوات للديسكتوب */}
         <div className="hidden lg:flex flex-shrink-0 items-center justify-between px-8 h-16 border-b border-hairline bg-paper">
-          <h2 className="text-lg font-bold text-ink">{title || "الرئيسية"}</h2>
+          {title ? (
+            <h2 className="text-lg font-bold text-ink">{title}</h2>
+          ) : (
+            <span />
+          )}
           {action && <div>{action}</div>}
         </div>
 

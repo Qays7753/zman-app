@@ -259,13 +259,13 @@ export function DashboardClient() {
                   {startDateStr} - {endDateStr}
                 </span>
               </div>
-              <div className="mt-4 flex items-center justify-between gap-4">
-                <div>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
                   <span
-                    className={`text-4xl font-bold flex items-center gap-1.5 ${netColorClass}`}
+                    className={`text-2xl sm:text-3xl lg:text-4xl font-bold flex items-baseline gap-1.5 ${netColorClass} whitespace-nowrap`}
                   >
-                    <span className="font-mono">{netSign}</span>
-                    <AmountText amount={Math.abs(net)} />
+                    <span className="font-mono shrink-0">{netSign}</span>
+                    <AmountText amount={Math.abs(net)} className="truncate" />
                   </span>
                   <p className="text-xs text-ink/50 mt-2">
                     (الإيرادات والمبيعات − التكاليف والمصاريف التشغيلية)
@@ -301,12 +301,12 @@ export function DashboardClient() {
                     />
                   )}
                 </div>
-                <div className="mt-2 flex flex-col">
+                <div className="mt-2 flex flex-col min-w-0">
                   <span
-                    className={`text-xl lg:text-2xl font-bold flex items-center gap-1 ${netColorClass}`}
+                    className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 ${netColorClass} min-w-0`}
                   >
-                    <span className="font-mono text-lg">{netSign}</span>
-                    <AmountText amount={Math.abs(net)} />
+                    <span className="font-mono text-base shrink-0">{netSign}</span>
+                    <AmountText amount={Math.abs(net)} className="truncate" />
                   </span>
                   <span className="text-[10px] text-ink/40 mt-1">
                     المبيعات ناقصاً كل التكاليف
@@ -329,10 +329,10 @@ export function DashboardClient() {
                     />
                   )}
                 </div>
-                <div className="mt-2 flex flex-col">
-                  <span className="text-xl lg:text-2xl font-bold text-info flex items-center gap-1">
-                    <span className="font-mono text-lg">+</span>
-                    <AmountText amount={summary?.sales ?? 0} />
+                <div className="mt-2 flex flex-col min-w-0">
+                  <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 min-w-0">
+                    <span className="font-mono text-base shrink-0">+</span>
+                    <AmountText amount={summary?.sales ?? 0} className="truncate" />
                   </span>
                   <span className="text-[10px] text-ink/40 mt-1">
                     مجموع الإيرادات الواردة
@@ -360,10 +360,10 @@ export function DashboardClient() {
                     />
                   )}
                 </div>
-                <div className="mt-2 flex flex-col">
-                  <span className="text-xl lg:text-2xl font-bold text-alert flex items-center gap-1">
-                    <span className="font-mono text-lg">−</span>
-                    <AmountText amount={summary?.purchases ?? 0} />
+                <div className="mt-2 flex flex-col min-w-0">
+                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 min-w-0">
+                    <span className="font-mono text-base shrink-0">−</span>
+                    <AmountText amount={summary?.purchases ?? 0} className="truncate" />
                   </span>
                   <span className="text-[10px] text-ink/40 mt-1">
                     تكاليف المواد الخام والخامات
@@ -386,10 +386,10 @@ export function DashboardClient() {
                     />
                   )}
                 </div>
-                <div className="mt-2 flex flex-col">
-                  <span className="text-xl lg:text-2xl font-bold text-alert flex items-center gap-1">
-                    <span className="font-mono text-lg">−</span>
-                    <AmountText amount={summary?.expenses ?? 0} />
+                <div className="mt-2 flex flex-col min-w-0">
+                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 min-w-0">
+                    <span className="font-mono text-base shrink-0">−</span>
+                    <AmountText amount={summary?.expenses ?? 0} className="truncate" />
                   </span>
                   <span className="text-[10px] text-ink/40 mt-1">
                     تكاليف التشغيل والرواتب والفواتير
@@ -412,10 +412,10 @@ export function DashboardClient() {
                     <NetIcon className={`h-4 w-4 ${netColorClass}`} />
                     الأرباح المحققة (من المبيعات)
                   </span>
-                  <div className="mt-2 flex flex-col">
-                    <span className={`text-xl lg:text-2xl font-bold flex items-center gap-1 ${netColorClass}`}>
-                      <span className="font-mono text-lg">{netSign}</span>
-                      <AmountText amount={Math.abs(net)} />
+                  <div className="mt-2 flex flex-col min-w-0">
+                    <span className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 min-w-0 ${netColorClass}`}>
+                      <span className="font-mono text-base shrink-0">{netSign}</span>
+                      <AmountText amount={Math.abs(net)} className="truncate" />
                     </span>
                     <span className="text-[10px] text-ink/40 mt-1">
                       النقد الفعلي المستلم بعد خصم المشتريات والمصاريف
@@ -429,10 +429,10 @@ export function DashboardClient() {
                     <TrendingUp className="h-4 w-4 text-info" />
                     العربون بحوزتك
                   </span>
-                  <div className="mt-2 flex flex-col">
-                    <span className="text-xl lg:text-2xl font-bold text-info flex items-center gap-1">
-                      <span className="font-mono text-lg">+</span>
-                      <AmountText amount={cashSummary?.depositsHeldCents ?? 0} />
+                  <div className="mt-2 flex flex-col min-w-0">
+                    <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 min-w-0">
+                      <span className="font-mono text-base shrink-0">+</span>
+                      <AmountText amount={cashSummary?.depositsHeldCents ?? 0} className="truncate" />
                     </span>
                     <span className="text-[10px] text-ink/40 mt-1">
                       مبالغ العربون المستلمة للطلبات المعلقة (قيد التنفيذ)
@@ -446,10 +446,10 @@ export function DashboardClient() {
                     <Calendar className="h-4 w-4 text-ink-3" />
                     مبالغ متوقعة (متبقي الطلبات)
                   </span>
-                  <div className="mt-2 flex flex-col">
-                    <span className="text-xl lg:text-2xl font-bold text-ink-2 flex items-center gap-1">
-                      <span className="font-mono text-lg">+</span>
-                      <AmountText amount={cashSummary?.expectedRemainingCents ?? 0} />
+                  <div className="mt-2 flex flex-col min-w-0">
+                    <span className="text-lg lg:text-xl font-bold text-ink-2 flex items-baseline gap-1 min-w-0">
+                      <span className="font-mono text-base shrink-0">+</span>
+                      <AmountText amount={cashSummary?.expectedRemainingCents ?? 0} className="truncate" />
                     </span>
                     <span className="text-[10px] text-ink/40 mt-1">
                       المتبقي المتفق عليه عند تسليم الطلبات المعلقة (مخصوم منه العربون)
@@ -738,7 +738,7 @@ export function DashboardClient() {
       <button
         type="button"
         onClick={() => setIsFabOpen(true)}
-        className="fixed bottom-24 inset-s-6 lg:hidden z-dropdown h-14 w-14 rounded-full bg-ink text-paper shadow-lg flex items-center justify-center hover:bg-ink/90 active:scale-95 transition-all"
+        className="fixed bottom-20 inset-e-4 lg:hidden z-dropdown h-14 w-14 rounded-full bg-ink text-paper shadow-lg flex items-center justify-center hover:bg-ink/90 active:scale-95 transition-all"
         aria-label="إضافة عملية جديدة"
       >
         <Plus className="h-6 w-6" />
