@@ -1,8 +1,7 @@
 "use client";
 
-import { Boxes, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
@@ -12,8 +11,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { Button } from "@/components/shared/Button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { FilterChip } from "@/components/shared/FilterChip";
-import { ListHeader } from "@/components/shared/ListHeader";
+
 import {
   useCreateExpense,
   useDeleteExpense,
@@ -23,8 +21,6 @@ import {
 } from "../hooks";
 import type { NewExpense } from "../types";
 import { ExpenseForm } from "./ExpenseForm";
-import { FinanceCatalogModal } from "./FinanceCatalogModal";
-
 export function ExpensesTab() {
   const router = useRouter();
   const pathname = usePathname();
@@ -32,27 +28,10 @@ export function ExpensesTab() {
   const [_isPending, startTransition] = useTransition();
 
   const search = searchParams.get("search") || "";
-  const [searchInput, setSearchInput] = useState(search);
   const category = searchParams.get("category") || "all";
   const newExpense = searchParams.get("newExpense") === "true";
   const editId = searchParams.get("editExpense");
-  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-
-  useEffect(() => {
-    setSearchInput(search);
-  }, [search]);
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchInput !== search) {
-        startTransition(() => {
-          updateUrl({ search: searchInput || null });
-        });
-      }
-    }, 400);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchInput, search]);
 
   // الفئات المعتمدة للتصفية (§5.1)
   const categoriesList = [
@@ -97,15 +76,7 @@ export function ExpensesTab() {
     router.replace(`${pathname}?${next.toString()}`);
   };
 
-  const handleSearchChange = (val: string) => {
-    setSearchInput(val);
-  };
 
-  const handleCategoryFilter = (catName: string) => {
-    startTransition(() => {
-      updateUrl({ category: catName === "الكل" ? null : catName });
-    });
-  };
 
   const handleCreate = async (fields: NewExpense) => {
     const res = await createMutation.mutateAsync({
@@ -158,41 +129,6 @@ export function ExpensesTab() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col">
-      <ListHeader
-        searchValue={searchInput}
-        onSearchChange={handleSearchChange}
-        searchPlaceholder="البحث في المصاريف..."
-        actions={
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setIsCatalogOpen(true)}
-              variant="secondary"
-              icon={<Boxes className="h-4.5 w-4.5" />}
-              className="px-3"
-            >
-              الفئات
-            </Button>
-            <Button
-              onClick={() => updateUrl({ newExpense: "true" })}
-              icon={<Plus className="h-4.5 w-4.5" />}
-            >
-              مصروف
-            </Button>
-          </div>
-        }
-        filters={
-          <>
-            {categoriesList.map((cat) => (
-              <FilterChip
-                key={cat}
-                label={cat}
-                isActive={category === cat || (cat === "الكل" && category === "all")}
-                onClick={() => handleCategoryFilter(cat)}
-              />
-            ))}
-          </>
-        }
-      />
 
       {isLoading ? (
         <SkeletonList />
@@ -293,12 +229,7 @@ export function ExpensesTab() {
         )}
       </ResponsiveModal>
 
-      {/* مودال إدارة الفئات المشتركة */}
-      <FinanceCatalogModal
-        isOpen={isCatalogOpen}
-        onClose={() => setIsCatalogOpen(false)}
-        type="expenses"
-      />
+
 
       {/* تأكيد الحذف */}
       <ConfirmDialog

@@ -1,8 +1,7 @@
 "use client";
 
-import { Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
@@ -11,8 +10,6 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { FilterChip } from "@/components/shared/FilterChip";
-import { ListHeader } from "@/components/shared/ListHeader";
 import { Button } from "@/components/shared/Button";
 import {
   useCreateSale,
@@ -31,36 +28,13 @@ export function SalesTab() {
   const [_isPending, startTransition] = useTransition();
 
   const search = searchParams.get("search") || "";
-  const [searchInput, setSearchInput] = useState(search);
   const source = searchParams.get("source") || "all";
   const newSale = searchParams.get("newSale") === "true";
   const editId = searchParams.get("editSale");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  useEffect(() => {
-    setSearchInput(search);
-  }, [search]);
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchInput !== search) {
-        startTransition(() => {
-          updateUrl({ search: searchInput || null });
-        });
-      }
-    }, 400);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchInput, search]);
-
-  // الفلاتر المتاحة للمصدر
-  const sourceFilters = [
-    { label: "الكل", value: "all" },
-    { label: "مباشر", value: "direct" },
-    { label: "طلب محول", value: "order" },
-  ];
-
   // هوك جلب البيانات اللانهائي
-  const querySource = source === "direct" ? "manual" : source === "order" ? "order" : undefined;
+  const querySource = source === "manual" || source === "order" ? source : undefined;
   const {
     data,
     isLoading,
@@ -90,15 +64,7 @@ export function SalesTab() {
     router.replace(`${pathname}?${next.toString()}`);
   };
 
-  const handleSearchChange = (val: string) => {
-    setSearchInput(val);
-  };
 
-  const handleSourceFilter = (src: string) => {
-    startTransition(() => {
-      updateUrl({ source: src === "all" ? null : src });
-    });
-  };
 
   const handleCreate = async (fields: NewSale) => {
     const res = await createMutation.mutateAsync({
@@ -151,31 +117,6 @@ export function SalesTab() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col">
-      <ListHeader
-        searchValue={searchInput}
-        onSearchChange={handleSearchChange}
-        searchPlaceholder="البحث في بيان المبيعات..."
-        actions={
-          <Button
-            onClick={() => updateUrl({ newSale: "true" })}
-            icon={<Plus className="h-4.5 w-4.5" />}
-          >
-            مبيعات
-          </Button>
-        }
-        filters={
-          <>
-            {sourceFilters.map((filt) => (
-              <FilterChip
-                key={filt.value}
-                label={filt.label}
-                isActive={source === filt.value}
-                onClick={() => handleSourceFilter(filt.value)}
-              />
-            ))}
-          </>
-        }
-      />
 
       {isLoading ? (
         <SkeletonList />

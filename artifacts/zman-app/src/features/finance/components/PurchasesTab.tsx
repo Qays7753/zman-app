@@ -1,8 +1,7 @@
 "use client";
 
-import { Boxes, Plus, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
@@ -11,7 +10,6 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { ListHeader } from "@/components/shared/ListHeader";
 import { Button } from "@/components/shared/Button";
 import {
   useCreatePurchase,
@@ -31,26 +29,9 @@ export function PurchasesTab() {
   const [_isPending, startTransition] = useTransition();
 
   const search = searchParams.get("search") || "";
-  const [searchInput, setSearchInput] = useState(search);
   const newPurchase = searchParams.get("newPurchase") === "true";
   const editId = searchParams.get("editPurchase");
-  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-
-  useEffect(() => {
-    setSearchInput(search);
-  }, [search]);
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchInput !== search) {
-        startTransition(() => {
-          updateUrl({ search: searchInput || null });
-        });
-      }
-    }, 400);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchInput, search]);
 
   // هوك جلب البيانات اللانهائي (§10.1)
   const {
@@ -82,9 +63,7 @@ export function PurchasesTab() {
     router.replace(`${pathname}?${next.toString()}`);
   };
 
-  const handleSearchChange = (val: string) => {
-    setSearchInput(val);
-  };
+
 
   const handleCreate = async (fields: NewPurchase) => {
     const res = await createMutation.mutateAsync({
@@ -137,29 +116,6 @@ export function PurchasesTab() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col">
-      <ListHeader
-        searchValue={searchInput}
-        onSearchChange={handleSearchChange}
-        searchPlaceholder="البحث في المشتريات..."
-        actions={
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setIsCatalogOpen(true)}
-              variant="secondary"
-              icon={<Boxes className="h-4.5 w-4.5" />}
-              className="px-3"
-            >
-              الكتالوج
-            </Button>
-            <Button
-              onClick={() => updateUrl({ newPurchase: "true" })}
-              icon={<Plus className="h-4.5 w-4.5" />}
-            >
-              مشتريات
-            </Button>
-          </div>
-        }
-      />
 
       {isLoading ? (
         <SkeletonList />
@@ -260,12 +216,7 @@ export function PurchasesTab() {
         )}
       </ResponsiveModal>
 
-      {/* مودال إدارة الكتالوج المشترك */}
-      <FinanceCatalogModal
-        isOpen={isCatalogOpen}
-        onClose={() => setIsCatalogOpen(false)}
-        type="purchases"
-      />
+
 
       {/* تأكيد الحذف */}
       <ConfirmDialog

@@ -23,6 +23,7 @@ import {
 } from "@/features/catalog/hooks";
 import type { CatalogComponent } from "@/features/catalog/db";
 import { ListHeader } from "@/components/shared/ListHeader";
+import { PageToolbar } from "@/components/shared/PageToolbar";
 
 const UNITS = ["قطعة", "متر", "غرام", "علبة", "كيلو", "لتر", "ورقة"];
 
@@ -57,24 +58,46 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
     setSearch(q);
   };
 
+  const pageAction = !hideHeader ? (
+    <PageToolbar
+      search={{
+        value: search,
+        onChange: handleSearch,
+        placeholder: "بحث في المكوّنات...",
+      }}
+      trailing={
+        <Button
+          onClick={() => setCreating(true)}
+          size="icon"
+          aria-label="إضافة مكوّن جديد"
+          title="إضافة مكوّن جديد"
+        >
+          <Plus className="w-5 h-5" />
+        </Button>
+      }
+    />
+  ) : null;
+
   return (
     <>
-      {!hideHeader && <AppShellHeader title="المكوّنات" />}
+      {!hideHeader && <AppShellHeader title="" action={pageAction} />}
       <div className="flex-1 flex flex-col gap-4">
         {/* شريط البحث والإضافة */}
-        <ListHeader
-          searchValue={search}
-          onSearchChange={handleSearch}
-          searchPlaceholder="بحث في المكوّنات..."
-          actions={
-            <Button
-              onClick={() => setCreating(true)}
-              icon={<Plus className="w-4 h-4" />}
-            >
-              إضافة
-            </Button>
-          }
-        />
+        {hideHeader && (
+          <ListHeader
+            searchValue={search}
+            onSearchChange={handleSearch}
+            searchPlaceholder="بحث في المكوّنات..."
+            actions={
+              <Button
+                onClick={() => setCreating(true)}
+                icon={<Plus className="w-4 h-4" />}
+              >
+                إضافة
+              </Button>
+            }
+          />
+        )}
 
         {/* قائمة المكوّنات */}
         {isLoading ? (

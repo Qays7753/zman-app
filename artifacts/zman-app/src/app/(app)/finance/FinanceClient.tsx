@@ -1,12 +1,15 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, ShoppingCart } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ShoppingCart, Plus, Boxes } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { useTransition, useState, useEffect } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
+import { PageToolbar, type ToolbarFilterGroup, type ToolbarMenuItem } from "@/components/shared/PageToolbar";
+import { Button } from "@/components/shared/Button";
+import { FinanceCatalogModal } from "@/features/finance/components/FinanceCatalogModal";
 
 // استيراد تبويبات المالية ديناميكياً لتقسيم الحزم البرمجية (§12.1)
 const PurchasesTab = dynamic(
@@ -40,6 +43,23 @@ const SalesTab = dynamic(
   },
 );
 
+const EXPENSE_CATEGORIES = [
+  "الكل",
+  "رواتب",
+  "إيجار",
+  "كهرباء ومياه",
+  "نقل وتوصيل",
+  "تعبئة وتغليف",
+  "صيانة وأدوات",
+  "أخرى",
+];
+
+const SALE_SOURCES = [
+  { value: "all", label: "الكل" },
+  { value: "manual", label: "يدوي" },
+  { value: "order", label: "طلب محوّل" },
+];
+
 export default function FinanceClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -54,6 +74,28 @@ export default function FinanceClient() {
     { id: "expenses", label: "المصاريف", icon: ArrowDownRight },
     { id: "sales", label: "المبيعات", icon: ArrowUpRight },
   ];
+
+  // حالة البحث والـ Debounce
+  const currentQuery = searchParams.get("search") || "";
+  const [searchInput, setSearchInput] = useState(currentQuery);
+
+  // حالة مودال الكتالوج المرفوعة للأب
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+
+  useEffect(() => {
+    setSearchInput(currentQuery);
+  }, [currentQuery]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (searchInput === currentQuery) return;
+      const params = new URLSearchParams(searchParams.toString());
+      if (searchInput) params.set("search", searchInput);
+      else params.delete("search");
+      router.replace(`${pathname}?${params.toString()}`);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput, currentQuery, pathname, router, searchParams]);
 
   const handleTabChange = (tabId: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -74,22 +116,127 @@ export default function FinanceClient() {
     });
   };
 
-  return (
-    <>
-      <AppShellHeader title="الحسابات المالية" />
-      <div className="flex-1 flex flex-col gap-6">
-        {/* أزرار التنقل بين التبويبات الثلاثة */}
+  // فلاتر ديناميكية حسب التبويب
+  let filters: ToolbarFilterGroup[] | undefined = undefined;
+  if (activeTab === "expenses") {
+    filters = [
+      {
+        key: "category",
+        label: "الفئة",
+        value: searchParams.get("category") || "all",
+        options: EXPENSE_CATEGORIES.map((cat) => ({
+          value: cat === "الكل" ? "all" : cat,
+          label: cat,
+        })),
+        onChange: (val) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (val === "all") params.delete("category");
+          else params.set("category", val);
+          router.replace(`${pathname}?${params.toString()}`);
+        },
+      },
+    ];
+  } else if (activeTab === "sales") {
+    filters = [
+      {
+        key: "source",
+        label: "المصدر",
+        value: searchParams.get("source") || "all",
+        options: SALE_SOURCES,
+        onChange: (val) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (val === "all") params.delete("source");
+          else params.set("source", val);
+          router.replace(`${pathname}?${params.toString()}`);
+        },
+      },
+    ];
+  }
+
+  // إجراءات ثانوية للمنيو المنسدل
+  let menuItems: ToolbarMenuItem[] | undefined = undefined;
+  if (activeTab === "purchases") {
+    menuItems = [
+      {
+        key: "catalog",
+        label: "إدارة أصناف المشتريات",
+        icon: <Boxes className="w-5 h-5" />,
+        onClick: () => setIsCatalogOpen(true),
+      },
+    ];
+  } else if (activeTab === "expenses") {
+    menuItems = [
+      {
+        key: "catalog",
+        label: "إدارة فئات المصاريف",
+        icon: <Boxes className="w-5 h-5" />,
+        onClick: () => setIsCatalogOpen(true),
+      },
+    ];
+  }
+
+  // الإجراء الأساسي المربّع (+)
+  const getTrailingAction = () => {
+    let label = "مشتريات جديدة";
+    let queryParam = "newPurchase";
+    if (activeTab === "expenses") {
+      label = "مصروف جديد";
+      queryParam = "newExpense";
+    } else if (activeTab === "sales") {
+      label = "مبيعات جديدة";
+      queryParam = "newSale";
+    }
+
+    return (
+      <Button
+        onClick={() => {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set(queryParam, "true");
+          router.replace(`${pathname}?${params.toString()}`);
+        }}
+        size="icon"
+        aria-label={label}
+        title={label}
+      >
+        <Plus className="w-5 h-5" />
+      </Button>
+    );
+  };
+
+  const pageAction = (
+    <PageToolbar
+      leading={
         <SegmentedControl
           value={activeTab}
           onChange={handleTabChange}
           options={tabs.map((t) => ({
             value: t.id,
-            label: t.label,
-            icon: <t.icon className="h-4.5 w-4.5 shrink-0" />,
+            label: "", // أيقونات فقط لتفادي القص على الموبايل
+            icon: <t.icon className="h-5 w-5 shrink-0" />,
           }))}
-          className="w-full"
+          className="gap-0.5"
         />
+      }
+      search={{
+        value: searchInput,
+        onChange: setSearchInput,
+        placeholder:
+          activeTab === "purchases"
+            ? "البحث في المشتريات..."
+            : activeTab === "expenses"
+            ? "البحث في المصاريف..."
+            : "البحث في بيان المبيعات...",
+      }}
+      filters={filters}
+      menuItems={menuItems}
+      trailing={getTrailingAction()}
+    />
+  );
 
+  return (
+    <>
+      <AppShellHeader title="" action={pageAction} />
+      <div className="flex-1 flex flex-col gap-6">
         {/* محتوى التبويب النشط */}
         <div className="flex-1 flex flex-col">
           {activeTab === "purchases" && <PurchasesTab />}
@@ -97,6 +244,14 @@ export default function FinanceClient() {
           {activeTab === "sales" && <SalesTab />}
         </div>
       </div>
+
+      {isCatalogOpen && (activeTab === "purchases" || activeTab === "expenses") && (
+        <FinanceCatalogModal
+          isOpen={isCatalogOpen}
+          onClose={() => setIsCatalogOpen(false)}
+          type={activeTab as "purchases" | "expenses"}
+        />
+      )}
     </>
   );
 }
