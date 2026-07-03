@@ -12,6 +12,7 @@ import { Button } from "@/components/shared/Button";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { FilterChip } from "@/components/shared/FilterChip";
 import { ListHeader } from "@/components/shared/ListHeader";
 import {
   useCreateSale,
@@ -151,23 +152,14 @@ export function SalesTab() {
         }
         filters={
           <>
-            {sourceFilters.map((filt) => {
-              const isActive = source === filt.value;
-              return (
-                <button
-                  key={filt.value}
-                  type="button"
-                  onClick={() => handleSourceFilter(filt.value)}
-                  className={`flex-1 min-h-[44px] h-11 px-3 rounded-full text-xs font-bold border transition-all ${
-                    isActive
-                      ? "bg-info text-paper border-info"
-                      : "bg-paper text-ink-2 border-hairline hover:border-hairline-2"
-                  }`}
-                >
-                  {filt.label}
-                </button>
-              );
-            })}
+            {sourceFilters.map((filt) => (
+              <FilterChip
+                key={filt.value}
+                label={filt.label}
+                isActive={source === filt.value}
+                onClick={() => handleSourceFilter(filt.value)}
+              />
+            ))}
           </>
         }
       />

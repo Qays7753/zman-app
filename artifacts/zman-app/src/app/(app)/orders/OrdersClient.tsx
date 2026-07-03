@@ -101,29 +101,29 @@ export default function OrdersClient() {
           type="button"
           onClick={() => setTab("list")}
           className={cn(
-            "min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md transition-colors",
+            "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md transition-colors",
             tab === "list"
-              ? "bg-paper text-info shadow-sm"
+              ? "bg-info text-paper shadow-sm"
               : "text-ink-3 hover:text-ink hover:bg-paper/60",
           )}
           aria-label="عرض القائمة"
           title="قائمة الطلبات"
         >
-          <LayoutList className="w-4 h-4" />
+          <LayoutList className="w-5 h-5" />
         </button>
         <button
           type="button"
           onClick={() => setTab("calendar")}
           className={cn(
-            "min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md transition-colors",
+            "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md transition-colors",
             tab === "calendar"
-              ? "bg-paper text-info shadow-sm"
+              ? "bg-info text-paper shadow-sm"
               : "text-ink-3 hover:text-ink hover:bg-paper/60",
           )}
           aria-label="عرض التقويم"
           title="تقويم الطلبات"
         >
-          <CalendarDays className="w-4 h-4" />
+          <CalendarDays className="w-5 h-5" />
         </button>
       </div>
 

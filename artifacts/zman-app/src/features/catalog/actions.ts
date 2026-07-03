@@ -69,7 +69,7 @@ export async function updateCatalogComponent(rawInput: unknown): Promise<ActionR
       if (!existing) return { status: "error", message: "العنصر غير موجود" };
 
       if (new Date(updatedAt).getTime() !== new Date(existing.updatedAt).getTime()) {
-        return { status: "error", message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة" };
+        return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
       }
 
       const [updated] = await tx
@@ -78,7 +78,7 @@ export async function updateCatalogComponent(rawInput: unknown): Promise<ActionR
         .where(eq(catalogComponent.id, id))
         .returning();
 
-      if (!updated) return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
+      if (!updated) return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
 
       revalidatePath("/catalog");
       return { status: "ok", data: updated };
@@ -103,7 +103,7 @@ export async function deleteCatalogComponent(id: string, updatedAt: string): Pro
       if (!existing) return { status: "error", message: "العنصر غير موجود" };
 
       if (new Date(updatedAt).getTime() !== new Date(existing.updatedAt).getTime()) {
-        return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
+        return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
       }
 
       await tx

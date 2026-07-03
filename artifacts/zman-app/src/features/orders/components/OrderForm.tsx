@@ -169,7 +169,7 @@ export function OrderForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="space-y-5 max-w-xl mx-auto pb-24 lg:pb-0"
+      className="space-y-5 max-w-xl mx-auto pb-32 lg:pb-0"
     >
       {/* بيانات العميل */}
       <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm space-y-4">
@@ -425,7 +425,7 @@ export function OrderForm({
       </div>
 
       {/* أزرار الحفظ */}
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-paper/95 backdrop-blur-md border-t border-hairline flex gap-3 lg:static lg:p-0 lg:bg-transparent lg:border-none z-dropdown lg:z-auto">
+      <div className="sticky bottom-0 bg-paper border-t border-hairline p-4 flex gap-3 lg:static lg:p-0 lg:bg-transparent lg:border-none z-sticky lg:z-auto">
         <Button
           variant="secondary"
           onClick={onCancel}

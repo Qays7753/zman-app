@@ -68,7 +68,7 @@ export async function updateSnippet(rawInput: unknown): Promise<ActionResponse> 
       if (!existing) return { status: "error", message: "الملاحظة غير موجودة" };
 
       if (new Date(updatedAt).getTime() !== new Date(existing.updatedAt).getTime()) {
-        return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
+        return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
       }
 
       const [updated] = await tx
@@ -77,7 +77,7 @@ export async function updateSnippet(rawInput: unknown): Promise<ActionResponse> 
         .where(eq(snippet.id, id))
         .returning();
 
-      if (!updated) return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
+      if (!updated) return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
 
       revalidatePath("/snippets");
       return { status: "ok", data: updated };
@@ -102,7 +102,7 @@ export async function deleteSnippet(id: string, updatedAt: string): Promise<Acti
       if (!existing) return { status: "error", message: "الملاحظة غير موجودة" };
 
       if (new Date(updatedAt).getTime() !== new Date(existing.updatedAt).getTime()) {
-        return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
+        return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
       }
 
       await tx

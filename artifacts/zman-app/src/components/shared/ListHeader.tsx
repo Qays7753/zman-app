@@ -18,7 +18,7 @@ export function ListHeader({
   filters,
 }: ListHeaderProps) {
   return (
-    <div className="sticky top-14 lg:top-16 z-sticky bg-canvas/95 backdrop-blur-sm pt-2 pb-3 -mx-4 px-4 lg:mx-0 lg:px-0 space-y-3">
+    <div className="sticky top-0 z-sticky bg-canvas/95 backdrop-blur-sm pt-2 pb-3 -mx-4 px-4 lg:mx-0 lg:px-0 space-y-3">
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-ink/40 pointer-events-none" />
@@ -33,8 +33,11 @@ export function ListHeader({
         {actions}
       </div>
       {filters && (
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {filters}
+        <div className="relative">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {filters}
+          </div>
+          <div className="absolute top-0 bottom-1 left-0 w-8 bg-gradient-to-l from-transparent to-canvas pointer-events-none" />
         </div>
       )}
     </div>

@@ -78,7 +78,7 @@ export default function FinanceClient() {
       <AppShellHeader title="الحسابات المالية" />
       <div className="flex-1 flex flex-col gap-6">
         {/* أزرار التنقل بين التبويبات الثلاثة */}
-        <div className="flex bg-canvas p-1.5 rounded-lg border border-hairline">
+        <div className="flex bg-canvas p-1 rounded-lg border border-hairline gap-1">
           {tabs.map((t) => {
             const isActive = activeTab === t.id;
             const Icon = t.icon;
@@ -87,13 +87,13 @@ export default function FinanceClient() {
                 key={t.id}
                 type="button"
                 onClick={() => handleTabChange(t.id)}
-                className={`flex-1 h-11 min-h-[44px] px-3 rounded-md flex items-center justify-center gap-1.5 text-sm font-bold transition-all ${
+                className={`flex-1 h-11 min-h-[44px] px-3 rounded-md flex items-center justify-center gap-1.5 text-sm font-bold transition-all duration-150 active:scale-[0.97] ${
                   isActive
-                    ? "bg-paper text-ink shadow-sm"
-                    : "text-ink/60 hover:text-ink/80"
+                    ? "bg-info text-paper shadow-sm"
+                    : "text-ink-3 hover:text-ink hover:bg-paper/40"
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? "text-info" : ""}`} />
+                <Icon className="h-4.5 w-4.5 shrink-0" />
                 <span>{t.label}</span>
               </button>
             );

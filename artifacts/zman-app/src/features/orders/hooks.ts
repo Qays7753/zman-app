@@ -92,7 +92,7 @@ export function useUpdateOrder() {
   return useMutation({
     mutationFn: updateOrder,
     onSuccess: (res, _variables) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: orderKeys.all });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -110,7 +110,7 @@ export function useDeleteOrder() {
     mutationFn: ({ id, updatedAt }: { id: string; updatedAt: string }) =>
       deleteOrder(id, updatedAt),
     onSuccess: (res) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: orderKeys.all });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });

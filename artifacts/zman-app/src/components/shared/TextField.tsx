@@ -12,7 +12,7 @@ interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
 export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
   ({ className, label, error, helperText, icon, containerClassName, type = "text", ...props }, ref) => {
     return (
-      <div className={cn("w-full space-y-1.5 text-right", containerClassName)}>
+      <div className={cn("w-full space-y-1.5 text-start", containerClassName)}>
         {label && (
           <label className="block text-sm font-bold text-ink-2 select-none">
             {label}

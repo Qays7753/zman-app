@@ -28,7 +28,7 @@ export function ConfirmDialog({
   return (
     <ResponsiveModal isOpen={isOpen} onClose={onCancel} title={title}>
       <div className="space-y-4">
-        <p className="text-sm text-ink/70 leading-relaxed text-right">{message}</p>
+        <p className="text-sm text-ink/70 leading-relaxed text-start">{message}</p>
         <div className="flex gap-3 pt-2">
           <Button
             variant="secondary"

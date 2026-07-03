@@ -195,7 +195,7 @@ export function FinanceCatalogModal({
                 key={item.id}
                 className="flex items-center justify-between p-3 hover:bg-canvas/30 transition-colors"
               >
-                <span className="font-semibold text-ink text-sm truncate pr-2">
+                <span className="font-semibold text-ink text-sm truncate pe-2">
                   {item.name}
                 </span>
                 <div className="flex items-center gap-1 shrink-0">

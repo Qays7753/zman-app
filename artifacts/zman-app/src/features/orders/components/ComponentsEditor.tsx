@@ -1,7 +1,7 @@
 "use client";
 
 import { Boxes, Loader2, Plus, Search, Trash2, X } from "lucide-react";
-import { createPortal } from "react-dom";
+import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray } from "react-hook-form";
 import { toast } from "sonner";
@@ -30,11 +30,6 @@ export function ComponentsEditor({
     control,
     name: "components",
   });
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // ===== منتقي الكتالوج =====
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -199,110 +194,79 @@ export function ComponentsEditor({
       </div>
 
       {/* ===== مودال منتقي الكتالوج ===== */}
-      {isPickerOpen && mounted && createPortal(
-        <div
-          className="fixed inset-0 z-modal flex items-end justify-center lg:items-center"
-          role="dialog"
-          aria-modal="true"
-        >
-          {/* الخلفية */}
-          <div
-            className="absolute inset-0 bg-ink/40"
-            onClick={() => setIsPickerOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* لوحة الانتقاء */}
-          <div className="relative w-full bg-paper z-modal flex flex-col rounded-t-2xl max-h-[calc(100dvh-4.5rem)] lg:rounded-xl lg:max-w-[460px] lg:max-h-[75vh] lg:shadow-xl">
-            {/* المقبض */}
-            <div className="flex justify-center pt-2.5 pb-1 lg:hidden flex-shrink-0">
-              <div className="w-10 h-1 bg-ink/20 rounded-full" />
-            </div>
-
-            {/* الترويسة */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-hairline flex-shrink-0">
-              <h3 className="text-base font-bold text-ink">اختر من المكوّنات</h3>
-              <button
-                type="button"
-                onClick={() => setIsPickerOpen(false)}
-                className="p-2 -me-2 rounded-full hover:bg-canvas text-ink-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                aria-label="إغلاق"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* حقل البحث */}
-            <div className="px-5 py-3 border-b border-hairline flex-shrink-0">
-              <div className="relative">
-                <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink/40 pointer-events-none" />
-                <input
-                  ref={searchRef}
-                  type="text"
-                  value={catalogSearch}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  placeholder="ابحث في المكوّنات…"
-                  className="w-full h-11 ps-10 pe-4 rounded-md border border-hairline bg-canvas text-sm focus:outline-none focus:ring-2 focus:ring-ink"
-                />
-              </div>
-            </div>
-
-            {/* قائمة العناصر */}
-            <div className="flex-1 overflow-y-auto">
-              {isCatalogLoading ? (
-                <div className="flex items-center justify-center py-10 text-ink/40 gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span className="text-sm">جارٍ التحميل…</span>
-                </div>
-              ) : catalogItems.length === 0 ? (
-                <div className="text-center py-10 px-4">
-                  <p className="text-sm text-ink/50">
-                    {catalogSearch ? `لا نتائج لـ "${catalogSearch}"` : "المكوّنات فارغة — أضف مكوّنات من صفحة المكوّنات"}
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-hairline">
-                  {catalogItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleSelectCatalogItem(item)}
-                      className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-info-soft transition-colors text-start group"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-ink group-hover:text-info truncate">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-ink/45 mt-0.5">
-                          {item.unit}
-                          {item.notes ? ` — ${item.notes}` : ""}
-                        </p>
-                      </div>
-                      <div className="text-end flex-shrink-0">
-                        <p className="text-sm font-bold text-info">
-                          {(item.defaultCostCents / 1000).toLocaleString("en-JO", {
-                            minimumFractionDigits: 3,
-                            maximumFractionDigits: 3,
-                          })}
-                        </p>
-                        <p className="text-[10px] text-ink/40">د.أ</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* تذييل */}
-            <div className="px-5 py-3 border-t border-hairline bg-canvas flex-shrink-0">
-              <p className="text-xs text-ink/40 text-center">
-                اضغط على أي عنصر لإضافته إلى مكوّنات الطلب
-              </p>
-            </div>
+      <ResponsiveModal
+        isOpen={isPickerOpen}
+        onClose={() => setIsPickerOpen(false)}
+        title="اختر من المكوّنات"
+      >
+        <div className="space-y-4">
+          {/* حقل البحث */}
+          <div className="relative">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink/40 pointer-events-none" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={catalogSearch}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="ابحث في المكوّنات…"
+              className="w-full h-11 ps-10 pe-4 rounded-md border border-hairline bg-canvas text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+            />
           </div>
-        </div>,
-        document.body
-      )}
+
+          {/* قائمة العناصر */}
+          <div className="max-h-[40vh] overflow-y-auto divide-y divide-hairline -mx-5 px-5">
+            {isCatalogLoading ? (
+              <div className="flex items-center justify-center py-10 text-ink/40 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-info" />
+                <span className="text-sm">جارٍ التحميل…</span>
+              </div>
+            ) : catalogItems.length === 0 ? (
+              <div className="text-center py-10 px-4">
+                <p className="text-sm text-ink/50">
+                  {catalogSearch ? `لا نتائج لـ "${catalogSearch}"` : "المكوّنات فارغة — أضف مكوّنات من صفحة المكوّنات"}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-hairline">
+                {catalogItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSelectCatalogItem(item)}
+                    className="w-full flex items-center gap-4 py-3.5 hover:bg-info-soft transition-colors text-start group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-ink group-hover:text-info truncate">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-ink/45 mt-0.5">
+                        {item.unit}
+                        {item.notes ? ` — ${item.notes}` : ""}
+                      </p>
+                    </div>
+                    <div className="text-end flex-shrink-0">
+                      <p className="text-sm font-bold text-info">
+                        {(item.defaultCostCents / 1000).toLocaleString("en-JO", {
+                          minimumFractionDigits: 3,
+                          maximumFractionDigits: 3,
+                        })}
+                      </p>
+                      <p className="text-[10px] text-ink/40">د.أ</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* تذييل */}
+          <div className="pt-3 border-t border-hairline text-center">
+            <p className="text-xs text-ink/40">
+              اضغط على أي عنصر لإضافته إلى مكوّنات الطلب
+            </p>
+          </div>
+        </div>
+      </ResponsiveModal>
     </div>
   );
 }

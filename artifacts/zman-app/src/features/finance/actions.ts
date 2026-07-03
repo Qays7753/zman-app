@@ -148,7 +148,7 @@ export async function updatePurchase(
       if (clientTime !== dbTime) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة وحاول مجدداً",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -209,7 +209,7 @@ export async function deletePurchase(
       if (clientTime !== dbTime) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة وحاول مجدداً",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -351,7 +351,7 @@ export async function updateExpense(
       if (clientTime !== dbTime) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة وحاول مجدداً",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -410,7 +410,7 @@ export async function deleteExpense(
       if (clientTime !== dbTime) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة وحاول مجدداً",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -553,7 +553,7 @@ export async function updateSale(
       if (clientTime !== dbTime) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة وحاول مجدداً",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -611,7 +611,7 @@ export async function deleteSale(
       if (clientTime !== dbTime) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة وحاول مجدداً",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 

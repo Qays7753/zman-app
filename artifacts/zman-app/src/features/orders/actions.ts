@@ -229,7 +229,7 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       if (clientDate !== dbDate) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة وحاول مجدداً",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -265,7 +265,7 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       if (!updatedOrder) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -330,7 +330,7 @@ export async function deleteOrder(
       if (clientDate !== dbDate) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -346,7 +346,7 @@ export async function deleteOrder(
       if (!deleted) {
         return {
           status: "error",
-          message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة",
+          message: "تم تحديث البيانات من جهة أخرى",
         };
       }
 
@@ -398,7 +398,7 @@ export async function updateOrderStatus(
 
       // 4. فحص التزامن المتفائل
       if (new Date(updatedAt).getTime() !== new Date(existing.updatedAt).getTime()) {
-        return { status: "error", message: "السجل تم تعديله من جلسة أخرى — حدّث الصفحة" };
+        return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
       }
 
       // 5. تحديث الحالة
@@ -409,7 +409,7 @@ export async function updateOrderStatus(
         .returning();
 
       if (!updated) {
-        return { status: "error", message: "السجل تم تعديله — حدّث الصفحة" };
+        return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
       }
 
       revalidatePath("/orders");

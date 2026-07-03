@@ -120,7 +120,7 @@ export function useUpdatePurchase() {
       values: unknown;
     }) => updatePurchase(id, updatedAt, values),
     onSuccess: (res, variables) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.purchases() });
         queryClient.invalidateQueries({
           queryKey: financeKeys.purchaseDetail(variables.id),
@@ -137,7 +137,7 @@ export function useDeletePurchase() {
     mutationFn: ({ id, updatedAt }: { id: string; updatedAt: string }) =>
       deletePurchase(id, updatedAt),
     onSuccess: (res) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.purchases() });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
@@ -210,7 +210,7 @@ export function useUpdateExpense() {
       values: unknown;
     }) => updateExpense(id, updatedAt, values),
     onSuccess: (res, variables) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
         queryClient.invalidateQueries({
           queryKey: financeKeys.expenseDetail(variables.id),
@@ -227,7 +227,7 @@ export function useDeleteExpense() {
     mutationFn: ({ id, updatedAt }: { id: string; updatedAt: string }) =>
       deleteExpense(id, updatedAt),
     onSuccess: (res) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
@@ -291,7 +291,7 @@ export function useUpdateSale() {
       values: unknown;
     }) => updateSale(id, updatedAt, values),
     onSuccess: (res, variables) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.sales() });
         queryClient.invalidateQueries({
           queryKey: financeKeys.saleDetail(variables.id),
@@ -308,7 +308,7 @@ export function useDeleteSale() {
     mutationFn: ({ id, updatedAt }: { id: string; updatedAt: string }) =>
       deleteSale(id, updatedAt),
     onSuccess: (res) => {
-      if (res.status === "ok") {
+      if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.sales() });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }

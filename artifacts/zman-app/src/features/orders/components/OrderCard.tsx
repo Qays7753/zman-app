@@ -1,7 +1,7 @@
 "use client";
 
-import { Edit, MessageSquare, MoreVertical, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Edit, Loader2, MessageSquare, MoreVertical, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
@@ -31,6 +31,11 @@ export function OrderCard({
   const { data: templateText } = useMessageTemplate();
   const updateStatusMutation = useUpdateOrderStatus();
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [localStatus, setLocalStatus] = useState(order.status);
+
+  useEffect(() => {
+    setLocalStatus(order.status);
+  }, [order.status]);
 
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -42,6 +47,8 @@ export function OrderCard({
 
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value;
+    const oldStatus = localStatus;
+    setLocalStatus(newStatus);
     setIsUpdatingStatus(true);
     try {
       const res = await updateStatusMutation.mutateAsync({
@@ -53,9 +60,11 @@ export function OrderCard({
         toast.success("تم تحديث حالة الطلب بنجاح");
       } else {
         toast.error(res.message);
+        setLocalStatus(oldStatus);
       }
     } catch {
       toast.error("حدث خطأ أثناء تحديث الحالة");
+      setLocalStatus(oldStatus);
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -76,7 +85,7 @@ export function OrderCard({
             onClick(order);
           }
         }}
-        className="p-4 rounded-lg bg-paper border border-hairline shadow-sm hover:border-hairline-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 transition-colors cursor-pointer flex flex-col gap-3 relative"
+        className="p-4 rounded-lg bg-paper border border-hairline shadow-sm hover:border-hairline-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 active:scale-[0.98] transition-all duration-150 cursor-pointer flex flex-col gap-3 relative"
       >
         {/* السطر الأول: اسم العميل وحالة الطلب + زر الخيارات */}
         <div className="flex justify-between items-center gap-2">
@@ -84,16 +93,16 @@ export function OrderCard({
             <span className="font-bold text-ink truncate text-base leading-tight">
               {order.customerName}
             </span>
-            {isUpdatingStatus ? (
-              <span className="text-[10px] text-ink-3">جاري التحديث...</span>
-            ) : (
+            <div className="relative flex items-center gap-1.5">
               <select
-                value={order.status}
+                value={localStatus}
+                disabled={isUpdatingStatus}
                 onClick={(e) => e.stopPropagation()}
                 onChange={handleStatusChange}
                 className={cn(
                   "px-2 py-0.5 rounded-full text-xs font-semibold border leading-none h-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-info transition-colors duration-200",
-                  STATUS_COLORS[order.status] || "bg-info-soft text-info border-info/20",
+                  STATUS_COLORS[localStatus] || "bg-info-soft text-info border-info/20",
+                  isUpdatingStatus && "opacity-50 pointer-events-none"
                 )}
                 aria-label="تغيير حالة الطلب"
               >
@@ -103,7 +112,10 @@ export function OrderCard({
                   </option>
                 ))}
               </select>
-            )}
+              {isUpdatingStatus && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-info" />
+              )}
+            </div>
           </div>
 
           {/* زر الخيارات: متجاوب وأكبر من 44px لملاءمة اللمس (§9.1) */}

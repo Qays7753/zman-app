@@ -12,6 +12,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { Button } from "@/components/shared/Button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { FilterChip } from "@/components/shared/FilterChip";
 import { ListHeader } from "@/components/shared/ListHeader";
 import {
   useCreateExpense,
@@ -179,24 +180,14 @@ export function ExpensesTab() {
         }
         filters={
           <>
-            {categoriesList.map((cat) => {
-              const isActive =
-                (cat === "الكل" && category === "all") || category === cat;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => handleCategoryFilter(cat)}
-                  className={`min-h-[44px] h-11 px-4 rounded-full text-sm font-bold whitespace-nowrap border transition-all ${
-                    isActive
-                      ? "bg-info text-paper border-info"
-                      : "bg-paper text-ink-2 border-hairline hover:border-hairline-2"
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
+            {categoriesList.map((cat) => (
+              <FilterChip
+                key={cat}
+                label={cat}
+                isActive={(cat === "الكل" && category === "all") || category === cat}
+                onClick={() => handleCategoryFilter(cat)}
+              />
+            ))}
           </>
         }
       />

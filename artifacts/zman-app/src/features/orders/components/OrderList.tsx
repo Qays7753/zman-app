@@ -17,6 +17,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { WhatsAppTemplateEditor } from "./WhatsAppTemplateEditor";
 import { ListHeader } from "@/components/shared/ListHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { FilterChip } from "@/components/shared/FilterChip";
 
 interface OrderListProps {
   onEdit: (order: Order) => void;
@@ -149,24 +150,14 @@ export function OrderList({
         }
         filters={
           <>
-            {statusFilters.map((filter) => {
-              const isActive = currentStatus === filter.value;
-              return (
-                <button
-                  key={filter.value}
-                  type="button"
-                  onClick={() => handleStatusChange(filter.value)}
-                  className={cn(
-                    "px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap min-h-[44px] flex items-center justify-center",
-                    isActive
-                      ? "bg-info text-paper border-info"
-                      : "bg-paper text-ink-2 border-hairline hover:border-hairline-2",
-                  )}
-                >
-                  {filter.label}
-                </button>
-              );
-            })}
+            {statusFilters.map((filter) => (
+              <FilterChip
+                key={filter.value}
+                label={filter.label}
+                isActive={currentStatus === filter.value}
+                onClick={() => handleStatusChange(filter.value)}
+              />
+            ))}
           </>
         }
       />

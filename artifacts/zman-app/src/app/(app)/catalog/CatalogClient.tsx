@@ -197,6 +197,8 @@ function CatalogForm({
     setIsSubmitting(true);
     try {
       await onSubmit(values);
+    } catch {
+      toast.error("فشل الاتصال بالسيرفر — حاول مجدداً");
     } finally {
       setIsSubmitting(false);
     }
@@ -214,6 +216,8 @@ function CatalogForm({
     setIsSubmitting(true);
     try {
       await onDelete();
+    } catch {
+      toast.error("فشل الاتصال بالسيرفر — حاول مجدداً");
     } finally {
       setIsSubmitting(false);
     }

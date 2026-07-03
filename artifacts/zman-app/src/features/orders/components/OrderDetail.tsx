@@ -151,7 +151,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   };
 
   return (
-    <div className="space-y-6 max-w-xl mx-auto pb-24 lg:pb-0">
+    <div className="space-y-6 max-w-xl mx-auto pb-32 lg:pb-0">
       {/* زر العودة والخيارات الرئيسية */}
       <div className="flex items-center justify-between border-b border-hairline pb-4">
         <button
@@ -315,7 +315,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
                 <span className="font-semibold text-info">
                   <AmountText amount={orderData.depositCents} />
                   {orderData.depositDate && (
-                    <span className="text-xs text-ink-3 font-normal mr-1">
+                    <span className="text-xs text-ink-3 font-normal ms-1">
                       (بتاريخ {orderData.depositDate})
                     </span>
                   )}
@@ -380,7 +380,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       )}
 
       {/* زر التراسل السريع والاتفاق: شريط سفلي لاصق في الهاتف للإبهام ومرن بالديسكتوب (§9.1) */}
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-paper/90 backdrop-blur-md border-t border-hairline flex flex-col gap-3 lg:static lg:p-0 lg:bg-transparent lg:border-none z-dropdown lg:z-auto">
+      <div className="sticky bottom-0 bg-paper border-t border-hairline p-4 flex flex-col gap-3 lg:static lg:p-0 lg:bg-transparent lg:border-none z-sticky lg:z-auto">
         <button
           type="button"
           onClick={handleWhatsApp}

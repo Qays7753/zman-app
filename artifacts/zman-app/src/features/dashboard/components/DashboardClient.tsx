@@ -21,6 +21,7 @@ import { AmountText } from "@/components/shared/AmountText";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
+import { FilterChip } from "@/components/shared/FilterChip";
 import {
   useFinancialSummary,
   useFinancialTrendData,
@@ -503,7 +504,7 @@ export function DashboardClient() {
               </div>
               <div className="flex flex-wrap gap-2 justify-center">
                 <Link
-                  href="/orders?newOrder=true"
+                  href="/orders?new=true"
                   className="min-h-[44px] px-4 py-2 bg-ink text-paper rounded-md text-xs font-bold shadow-sm hover:bg-ink/90 flex items-center justify-center gap-1.5"
                 >
                   <Plus className="h-4 w-4" />
@@ -599,18 +600,14 @@ export function DashboardClient() {
             <span className="text-xs font-bold text-ink/55">فترات سريعة:</span>
             <div className="grid grid-cols-3 gap-2">
               {presets.map((preset, i) => (
-                <button
+                <FilterChip
                   key={preset.label}
-                  type="button"
+                  label={preset.label}
+                  isActive={selectedPresetIdx === i && !customRange}
                   onClick={() => handlePresetSelect(i)}
-                  className={`h-11 rounded-md text-xs font-bold border transition-colors ${
-                    selectedPresetIdx === i && !customRange
-                      ? "bg-ink text-paper border-ink"
-                      : "bg-paper text-ink/75 border-hairline hover:bg-canvas"
-                  }`}
-                >
-                  {preset.label}
-                </button>
+                  variant="rectangle"
+                  className="w-full font-bold text-xs"
+                />
               ))}
             </div>
           </div>
@@ -620,7 +617,7 @@ export function DashboardClient() {
           {/* التخصيص اليدوي */}
           <form onSubmit={handleCustomSubmit} className="space-y-4">
             <span className="text-xs font-bold text-ink/55">
-              تحديد فترة مخصصة:
+               تحديد فترة مخصصة:
             </span>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -662,7 +659,7 @@ export function DashboardClient() {
             </div>
             <button
               type="submit"
-              className="w-full h-11 bg-ink text-paper rounded-md text-sm font-bold shadow-sm focus:ring-ink"
+              className="w-full h-11 bg-info text-paper rounded-md text-sm font-bold shadow-sm hover:bg-info/90 active:scale-95 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
             >
               تطبيق التواريخ المخصصة
             </button>
@@ -688,7 +685,7 @@ export function DashboardClient() {
       >
         <div className="grid grid-cols-2 gap-4">
           <Link
-            href="/orders?newOrder=true"
+            href="/orders?new=true"
             onClick={() => setIsFabOpen(false)}
             className="flex flex-col items-center justify-center p-4 bg-canvas rounded-lg border border-hairline hover:border-ink/20 transition-colors gap-2 min-h-[80px]"
           >

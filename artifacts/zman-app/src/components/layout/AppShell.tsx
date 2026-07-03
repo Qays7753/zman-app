@@ -54,10 +54,9 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
     <div className="h-dvh flex flex-col bg-canvas text-ink font-sans overflow-hidden">
       {/* شريط تنبيه انقطاع الشبكة */}
       {!isOnline && (
-        <>
-          <div className="flex-shrink-0 w-full h-[2px] bg-warn z-sticky" />
-          <output className="sr-only">تحذير: لا يوجد اتصال بالإنترنت</output>
-        </>
+        <div className="flex-shrink-0 w-full h-8 bg-warn-soft text-warn-deep text-xs font-semibold flex items-center justify-center gap-2 z-sticky border-b border-warn/10 select-none">
+          <span>لا يوجد اتصال بالإنترنت</span>
+        </div>
       )}
 
       {/* الشريط الجانبي للديسكتوب */}
@@ -95,7 +94,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       </aside>
 
       {/* هيدر الموبايل — ارتفاع ثابت 56px */}
-      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper border-b border-hairline flex items-center justify-between px-4 z-sticky">
+      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper/90 backdrop-blur-sm shadow-sm border-b border-hairline flex items-center justify-between px-4 z-sticky">
         <h1 className="text-base font-bold text-ink truncate">{title || "Zman"}</h1>
         {action && <div className="flex items-center ms-3">{action}</div>}
       </header>
@@ -128,9 +127,9 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 w-full h-full text-[10px] transition-colors",
+                "flex flex-col items-center justify-center gap-0.5 w-full h-full text-[11px] transition-colors border-t-2 border-transparent",
                 isActive
-                  ? "text-info font-bold"
+                  ? "text-info font-bold border-info"
                   : "text-ink-3 hover:text-ink-2",
               )}
             >
@@ -144,9 +143,9 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
           type="button"
           onClick={() => setIsMoreOpen(true)}
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 w-full h-full text-[10px] transition-colors",
+            "flex flex-col items-center justify-center gap-0.5 w-full h-full text-[11px] transition-colors border-t-2 border-transparent",
             isMoreActive
-              ? "text-info font-bold"
+              ? "text-info font-bold border-info"
               : "text-ink-3 hover:text-ink-2",
           )}
         >
@@ -160,7 +159,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
         <>
           {/* backdrop */}
           <div
-            className="fixed inset-0 z-sheet bg-ink/20 backdrop-blur-[1px] lg:hidden"
+            className="fixed inset-0 z-sheet bg-ink/40 lg:hidden"
             onClick={() => setIsMoreOpen(false)}
             aria-hidden="true"
           />
