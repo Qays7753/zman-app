@@ -158,3 +158,112 @@ textarea {
   );
   background-size: 200% 100%;
 }
+
+/* Delivery Hue Cycle Animation */
+@keyframes delivery-hue-cycle {
+  0%   { background-color: #0f9d58; }  /* emerald */
+  10%  { background-color: #1565c0; }  /* blue */
+  20%  { background-color: #00897b; }  /* teal */
+  30%  { background-color: #f9a825; }  /* amber */
+  40%  { background-color: #e64a19; }  /* orange */
+  50%  { background-color: #c2185b; }  /* pink */
+  60%  { background-color: #7b1fa2; }  /* purple */
+  70%  { background-color: #00acc1; }  /* cyan */
+  80%  { background-color: #43a047; }  /* green */
+  90%  { background-color: #3949ab; }  /* indigo */
+  100% { background-color: #0f9d58; }  /* back to emerald */
+}
+
+@utility animate-delivery-hue {
+  animation: delivery-hue-cycle 20s linear infinite;
+}
+
+/* 10 Random Glow Keyframes and Utilities */
+@keyframes delivery-glow-1 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.4); }
+  50% { box-shadow: 0 0 16px 4px rgba(15, 157, 88, 0.6); }
+}
+@utility animate-delivery-glow-1 {
+  animation: delivery-glow-1 2.2s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-2 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(21, 101, 192, 0.4); }
+  50% { box-shadow: 0 0 20px 6px rgba(21, 101, 192, 0.6); }
+}
+@utility animate-delivery-glow-2 {
+  animation: delivery-glow-2 2.5s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-3 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 137, 123, 0.4); }
+  50% { box-shadow: 0 0 14px 3px rgba(0, 137, 123, 0.6); }
+}
+@utility animate-delivery-glow-3 {
+  animation: delivery-glow-3 2.0s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-4 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 168, 37, 0.4); }
+  50% { box-shadow: 0 0 18px 5px rgba(249, 168, 37, 0.6); }
+}
+@utility animate-delivery-glow-4 {
+  animation: delivery-glow-4 2.3s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-5 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230, 74, 25, 0.4); }
+  50% { box-shadow: 0 0 16px 4px rgba(230, 74, 25, 0.6); }
+}
+@utility animate-delivery-glow-5 {
+  animation: delivery-glow-5 2.1s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-6 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(194, 24, 91, 0.4); }
+  50% { box-shadow: 0 0 22px 6px rgba(194, 24, 91, 0.6); }
+}
+@utility animate-delivery-glow-6 {
+  animation: delivery-glow-6 2.6s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-7 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(123, 31, 162, 0.4); }
+  50% { box-shadow: 0 0 15px 4px rgba(123, 31, 162, 0.6); }
+}
+@utility animate-delivery-glow-7 {
+  animation: delivery-glow-7 2.4s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-8 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 172, 193, 0.4); }
+  50% { box-shadow: 0 0 18px 5px rgba(0, 172, 193, 0.6); }
+}
+@utility animate-delivery-glow-8 {
+  animation: delivery-glow-8 2.2s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-9 {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(57, 73, 171, 0.4); }
+  50% { box-shadow: 0 0 17px 4px rgba(57, 73, 171, 0.6); }
+}
+@utility animate-delivery-glow-9 {
+  animation: delivery-glow-9 2.3s ease-in-out infinite;
+}
+
+@keyframes delivery-glow-10 {
+  0%, 100% { box-shadow: 0 0 12px 3px rgba(15, 157, 88, 0.5); }
+  33% { box-shadow: 0 0 16px 5px rgba(21, 101, 192, 0.5); }
+  66% { box-shadow: 0 0 14px 4px rgba(249, 168, 37, 0.5); }
+}
+@utility animate-delivery-glow-10 {
+  animation: delivery-glow-10 3s linear infinite;
+}
+
+/* Accessibility: Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-delivery-hue,
+  [class*="animate-delivery-glow"] {
+    animation: none !important;
+  }
+}

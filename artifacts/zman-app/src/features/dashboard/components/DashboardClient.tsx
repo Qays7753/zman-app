@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -42,6 +42,11 @@ const FinancialChart = dynamic(() => import("./FinancialChart"), {
 
 export function DashboardClient() {
   const [_isPending, _startTransition] = useTransition();
+
+  const [glowStyle, setGlowStyle] = useState(1);
+  useEffect(() => {
+    setGlowStyle(Math.floor(Math.random() * 10) + 1);
+  }, []);
 
   // فترات التاريخ المتاحة
   const presets = [
@@ -262,13 +267,13 @@ export function DashboardClient() {
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <span
-                    className={`text-2xl sm:text-3xl lg:text-4xl font-bold flex items-baseline gap-1.5 ${netColorClass} whitespace-nowrap`}
+                    className={`text-2xl sm:text-3xl font-bold flex items-baseline gap-1.5 ${netColorClass} whitespace-nowrap`}
                   >
                     <span className="font-mono shrink-0">{netSign}</span>
-                    <AmountText amount={Math.abs(net)} className="truncate" />
+                    <AmountText amount={Math.abs(net)} />
                   </span>
-                  <p className="text-xs text-ink/50 mt-2">
-                    (الإيرادات والمبيعات − التكاليف والمصاريف التشغيلية)
+                  <p className="text-xs text-ink/50 mt-2 truncate">
+                    صافي الأرباح التشغيلية للفترة
                   </p>
                 </div>
                 {netTrendData.length >= 2 && (
@@ -284,6 +289,57 @@ export function DashboardClient() {
                 )}
               </div>
             </div>
+
+            {/* طلبات للتسليم قريباً */}
+            {stats && (
+              <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
+                <div className={
+                  stats.upcomingOrders.length > 0
+                    ? `flex items-center justify-between p-3.5 -mx-6 -mt-6 rounded-t-lg text-white font-bold animate-delivery-hue animate-delivery-glow-${glowStyle}`
+                    : "flex items-center justify-between border-b border-hairline pb-3"
+                }>
+                  <h3 className={`text-base font-bold flex items-center gap-1.5 ${stats.upcomingOrders.length > 0 ? "text-white" : "text-ink"}`}>
+                    <Calendar className={`h-4.5 w-4.5 ${stats.upcomingOrders.length > 0 ? "text-white" : "text-info"}`} />
+                    <span className="truncate">طلبات يستحق تسليمها قريباً (خلال 7 أيام)</span>
+                  </h3>
+                  <span className={`text-xs ${stats.upcomingOrders.length > 0 ? "text-white/90" : "text-ink/45"} truncate`}>
+                    {stats.upcomingOrders.length} طلبات
+                  </span>
+                </div>
+                {stats.upcomingOrders.length === 0 ? (
+                  <p className="text-sm text-ink/45 text-center py-6 bg-canvas rounded-lg border border-hairline">لا توجد طلبات يستحق تسليمها هذا الأسبوع</p>
+                ) : (
+                  <div className="divide-y divide-hairline">
+                    {stats.upcomingOrders.map((o) => (
+                      <Link
+                        key={o.id}
+                        href={`/orders?view=${o.id}`}
+                        className="flex items-center justify-between py-3 hover:bg-canvas px-2 -mx-2 rounded transition-colors"
+                      >
+                        <div>
+                          <p className="font-bold text-ink text-sm">{o.customerName}</p>
+                          <p className="text-xs text-ink/50 mt-0.5">{o.productName}</p>
+                        </div>
+                        <div className="text-end">
+                          <p className="text-xs text-ink/45">
+                            {o.deliveryDate
+                              ? new Date(o.deliveryDate).toLocaleDateString("ar-JO", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                })
+                              : "تاريخ غير محدد"}
+                          </p>
+                          <p className="text-sm font-bold text-info mt-0.5">
+                            <AmountText amount={o.totalPriceCents} />
+                          </p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* صافي الأرباح (أزرق في الربح، أحمر في الخسارة - غير معتمد على اللون فقط) */}
@@ -303,13 +359,13 @@ export function DashboardClient() {
                 </div>
                 <div className="mt-2 flex flex-col min-w-0">
                   <span
-                    className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 ${netColorClass} min-w-0`}
+                    className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 ${netColorClass} whitespace-nowrap min-w-0`}
                   >
                     <span className="font-mono text-base shrink-0">{netSign}</span>
-                    <AmountText amount={Math.abs(net)} className="truncate" />
+                    <AmountText amount={Math.abs(net)} />
                   </span>
-                  <span className="text-[10px] text-ink/40 mt-1">
-                    المبيعات ناقصاً كل التكاليف
+                  <span className="text-[10px] text-ink/40 mt-1 truncate">
+                    صافي الربح
                   </span>
                 </div>
               </div>
@@ -330,15 +386,15 @@ export function DashboardClient() {
                   )}
                 </div>
                 <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 min-w-0">
+                  <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
                     <span className="font-mono text-base shrink-0">+</span>
-                    <AmountText amount={summary?.sales ?? 0} className="truncate" />
+                    <AmountText amount={summary?.sales ?? 0} />
                   </span>
-                  <span className="text-[10px] text-ink/40 mt-1">
-                    مجموع الإيرادات الواردة
+                  <span className="text-[10px] text-ink/40 mt-1 truncate">
+                    إجمالي الإيرادات
                   </span>
                   {stats && stats.totalDepositsCents > 0 && (
-                    <span className="text-[10px] text-ink-3 mt-1 block">
+                    <span className="text-[10px] text-ink-3 mt-1 block truncate">
                       منه عربون: <AmountText amount={stats.totalDepositsCents} />
                     </span>
                   )}
@@ -361,12 +417,12 @@ export function DashboardClient() {
                   )}
                 </div>
                 <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 min-w-0">
+                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 whitespace-nowrap min-w-0">
                     <span className="font-mono text-base shrink-0">−</span>
-                    <AmountText amount={summary?.purchases ?? 0} className="truncate" />
+                    <AmountText amount={summary?.purchases ?? 0} />
                   </span>
-                  <span className="text-[10px] text-ink/40 mt-1">
-                    تكاليف المواد الخام والخامات
+                  <span className="text-[10px] text-ink/40 mt-1 truncate">
+                    مواد خام
                   </span>
                 </div>
               </div>
@@ -387,12 +443,12 @@ export function DashboardClient() {
                   )}
                 </div>
                 <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 min-w-0">
+                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 whitespace-nowrap min-w-0">
                     <span className="font-mono text-base shrink-0">−</span>
-                    <AmountText amount={summary?.expenses ?? 0} className="truncate" />
+                    <AmountText amount={summary?.expenses ?? 0} />
                   </span>
-                  <span className="text-[10px] text-ink/40 mt-1">
-                    تكاليف التشغيل والرواتب والفواتير
+                  <span className="text-[10px] text-ink/40 mt-1 truncate">
+                    تشغيل ورواتب
                   </span>
                 </div>
               </div>
@@ -408,51 +464,51 @@ export function DashboardClient() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* الأرباح المحققة */}
                 <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
+                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1 truncate">
                     <NetIcon className={`h-4 w-4 ${netColorClass}`} />
                     الأرباح المحققة (من المبيعات)
                   </span>
                   <div className="mt-2 flex flex-col min-w-0">
-                    <span className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 min-w-0 ${netColorClass}`}>
+                    <span className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 whitespace-nowrap min-w-0 ${netColorClass}`}>
                       <span className="font-mono text-base shrink-0">{netSign}</span>
-                      <AmountText amount={Math.abs(net)} className="truncate" />
+                      <AmountText amount={Math.abs(net)} />
                     </span>
-                    <span className="text-[10px] text-ink/40 mt-1">
-                      النقد الفعلي المستلم بعد خصم المشتريات والمصاريف
+                    <span className="text-[10px] text-ink/40 mt-1 truncate">
+                      أرباح محقّقة
                     </span>
                   </div>
                 </div>
 
                 {/* العربون بحوزتك */}
                 <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
+                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1 truncate">
                     <TrendingUp className="h-4 w-4 text-info" />
                     العربون بحوزتك
                   </span>
                   <div className="mt-2 flex flex-col min-w-0">
-                    <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 min-w-0">
+                    <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
                       <span className="font-mono text-base shrink-0">+</span>
-                      <AmountText amount={cashSummary?.depositsHeldCents ?? 0} className="truncate" />
+                      <AmountText amount={cashSummary?.depositsHeldCents ?? 0} />
                     </span>
-                    <span className="text-[10px] text-ink/40 mt-1">
-                      مبالغ العربون المستلمة للطلبات المعلقة (قيد التنفيذ)
+                    <span className="text-[10px] text-ink/40 mt-1 truncate">
+                      عربون محتجَز
                     </span>
                   </div>
                 </div>
 
                 {/* مبالغ متوقعة (متبقي الطلبات) */}
                 <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
+                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1 truncate">
                     <Calendar className="h-4 w-4 text-ink-3" />
                     مبالغ متوقعة (متبقي الطلبات)
                   </span>
                   <div className="mt-2 flex flex-col min-w-0">
-                    <span className="text-lg lg:text-xl font-bold text-ink-2 flex items-baseline gap-1 min-w-0">
+                    <span className="text-lg lg:text-xl font-bold text-ink-2 flex items-baseline gap-1 whitespace-nowrap min-w-0">
                       <span className="font-mono text-base shrink-0">+</span>
-                      <AmountText amount={cashSummary?.expectedRemainingCents ?? 0} className="truncate" />
+                      <AmountText amount={cashSummary?.expectedRemainingCents ?? 0} />
                     </span>
-                    <span className="text-[10px] text-ink/40 mt-1">
-                      المتبقي المتفق عليه عند تسليم الطلبات المعلقة (مخصوم منه العربون)
+                    <span className="text-[10px] text-ink/40 mt-1 truncate">
+                      متبقٍّ متوقّع
                     </span>
                   </div>
                 </div>
@@ -498,50 +554,7 @@ export function DashboardClient() {
           </div>
         )}
 
-        {/* طلبات للتسليم قريباً */}
-        {stats && (
-          <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-hairline pb-3">
-              <h3 className="text-base font-bold text-ink flex items-center gap-1.5">
-                <Calendar className="h-4.5 w-4.5 text-info" />
-                طلبات يستحق تسليمها قريباً (خلال 7 أيام)
-              </h3>
-              <span className="text-xs text-ink/45">{stats.upcomingOrders.length} طلبات</span>
-            </div>
-            {stats.upcomingOrders.length === 0 ? (
-              <p className="text-sm text-ink/45 text-center py-6 bg-canvas rounded-lg border border-hairline">لا توجد طلبات يستحق تسليمها هذا الأسبوع</p>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {stats.upcomingOrders.map((o) => (
-                  <Link
-                    key={o.id}
-                    href={`/orders?view=${o.id}`}
-                    className="flex items-center justify-between py-3 hover:bg-canvas px-2 -mx-2 rounded transition-colors"
-                  >
-                    <div>
-                      <p className="font-bold text-ink text-sm">{o.customerName}</p>
-                      <p className="text-xs text-ink/50 mt-0.5">{o.productName}</p>
-                    </div>
-                    <div className="text-end">
-                      <p className="text-xs text-ink/45">
-                        {o.deliveryDate
-                          ? new Date(o.deliveryDate).toLocaleDateString("ar-JO", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "تاريخ غير محدد"}
-                      </p>
-                      <p className="text-sm font-bold text-info mt-0.5">
-                        <AmountText amount={o.totalPriceCents} />
-                      </p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* آخر النشاطات والعمليات المدمجة */}
         <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
@@ -738,7 +751,7 @@ export function DashboardClient() {
       <button
         type="button"
         onClick={() => setIsFabOpen(true)}
-        className="fixed bottom-20 inset-e-4 lg:hidden z-dropdown h-14 w-14 rounded-full bg-ink text-paper shadow-lg flex items-center justify-center hover:bg-ink/90 active:scale-95 transition-all"
+        className="fixed bottom-20 inset-s-4 lg:hidden z-dropdown h-14 w-14 rounded-full bg-ink text-paper shadow-lg flex items-center justify-center hover:bg-ink/90 active:scale-95 transition-all"
         aria-label="إضافة عملية جديدة"
       >
         <Plus className="h-6 w-6" />
