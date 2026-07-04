@@ -43,10 +43,28 @@ const FinancialChart = dynamic(() => import("./FinancialChart"), {
 export function DashboardClient() {
   const [_isPending, _startTransition] = useTransition();
 
-  const [glowStyle, setGlowStyle] = useState(1);
+  // أشكال التوهّج العشر — أسماء كلاسات صريحة (مكتوبة حرفياً) ليولّدها Tailwind v4.
+  // بناء الاسم ديناميكياً (`animate-delivery-glow-${n}`) لا يُولَّد لأن Tailwind
+  // لا يرى الأسماء المركّبة أثناء البناء.
+  const glowClasses = [
+    "animate-delivery-glow-1",
+    "animate-delivery-glow-2",
+    "animate-delivery-glow-3",
+    "animate-delivery-glow-4",
+    "animate-delivery-glow-5",
+    "animate-delivery-glow-6",
+    "animate-delivery-glow-7",
+    "animate-delivery-glow-8",
+    "animate-delivery-glow-9",
+    "animate-delivery-glow-10",
+  ];
+  // نبدأ بقيمة ثابتة (0) لتفادي اختلاف SSR، ثم نختار عشوائياً بعد الـ mount.
+  const [glowIndex, setGlowIndex] = useState(0);
   useEffect(() => {
-    setGlowStyle(Math.floor(Math.random() * 10) + 1);
+    setGlowIndex(Math.floor(Math.random() * glowClasses.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const glowClass = glowClasses[glowIndex];
 
   // فترات التاريخ المتاحة
   const presets = [
@@ -295,7 +313,7 @@ export function DashboardClient() {
               <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
                 <div className={
                   stats.upcomingOrders.length > 0
-                    ? `flex items-center justify-between p-3.5 -mx-6 -mt-6 rounded-t-lg text-white font-bold animate-delivery-hue animate-delivery-glow-${glowStyle}`
+                    ? `flex items-center justify-between p-3.5 -mx-6 -mt-6 rounded-t-lg text-white font-bold animate-delivery-hue ${glowClass}`
                     : "flex items-center justify-between border-b border-hairline pb-3"
                 }>
                   <h3 className={`text-base font-bold flex items-center gap-1.5 ${stats.upcomingOrders.length > 0 ? "text-white" : "text-ink"}`}>
