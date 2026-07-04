@@ -107,7 +107,7 @@ export default function SnippetsClient() {
                   <h3 className="text-xs font-bold text-ink-3 px-1">{cat}</h3>
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {list.map((item, idx) => (
-                      <div
+                      <li
                         key={item.id}
                         style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
                         className="animate-fade-slide-in"
@@ -118,7 +118,7 @@ export default function SnippetsClient() {
                           onCopy={() => handleCopy(item.body, item.id)}
                           onEdit={() => setEditing(item)}
                         />
-                      </div>
+                      </li>
                     ))}
                   </ul>
                 </div>

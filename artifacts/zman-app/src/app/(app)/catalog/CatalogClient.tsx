@@ -110,7 +110,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
         ) : (
           <ul className="flex flex-col gap-2">
             {items.map((item, idx) => (
-              <div
+              <li
                 key={item.id}
                 style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
                 className="animate-fade-slide-in"
@@ -119,7 +119,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
                   item={item}
                   onEdit={() => setEditing(item)}
                 />
-              </div>
+              </li>
             ))}
           </ul>
         )}
