@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, ShoppingCart, Plus, Boxes } from "lucide-react";
+import { Banknote, ShoppingCart, Wallet, Plus, Boxes } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition, useState, useEffect } from "react";
@@ -71,8 +71,8 @@ export default function FinanceClient() {
 
   const tabs = [
     { id: "purchases", label: "المشتريات", icon: ShoppingCart },
-    { id: "expenses", label: "المصاريف", icon: ArrowDownRight },
-    { id: "sales", label: "المبيعات", icon: ArrowUpRight },
+    { id: "expenses", label: "المصاريف", icon: Wallet },
+    { id: "sales", label: "المبيعات", icon: Banknote },
   ];
 
   // حالة البحث والـ Debounce
@@ -209,12 +209,13 @@ export default function FinanceClient() {
         <SegmentedControl
           value={activeTab}
           onChange={handleTabChange}
+          compact
           options={tabs.map((t) => ({
             value: t.id,
             label: "", // أيقونات فقط لتفادي القص على الموبايل
             icon: <t.icon className="h-5 w-5 shrink-0" />,
           }))}
-          className="gap-0.5"
+          className="shrink-0 gap-0.5"
         />
       }
       search={{

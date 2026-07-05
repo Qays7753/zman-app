@@ -14,6 +14,8 @@ interface SegmentedControlProps<T = string> {
   value: T;
   onChange: (value: T) => void;
   className?: string;
+  /** compact = الأزرار بعرض محتواها لا تتمدّد (للهيدر المزدحم) */
+  compact?: boolean;
 }
 
 export function SegmentedControl<T = string>({
@@ -21,6 +23,7 @@ export function SegmentedControl<T = string>({
   value,
   onChange,
   className,
+  compact = false,
 }: SegmentedControlProps<T>) {
   return (
     <div
@@ -37,7 +40,8 @@ export function SegmentedControl<T = string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex-1 min-h-[44px] h-11 px-3 rounded-md flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-[120ms] ease-out active:scale-[0.94]",
+              "min-h-[44px] h-11 rounded-md flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-[120ms] ease-out active:scale-[0.94]",
+              compact ? "px-3.5" : "flex-1 px-3",
               isActive
                 ? "bg-info text-paper shadow-sm"
                 : "text-ink-3 hover:text-ink hover:bg-paper/60"
