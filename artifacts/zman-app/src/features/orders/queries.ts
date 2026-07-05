@@ -147,3 +147,27 @@ export async function getOrder(id: string) {
     components,
   };
 }
+
+/**
+ * عدّادات الطلبات حسب الحالة (خفيف — للفلتر الاحترافي في الهيدر).
+ * يُرجع { draft, sent, confirmed, delivered, cancelled } بلا قيود تاريخ.
+ */
+export async function getOrderStatusCounts(): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ status: order.status, count: sql<number>`count(*)::int` })
+    .from(order)
+    .where(isNull(order.deletedAt))
+    .groupBy(order.status);
+
+  const counts: Record<string, number> = {
+    draft: 0,
+    sent: 0,
+    confirmed: 0,
+    delivered: 0,
+    cancelled: 0,
+  };
+  for (const row of rows) {
+    counts[row.status] = row.count;
+  }
+  return counts;
+}

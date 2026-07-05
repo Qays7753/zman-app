@@ -153,7 +153,7 @@ export default function FinanceClient() {
     ];
   }
 
-  // إجراءات ثانوية للمنيو المنسدل
+  // إجراءات ثانوية للمنيو المنسدل (إدارة الأصناف/الفئات — للمشتريات والمصاريف فقط)
   let menuItems: ToolbarMenuItem[] | undefined = undefined;
   if (activeTab === "purchases") {
     menuItems = [
@@ -230,6 +230,8 @@ export default function FinanceClient() {
       }}
       filters={filters}
       menuItems={menuItems}
+      reserveFilterSpace
+      reserveMenuSpace
       trailing={getTrailingAction()}
     />
   );

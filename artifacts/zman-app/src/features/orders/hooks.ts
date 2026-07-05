@@ -15,7 +15,12 @@ import {
   updateMessageTemplate,
 } from "./actions";
 import type { GetOrdersFilters } from "./queries";
-import { getOrder, getOrderDatesForMonth, getOrders } from "./queries";
+import {
+  getOrder,
+  getOrderDatesForMonth,
+  getOrders,
+  getOrderStatusCounts,
+} from "./queries";
 
 // المفاتيح الموحدة للاستعلامات (§2)
 export const orderKeys = {
@@ -26,7 +31,18 @@ export const orderKeys = {
     [...orderKeys.lists(), "infinite", filters] as const,
   details: () => [...orderKeys.all, "detail"] as const,
   detail: (id: string) => [...orderKeys.details(), id] as const,
+  statusCounts: () => [...orderKeys.all, "status-counts"] as const,
 };
+
+/**
+ * هوك عدّادات الطلبات حسب الحالة (للفلتر الاحترافي في الهيدر)
+ */
+export function useOrderStatusCounts() {
+  return useQuery({
+    queryKey: orderKeys.statusCounts(),
+    queryFn: () => getOrderStatusCounts(),
+  });
+}
 
 /**
  * هوك جلب قائمة الطلبات بفلترة ديناميكية

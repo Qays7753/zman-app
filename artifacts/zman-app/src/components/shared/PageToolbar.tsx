@@ -37,6 +37,12 @@ interface PageToolbarProps {
   filters?: ToolbarFilterGroup[];
   /** إجراءات ثانوية — تظهر في قائمة "إعدادات" منسدلة */
   menuItems?: ToolbarMenuItem[];
+  /** فلتر مخصّص يحلّ محلّ زر الفلتر الافتراضي (نفس الموضع) — مثل StatusFilterSheet */
+  filterSlot?: React.ReactNode;
+  /** يحجز مساحة زر الفلتر حتى لو غاب (يمنع قفز التخطيط بين تبويبات مختلفة) */
+  reserveFilterSpace?: boolean;
+  /** يحجز مساحة زر الإعدادات حتى لو غاب */
+  reserveMenuSpace?: boolean;
   /** عناصر تظهر أول الشريط (مثل مبدّل قائمة/تقويم) */
   leading?: React.ReactNode;
   /** الإجراء الأساسي (زر الإضافة) — يظهر آخر الشريط */
@@ -52,6 +58,9 @@ export function PageToolbar({
   search,
   filters,
   menuItems,
+  filterSlot,
+  reserveFilterSpace = false,
+  reserveMenuSpace = false,
   leading,
   trailing,
 }: PageToolbarProps) {
@@ -123,7 +132,10 @@ export function PageToolbar({
       {/* الترتيب (يمين→يسار في RTL): إضافة، فلتر، [فاصل]، بحث، [فاصل]، تبديل العرض، إعدادات */}
       {trailing}
 
-      {filters && filters.length > 0 && (
+      {/* فلتر مخصّص (يحلّ محلّ الفلتر الافتراضي) */}
+      {filterSlot}
+
+      {!filterSlot && filters && filters.length > 0 && (
         <div ref={filterRef} className="relative">
           <HeaderIconButton
             label="تصفية"
@@ -170,6 +182,13 @@ export function PageToolbar({
           )}
         </div>
       )}
+
+      {/* حجز مساحة زر الفلتر عند غيابه (منع قفز التخطيط بين التبويبات) */}
+      {!filterSlot &&
+        (!filters || filters.length === 0) &&
+        reserveFilterSpace && (
+          <span className="w-11 h-11 shrink-0" aria-hidden="true" />
+        )}
 
       {/* فاصل بسيط قبل البحث */}
       {search && <span className="w-2 shrink-0" aria-hidden="true" />}
@@ -219,7 +238,10 @@ export function PageToolbar({
         </div>
       )}
 
-      {trailing}
+      {/* حجز مساحة زر الإعدادات عند غيابه (منع قفز التخطيط) */}
+      {(!menuItems || menuItems.length === 0) && reserveMenuSpace && (
+        <span className="w-11 h-11 shrink-0" aria-hidden="true" />
+      )}
     </div>
   );
 }

@@ -10,18 +10,9 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import { Button } from "@/components/shared/Button";
 import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 import { PageToolbar } from "@/components/shared/PageToolbar";
-import { useOrder } from "@/features/orders/hooks";
+import { StatusFilterSheet } from "@/features/orders/components/StatusFilterSheet";
+import { useOrder, useOrderStatusCounts } from "@/features/orders/hooks";
 import type { Order } from "@/features/orders/types";
-
-// خيارات فلتر الحالة (مشتركة بين القائمة والتقويم)
-const STATUS_FILTER_OPTIONS = [
-  { value: "all", label: "كل الحالات" },
-  { value: "draft", label: "مسودة" },
-  { value: "sent", label: "تم الإرسال" },
-  { value: "confirmed", label: "مؤكد" },
-  { value: "delivered", label: "تم التوصيل" },
-  { value: "cancelled", label: "ملغى" },
-];
 
 const OrderList = dynamic(
   () => import("@/features/orders/components/OrderList").then((m) => m.OrderList),
@@ -72,6 +63,7 @@ export default function OrdersClient() {
   const tab = searchParams.get("tab") ?? "list";
   const currentStatus = searchParams.get("status") || "all";
   const currentQuery = searchParams.get("q") || "";
+  const { data: statusCounts } = useOrderStatusCounts();
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
 
@@ -163,15 +155,13 @@ export default function OrdersClient() {
         onChange: setSearchInput,
         placeholder: "ابحث باسم العميل أو المنتج...",
       }}
-      filters={[
-        {
-          key: "status",
-          label: "حالة الطلب",
-          value: currentStatus,
-          options: STATUS_FILTER_OPTIONS,
-          onChange: setStatusFilter,
-        },
-      ]}
+      filterSlot={
+        <StatusFilterSheet
+          value={currentStatus}
+          counts={statusCounts ?? {}}
+          onChange={setStatusFilter}
+        />
+      }
       menuItems={[
         {
           key: "template",
