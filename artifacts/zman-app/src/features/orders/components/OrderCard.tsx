@@ -1,16 +1,32 @@
 "use client";
 
-import { Edit, Loader2, MessageSquare, MoreVertical, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Edit,
+  Loader2,
+  MessageSquare,
+  MoreVertical,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
+import { useClickOutside } from "@/components/shared/useClickOutside";
 import { cn } from "@/lib/utils";
 import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
 import type { Order } from "../types";
 import { useMessageTemplate, useUpdateOrderStatus } from "../hooks";
-import { STATUS_COLORS, STATUS_LABELS } from "@/lib/status-colors";
+import {
+  NEXT_ACTION_LABEL,
+  NEXT_STATUS,
+  STATUS_COLORS,
+  STATUS_LABELS,
+} from "@/lib/status-colors";
 
 interface OrderCardProps {
   order: Order;
@@ -32,6 +48,11 @@ export function OrderCard({
   const updateStatusMutation = useUpdateOrderStatus();
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [localStatus, setLocalStatus] = useState(order.status);
+  // قائمة الحالات الأخرى (⋯) + تأكيد خفيف للنقل
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+  useClickOutside(statusMenuRef, () => setStatusMenuOpen(false), statusMenuOpen);
 
   useEffect(() => {
     setLocalStatus(order.status);
@@ -45,11 +66,12 @@ export function OrderCard({
     toast.info("تم الانتقال لتطبيق WhatsApp لإرسال الطلب");
   };
 
-  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newStatus = e.target.value;
+  const applyStatus = async (newStatus: string) => {
     const oldStatus = localStatus;
     setLocalStatus(newStatus);
     setIsUpdatingStatus(true);
+    setPendingStatus(null);
+    setStatusMenuOpen(false);
     try {
       const res = await updateStatusMutation.mutateAsync({
         id: order.id,
@@ -57,7 +79,7 @@ export function OrderCard({
         updatedAt: new Date(order.updatedAt).toISOString(),
       });
       if (res.status === "ok") {
-        toast.success("تم تحديث حالة الطلب بنجاح");
+        toast.success(`تم تحديث الحالة إلى: ${STATUS_LABELS[newStatus]}`);
       } else {
         toast.error(res.message);
         setLocalStatus(oldStatus);
@@ -69,6 +91,10 @@ export function OrderCard({
       setIsUpdatingStatus(false);
     }
   };
+
+  // الحالة التالية في الرحلة (للزر الذكي)
+  const nextStatus = NEXT_STATUS[localStatus];
+  const isCancelled = localStatus === "cancelled";
 
 
 
@@ -93,29 +119,18 @@ export function OrderCard({
             <span className="font-bold text-ink truncate text-base leading-tight">
               {order.customerName}
             </span>
-            <div className="relative flex items-center gap-1.5">
-              <select
-                value={localStatus}
-                disabled={isUpdatingStatus}
-                onClick={(e) => e.stopPropagation()}
-                onChange={handleStatusChange}
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-xs font-semibold border leading-none h-6 cursor-pointer focus:outline-none focus:ring-1 focus:ring-info transition-colors duration-200",
-                  STATUS_COLORS[localStatus] || "bg-info-soft text-info border-info/20",
-                  isUpdatingStatus && "opacity-50 pointer-events-none"
-                )}
-                aria-label="تغيير حالة الطلب"
-              >
-                {Object.entries(STATUS_LABELS).map(([val, label]) => (
-                  <option key={val} value={val} className="bg-paper text-ink">
-                    {label}
-                  </option>
-                ))}
-              </select>
-              {isUpdatingStatus && (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-info" />
+            {/* شارة الحالة الحالية (عرض فقط — تُظهر أين الطلب الآن) */}
+            <span
+              className={cn(
+                "px-2 py-0.5 rounded-full text-xs font-semibold border leading-none h-6 flex items-center gap-1 shrink-0",
+                STATUS_COLORS[localStatus] || "bg-info-soft text-info border-info/20",
               )}
-            </div>
+            >
+              {STATUS_LABELS[localStatus]}
+              {isUpdatingStatus && (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              )}
+            </span>
           </div>
 
           {/* زر الخيارات: متجاوب وأكبر من 44px لملاءمة اللمس (§9.1) */}
@@ -156,7 +171,140 @@ export function OrderCard({
             )}
           </div>
         </div>
+
+        {/* السطر الرابع: زر الحالة الذكي (ينقل للمرحلة التالية) + قائمة الحالات الأخرى */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops card-click propagation; children are the interactive elements */}
+        <div
+          className="flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {/* الزر الذكي: الفعل التالي في الرحلة */}
+          {nextStatus ? (
+            <button
+              type="button"
+              disabled={isUpdatingStatus}
+              onClick={() => setPendingStatus(nextStatus)}
+              className={cn(
+                "flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:opacity-50",
+                nextStatus === "delivered"
+                  ? "bg-emerald text-paper hover:bg-emerald/90"
+                  : isCancelled
+                    ? "bg-canvas text-ink-2 border border-hairline-2 hover:bg-paper"
+                    : "bg-info text-paper hover:bg-info/90",
+              )}
+            >
+              {isCancelled ? (
+                <RotateCcw className="w-4 h-4" />
+              ) : (
+                <ArrowLeft className="w-4 h-4" />
+              )}
+              <span>{NEXT_ACTION_LABEL[localStatus]}</span>
+            </button>
+          ) : (
+            // اكتملت الرحلة (تم التوصيل)
+            <div className="flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-emerald-soft text-emerald-deep border border-emerald/20">
+              <Check className="w-4 h-4" />
+              <span>مكتمل</span>
+            </div>
+          )}
+
+          {/* قائمة الحالات الأخرى (⋯) */}
+          <div ref={statusMenuRef} className="relative shrink-0">
+            <button
+              type="button"
+              disabled={isUpdatingStatus}
+              onClick={() => setStatusMenuOpen((o) => !o)}
+              className="min-h-[44px] min-w-[44px] px-2 rounded-lg border border-hairline-2 bg-paper text-ink-2 hover:bg-canvas flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+              aria-label="حالات أخرى"
+              title="تغيير لحالة أخرى"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {statusMenuOpen && (
+              <div className="absolute bottom-full mb-2 end-0 z-dropdown w-44 bg-paper rounded-lg border border-hairline-2 shadow-lg p-1.5 animate-fade-in">
+                {Object.entries(STATUS_LABELS).map(([val, lbl]) => {
+                  const active = val === localStatus;
+                  return (
+                    <button
+                      key={val}
+                      type="button"
+                      disabled={active}
+                      onClick={() => setPendingStatus(val)}
+                      className={cn(
+                        "w-full flex items-center gap-2 min-h-[40px] px-2.5 rounded-md text-sm text-start transition-colors",
+                        active
+                          ? "bg-canvas text-ink font-bold cursor-default"
+                          : "text-ink-2 hover:bg-canvas",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "w-2.5 h-2.5 rounded-full shrink-0",
+                          val === "draft" && "bg-warn",
+                          val === "sent" && "bg-info/70",
+                          val === "confirmed" && "bg-info",
+                          val === "delivered" && "bg-emerald",
+                          val === "cancelled" && "bg-alert",
+                        )}
+                      />
+                      <span className="flex-1">{lbl}</span>
+                      {active && <Check className="w-4 h-4 shrink-0 text-ink" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* تأكيد خفيف قبل تغيير الحالة */}
+      <ResponsiveModal
+        isOpen={pendingStatus !== null}
+        onClose={() => setPendingStatus(null)}
+        title="تأكيد تغيير الحالة"
+      >
+        {pendingStatus && (
+          <div className="space-y-4">
+            <p className="text-sm text-ink-2 leading-relaxed">
+              تغيير حالة طلب <span className="font-bold text-ink">{order.customerName}</span> إلى{" "}
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-xs font-bold border",
+                  STATUS_COLORS[pendingStatus],
+                )}
+              >
+                {STATUS_LABELS[pendingStatus]}
+              </span>
+              ؟
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingStatus(null)}
+                className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => applyStatus(pendingStatus)}
+                className={cn(
+                  "flex-1 min-h-[44px] rounded-lg text-paper font-bold transition-colors",
+                  pendingStatus === "delivered"
+                    ? "bg-emerald hover:bg-emerald/90"
+                    : pendingStatus === "cancelled"
+                      ? "bg-alert hover:bg-alert/90"
+                      : "bg-info hover:bg-info/90",
+                )}
+              >
+                تأكيد
+              </button>
+            </div>
+          </div>
+        )}
+      </ResponsiveModal>
 
       {/* شيت الإجراءات المنبثق من الأسفل للموبايل والـ Dialog للديسكتوب (§9.3) */}
       <ResponsiveModal
