@@ -32,6 +32,11 @@ export function IdleLock() {
       if (lockingRef.current) return;
       lockingRef.current = true;
       try {
+        localStorage.removeItem(LAST_ACTIVE_KEY);
+      } catch {
+        // ignore
+      }
+      try {
         await logoutAction();
       } catch {
         // حتى لو فشل الحذف على السيرفر، نوجّه للدخول

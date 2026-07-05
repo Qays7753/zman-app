@@ -26,6 +26,11 @@ export default function LoginPage() {
     startTransition(async () => {
       const res = await loginAction(passcode);
       if (res.success) {
+        try {
+          localStorage.setItem("zman_last_active", String(Date.now()));
+        } catch {
+          // ignore
+        }
         router.refresh();
         router.push("/");
       } else {
