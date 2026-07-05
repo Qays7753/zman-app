@@ -29,7 +29,7 @@ export const NEXT_STATUS: Record<string, string | null> = {
   sent: "confirmed", // تم الإرسال → تأكيد
   confirmed: "delivered", // مؤكد → توصيل
   delivered: null, // اكتملت الرحلة
-  cancelled: "draft", // ملغى → إعادة تفعيل (كمسودة)
+  cancelled: null, // ملغى → لا انتقال ممكن
 };
 
 // نصّ فعل الانتقال للحالة التالية (يظهر على الزر الذكي)
@@ -38,5 +38,5 @@ export const NEXT_ACTION_LABEL: Record<string, string> = {
   sent: "تأكيد الطلب",
   confirmed: "تم التوصيل",
   delivered: "مكتمل",
-  cancelled: "إعادة تفعيل",
+  cancelled: "ملغى",
 };

@@ -26,7 +26,7 @@ export default function FinancialChart({
     const start = new Date(startDate);
     const end = new Date(endDate);
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const key = d.toISOString().split("T")[0] ?? "";
+      const key = d.toLocaleDateString("en-CA");
       if (key) datesMap[key] = { sales: 0, outgoings: 0 };
     }
 

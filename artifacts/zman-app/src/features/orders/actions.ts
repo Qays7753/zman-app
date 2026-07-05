@@ -10,6 +10,7 @@ import { idempotencyKey, order, orderComponent, messageTemplate } from "./db";
 import { createOrderSchema, updateOrderSchema } from "./schema";
 import { sale, cashMovement } from "../finance/db";
 import { getOrCreateDefaultCashAccount } from "../finance/actions";
+import { getAmmanDate } from "@/lib/utils";
 
 // نوع الإرجاع الموحد (Discriminated Union) (§18 rule 8)
 type ActionResponse<T = unknown> =
@@ -117,7 +118,7 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
           notes: notes ?? "",
           status: "draft",
           deliveryDate: deliveryDate || null,
-          receivedDate: receivedDate || new Date().toISOString().split("T")[0],
+          receivedDate: receivedDate || getAmmanDate(),
           depositCents: depositCents ?? 0,
           depositDate: depositDate || null,
         })
@@ -270,7 +271,7 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
           totalPriceCents,
           notes: notes ?? "",
           deliveryDate: deliveryDate || null,
-          receivedDate: receivedDate || new Date().toISOString().split("T")[0],
+          receivedDate: receivedDate || getAmmanDate(),
           depositCents: depositCents ?? 0,
           depositDate: depositDate || null,
           updatedAt: new Date(),
@@ -286,50 +287,53 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       }
 
       // 6.1. تحديث حركة صندوق العربون أو إدراجها/حذفها حسب التغيير (التزاماً بـ §3)
-      const [existingDepositMov] = await tx
-        .select()
-        .from(cashMovement)
-        .where(
-          and(
-            eq(cashMovement.sourceType, "deposit"),
-            eq(cashMovement.sourceId, id),
-            isNull(cashMovement.deletedAt)
-          )
-        );
+      // إذا كان الطلب ملغياً، فلا يجب إنشاء أو تحديث أي حركة نقدية نشطة للعربون (P0-C)
+      if (existing.status !== "cancelled") {
+        const [existingDepositMov] = await tx
+          .select()
+          .from(cashMovement)
+          .where(
+            and(
+              eq(cashMovement.sourceType, "deposit"),
+              eq(cashMovement.sourceId, id),
+              isNull(cashMovement.deletedAt)
+            )
+          );
 
-      const movDate = depositDate || receivedDate || new Date().toISOString().split("T")[0];
-      if (depositCents > 0) {
-        const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
-        if (existingDepositMov) {
+        const movDate = depositDate || receivedDate || getAmmanDate();
+        if (depositCents > 0) {
+          const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
+          if (existingDepositMov) {
+            await tx
+              .update(cashMovement)
+              .set({
+                amountCents: depositCents,
+                date: movDate,
+                accountId: defaultAccountId,
+                description: `عربون طلب للعميل ${customerName} - منتج: ${productName}`,
+                updatedAt: new Date(),
+              })
+              .where(eq(cashMovement.id, existingDepositMov.id));
+          } else {
+            await tx.insert(cashMovement).values({
+              date: movDate,
+              accountId: defaultAccountId,
+              direction: "in",
+              amountCents: depositCents,
+              sourceType: "deposit",
+              sourceId: id,
+              description: `عربون طلب للعميل ${customerName} - منتج: ${productName}`,
+            });
+          }
+        } else if (existingDepositMov) {
           await tx
             .update(cashMovement)
             .set({
-              amountCents: depositCents,
-              date: movDate,
-              accountId: defaultAccountId,
-              description: `عربون طلب للعميل ${customerName} - منتج: ${productName}`,
+              deletedAt: new Date(),
               updatedAt: new Date(),
             })
             .where(eq(cashMovement.id, existingDepositMov.id));
-        } else {
-          await tx.insert(cashMovement).values({
-            date: movDate,
-            accountId: defaultAccountId,
-            direction: "in",
-            amountCents: depositCents,
-            sourceType: "deposit",
-            sourceId: id,
-            description: `عربون طلب للعميل ${customerName} - منتج: ${productName}`,
-          });
         }
-      } else if (existingDepositMov) {
-        await tx
-          .update(cashMovement)
-          .set({
-            deletedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(cashMovement.id, existingDepositMov.id));
       }
 
       // 7. تحديث المكونات الفرعية: حذف القديم وإعادة إدخال الجديد داخل المعاملة

@@ -85,7 +85,7 @@ export default function ReportsPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<"all" | "month" | "30d">("all");
   const [activeSection, setActiveSection] = useState<"analytics" | "balance_sheet">("analytics");
-  const [asOfDate, setAsOfDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [asOfDate, setAsOfDate] = useState(() => new Date().toLocaleDateString("en-CA"));
 
   const { data: queryData, isLoading, refetch } = useQuery({
     queryKey: ["reports", dateRange],
@@ -127,7 +127,7 @@ export default function ReportsPage() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        const dateStr = new Date().toISOString().split("T")[0] ?? "";
+        const dateStr = new Date().toLocaleDateString("en-CA");
         const safeName = type;
         link.download = `report_${safeName}_${dateStr}.md`;
         document.body.appendChild(link);

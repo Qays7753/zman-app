@@ -66,8 +66,8 @@ export function OrderForm({
           notes: initialData.notes || "",
           deliveryDate: initialData.deliveryDate || "",
           receivedDate: initialData.receivedDate
-            ? new Date(initialData.receivedDate).toISOString().split("T")[0]
-            : new Date().toISOString().split("T")[0],
+            ? new Date(initialData.receivedDate).toLocaleDateString("en-CA")
+            : new Date().toLocaleDateString("en-CA"),
           depositCents: initialData.depositCents ?? 0,
           depositDate: initialData.depositDate || "",
         }
@@ -83,7 +83,7 @@ export function OrderForm({
           totalPriceCents: 0,
           notes: "",
           deliveryDate: "",
-          receivedDate: new Date().toISOString().split("T")[0],
+          receivedDate: new Date().toLocaleDateString("en-CA"),
           depositCents: 0,
           depositDate: "",
         },
@@ -108,8 +108,8 @@ export function OrderForm({
         notes: initialData.notes || "",
         deliveryDate: initialData.deliveryDate || "",
         receivedDate: initialData.receivedDate
-          ? new Date(initialData.receivedDate).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0],
+          ? new Date(initialData.receivedDate).toLocaleDateString("en-CA")
+          : new Date().toLocaleDateString("en-CA"),
         depositCents: initialData.depositCents ?? 0,
         depositDate: initialData.depositDate || "",
       });

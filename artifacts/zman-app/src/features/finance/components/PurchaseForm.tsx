@@ -34,7 +34,7 @@ export function PurchaseForm({
 
   const defaultValues = {
     date: initialData
-      ? (new Date(initialData.date).toISOString().split("T")[0] ?? "")
+      ? (new Date(initialData.date).toLocaleDateString("en-CA") ?? "")
       : new Date().toLocaleDateString("en-CA"),
     item: initialData?.item || "",
     supplier: initialData?.supplier || "",
@@ -99,7 +99,7 @@ export function PurchaseForm({
     if (initialData) {
       setValue(
         "date",
-        new Date(initialData.date).toISOString().split("T")[0] ?? "",
+        new Date(initialData.date).toLocaleDateString("en-CA") ?? "",
       );
       setValue("item", initialData.item);
       setValue("supplier", initialData.supplier || "");

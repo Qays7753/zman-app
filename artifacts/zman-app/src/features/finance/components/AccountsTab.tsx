@@ -39,7 +39,7 @@ export function AccountsTab() {
   const [fromAcc, setFromAcc] = useState("");
   const [toAcc, setToAcc] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
-  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [transferDate, setTransferDate] = useState(() => new Date().toLocaleDateString("en-CA"));
   const [transferDesc, setTransferDesc] = useState("");
 
   const handleAddSubmit = async (e: React.FormEvent) => {

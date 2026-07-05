@@ -32,7 +32,7 @@ export function OwnerTab() {
   const [txType, setTxType] = useState<"draw" | "inject">("draw");
   const [txAmount, setTxAmount] = useState("");
   const [txAccountId, setTxAccountId] = useState("");
-  const [txDate, setTxDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [txDate, setTxDate] = useState(() => new Date().toLocaleDateString("en-CA"));
   const [txReason, setTxReason] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {

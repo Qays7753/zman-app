@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { mapDbError } from "@/lib/db/errors";
 import { ratelimit } from "@/lib/ratelimit";
 import { idempotencyKey, order } from "../orders/db";
+import { getAmmanDate } from "@/lib/utils";
 import {
   expense,
   purchase,
@@ -87,7 +88,7 @@ export async function getOrCreateDefaultCashAccount(tx: any): Promise<string> {
   // إضافة حركة الرصيد الافتتاحي التلقائي (فقط إذا كان الحساب جديداً تماماً والرصيد الافتتاحي أكبر من صفر)
   if (newAcc.openingBalanceCents > 0) {
     await tx.insert(cashMovement).values({
-      date: new Date().toISOString().split("T")[0],
+      date: getAmmanDate(),
       accountId: newAcc.id,
       direction: "in",
       amountCents: newAcc.openingBalanceCents,
@@ -1027,7 +1028,7 @@ export async function convertOrderToSale(
       if (remainderCents > 0) {
         const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
         await tx.insert(cashMovement).values({
-          date: orderRow.receivedDate || new Date().toISOString().split("T")[0],
+          date: orderRow.receivedDate || getAmmanDate(),
           accountId: defaultAccountId,
           direction: "in",
           amountCents: remainderCents,
@@ -1298,7 +1299,7 @@ export async function createAccount(rawInput: unknown): Promise<ActionResponse> 
       if (parsed.data.openingBalanceCents > 0) {
         // إدراج حركة الرصيد الافتتاحي
         await tx.insert(cashMovement).values({
-          date: new Date().toISOString().split("T")[0],
+          date: getAmmanDate(),
           accountId: newAcc.id,
           direction: "in",
           amountCents: parsed.data.openingBalanceCents,

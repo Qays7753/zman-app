@@ -46,7 +46,7 @@ export function ExpenseForm({
 
   const defaultValues = {
     date: initialData
-      ? (new Date(initialData.date).toISOString().split("T")[0] ?? "")
+      ? (new Date(initialData.date).toLocaleDateString("en-CA") ?? "")
       : new Date().toLocaleDateString("en-CA"),
     category: initialData?.category || "",
     amountCents: initialData?.amountCents || 0,
@@ -69,7 +69,7 @@ export function ExpenseForm({
     if (initialData) {
       setValue(
         "date",
-        new Date(initialData.date).toISOString().split("T")[0] ?? "",
+        new Date(initialData.date).toLocaleDateString("en-CA") ?? "",
       );
       setValue("category", initialData.category);
       setValue("amountCents", initialData.amountCents);

@@ -153,7 +153,7 @@ export function OrderCard({
             onClick(order);
           }
         }}
-        className="rounded-lg bg-paper border border-hairline shadow-sm hover:border-hairline-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 active:scale-[0.98] transition-all duration-150 cursor-pointer flex flex-col overflow-hidden relative"
+        className="rounded-xl bg-paper border border-hairline-2 shadow-sm hover:shadow-md hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col overflow-hidden relative"
       >
         {/* الشريط العلوي: حالة الطلب الحالية — كامل العرض بلون الحالة */}
         <div
@@ -227,7 +227,13 @@ export function OrderCard({
           onKeyDown={(e) => e.stopPropagation()}
         >
           {/* الزر الذكي: الفعل التالي في الرحلة */}
-          {nextStatus ? (
+          {isCancelled ? (
+            // طلب ملغى — لا فعل متاح، اعرض الحالة فقط
+            <div className="flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-alert-soft text-alert border border-alert/20">
+              <XCircle className="w-4 h-4" />
+              <span>ملغى</span>
+            </div>
+          ) : nextStatus ? (
             <button
               type="button"
               disabled={isUpdatingStatus}
@@ -236,16 +242,10 @@ export function OrderCard({
                 "flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:opacity-50",
                 nextStatus === "delivered"
                   ? "bg-emerald text-paper hover:bg-emerald/90"
-                  : isCancelled
-                    ? "bg-canvas text-ink-2 border border-hairline-2 hover:bg-paper"
-                    : "bg-info text-paper hover:bg-info/90",
+                  : "bg-info text-paper hover:bg-info/90",
               )}
             >
-              {isCancelled ? (
-                <RotateCcw className="w-4 h-4" />
-              ) : (
-                <ArrowLeft className="w-4 h-4" />
-              )}
+              <ArrowLeft className="w-4 h-4" />
               <span>{NEXT_ACTION_LABEL[localStatus]}</span>
             </button>
           ) : (
@@ -286,17 +286,22 @@ export function OrderCard({
               <div className="absolute bottom-full mb-2 end-0 z-dropdown w-44 bg-paper rounded-lg border border-hairline-2 shadow-lg p-1.5 animate-fade-in">
                 {Object.entries(STATUS_LABELS).map(([val, lbl]) => {
                   const active = val === localStatus;
+                  // للطلبات الملغاة: اعرض فقط الحالة الحالية (ملغى) كمعطّلة
+                  // لا توجد انتقالات أخرى مسموحة
+                  const isDisabledForCancelled = isCancelled && val !== "cancelled";
                   return (
                     <button
                       key={val}
                       type="button"
-                      disabled={active}
-                      onClick={() => setPendingStatus(val)}
+                      disabled={active || isDisabledForCancelled}
+                      onClick={() => !isDisabledForCancelled && setPendingStatus(val)}
                       className={cn(
                         "w-full flex items-center gap-2 min-h-[40px] px-2.5 rounded-md text-sm text-start transition-colors",
                         active
                           ? "bg-canvas text-ink font-bold cursor-default"
-                          : "text-ink-2 hover:bg-canvas",
+                          : isDisabledForCancelled
+                            ? "text-ink-3 cursor-not-allowed opacity-40"
+                            : "text-ink-2 hover:bg-canvas",
                       )}
                     >
                       <span

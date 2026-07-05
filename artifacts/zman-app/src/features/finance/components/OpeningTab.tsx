@@ -24,7 +24,7 @@ export function OpeningTab() {
       setBank((opBal.bankCents / 1000).toString());
       setCapital((opBal.capitalCents / 1000).toString());
     } else {
-      setGoLiveDate(new Date().toISOString().split("T")[0]);
+      setGoLiveDate(new Date().toLocaleDateString("en-CA"));
       setCash("0");
       setBank("0");
       setCapital("0");

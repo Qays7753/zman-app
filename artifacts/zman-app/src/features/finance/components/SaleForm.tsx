@@ -28,7 +28,7 @@ export function SaleForm({
 
   const defaultValues = {
     date: initialData
-      ? (new Date(initialData.date).toISOString().split("T")[0] ?? "")
+      ? (new Date(initialData.date).toLocaleDateString("en-CA") ?? "")
       : new Date().toLocaleDateString("en-CA"),
     source: (initialData?.source as "manual" | "order") || "manual",
     orderId: (initialData?.orderId as string | null) || null,
@@ -51,7 +51,7 @@ export function SaleForm({
     if (initialData) {
       setValue(
         "date",
-        new Date(initialData.date).toISOString().split("T")[0] ?? "",
+        new Date(initialData.date).toLocaleDateString("en-CA") ?? "",
       );
       setValue(
         "source",

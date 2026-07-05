@@ -227,7 +227,7 @@ export function DashboardClient() {
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const key = d.toISOString().split("T")[0] ?? "";
+      const key = d.toLocaleDateString("en-CA");
       if (key) datesMap[key] = { sales: 0, outgoings: 0 };
     }
     for (const item of trendData.salesTrend) {
