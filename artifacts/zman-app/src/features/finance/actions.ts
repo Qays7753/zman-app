@@ -67,7 +67,10 @@ export async function getOrCreateDefaultCashAccount(tx: any): Promise<string> {
       type: "cash",
       openingBalanceCents: 0,
     })
-    .onConflictDoNothing()
+    .onConflictDoNothing({
+      target: [account.name],
+      targetWhere: sql`type = 'cash' AND name = 'الصندوق الرئيسي' AND deleted_at IS NULL`,
+    })
     .returning();
 
   if (!newAcc) {
@@ -975,6 +978,11 @@ export async function convertOrderToSale(
 
       if (orderRow.deletedAt) {
         return { status: "error", message: "لا يمكن تحويل طلب محذوف" };
+      }
+
+      // P0-2 extension: منع تحويل طلب ملغى إلى مبيعات
+      if (orderRow.status === "cancelled") {
+        return { status: "error", message: "لا يمكن تحويل طلب ملغى. أنشئ طلباً جديداً بدلاً من ذلك." };
       }
 
       // 3. التحقق من وجود مبيعات غير محذوفة مرتبطة بهذا الطلب مسبقاً لمنع التكرار
