@@ -27,13 +27,7 @@ const ARABIC_MONTHS = [
 
 const ARABIC_DAYS_SHORT = ["أح", "إث", "ثل", "أر", "خم", "جم", "سب"];
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  sent: "تم الإرسال",
-  confirmed: "مؤكد",
-  delivered: "تم التوصيل",
-  cancelled: "ملغى",
-};
+import { STATUS_LABELS } from "@/lib/status-colors";
 
 // ── دوال مساعدة ──────────────────────────────────────────────────
 
@@ -339,19 +333,19 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
       <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 px-1 text-xs text-ink-3">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-warn" />
-          <span>مسودة</span>
+          <span>مقترح</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-info/60" />
-          <span>تم الإرسال</span>
+          <span>تم التأكيد</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-info" />
-          <span>مؤكد</span>
+          <span>تحت التنفيذ</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-emerald" />
-          <span>تم التوصيل</span>
+          <span>تم التسليم</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-alert" />

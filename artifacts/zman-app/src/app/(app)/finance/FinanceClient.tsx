@@ -290,8 +290,11 @@ export default function FinanceClient() {
       } : undefined}
       filters={hasSearch ? filters : undefined}
       menuItems={menuItems}
-      reserveFilterSpace={hasSearch}
-      reserveMenuSpace={!!menuItems && menuItems.length > 0}
+      // حجز مساحة البحث/الفلتر/الإعدادات دائماً (في كل التبويبات) ليبقى
+      // شكل الهيدر ثابتاً ولا تقفز الأزرار عند التنقّل بين التبويبات
+      reserveSearchSpace
+      reserveFilterSpace
+      reserveMenuSpace
       trailing={isActionableTab ? getTrailingAction() : undefined}
     />
   ), [activeTab, handleTabChange, hasSearch, searchInput, filters, menuItems, isActionableTab, getTrailingAction]);

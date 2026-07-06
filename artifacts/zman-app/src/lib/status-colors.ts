@@ -7,10 +7,10 @@ export const STATUS_COLORS: Record<string, string> = {
 };
 
 export const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  sent: "تم الإرسال",
-  confirmed: "مؤكد",
-  delivered: "تم التوصيل",
+  draft: "مقترح",
+  sent: "تم التأكيد",
+  confirmed: "تحت التنفيذ",
+  delivered: "تم التسليم",
   cancelled: "ملغى",
 };
 
@@ -34,9 +34,9 @@ export const NEXT_STATUS: Record<string, string | null> = {
 
 // نصّ فعل الانتقال للحالة التالية (يظهر على الزر الذكي)
 export const NEXT_ACTION_LABEL: Record<string, string> = {
-  draft: "إرسال للعميل",
-  sent: "تأكيد الطلب",
-  confirmed: "تم التوصيل",
+  draft: "تأكيد الاتفاق",
+  sent: "بدء التنفيذ",
+  confirmed: "تم التسليم",
   delivered: "مكتمل",
   cancelled: "ملغى",
 };

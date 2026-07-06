@@ -622,10 +622,10 @@ export function DashboardClient() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
-                { status: "draft", label: "مسودة", color: "text-warn-deep bg-warn-soft border-warn/10" },
-                { status: "sent", label: "تم الإرسال", color: "text-info bg-info-soft border-info/10" },
-                { status: "confirmed", label: "مؤكد", color: "text-info bg-info-soft border-info/10" },
-                { status: "delivered", label: "تم التوصيل", color: "text-info bg-info-soft border-info/10" },
+                { status: "draft", label: "مقترح", color: "text-warn-deep bg-warn-soft border-warn/10" },
+                { status: "sent", label: "تم التأكيد", color: "text-info bg-info-soft border-info/10" },
+                { status: "confirmed", label: "تحت التنفيذ", color: "text-info bg-info-soft border-info/10" },
+                { status: "delivered", label: "تم التسليم", color: "text-info bg-info-soft border-info/10" },
                 { status: "cancelled", label: "ملغى", color: "text-alert bg-alert-soft border-alert/10" },
               ].map((s) => (
                 <div key={s.status} className={`p-3 rounded-lg border flex flex-col items-center justify-center ${s.color}`}>

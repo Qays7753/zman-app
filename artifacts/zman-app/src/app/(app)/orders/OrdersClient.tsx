@@ -63,6 +63,7 @@ export default function OrdersClient() {
   const tab = searchParams.get("tab") ?? "list";
   const currentStatus = searchParams.get("status") || "all";
   const currentQuery = searchParams.get("q") || "";
+  const currentSort = searchParams.get("sort") || "newest";
   const { data: statusCounts } = useOrderStatusCounts();
   const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
@@ -162,6 +163,14 @@ export default function OrdersClient() {
             value={currentStatus}
             counts={statusCounts ?? {}}
             onChange={setStatusFilter}
+            sort={currentSort}
+            onSortChange={(sortVal) => {
+              const params = new URLSearchParams(searchParams.toString());
+              if (sortVal === "newest") params.delete("sort");
+              else params.set("sort", sortVal);
+              params.delete("cursor");
+              router.replace(`${pathname}?${params.toString()}`);
+            }}
           />
         }
         menuItems={[
@@ -191,7 +200,21 @@ export default function OrdersClient() {
         }
       />
     );
-  }, [isInSubView, tab, setTab, searchInput, setSearchInput, currentStatus, statusCounts, setStatusFilter, handleShowCreate]);
+  }, [
+    isInSubView,
+    tab,
+    setTab,
+    searchInput,
+    setSearchInput,
+    currentStatus,
+    statusCounts,
+    setStatusFilter,
+    handleShowCreate,
+    currentSort,
+    searchParams,
+    pathname,
+    router,
+  ]);
 
   const renderEditForm = () => {
     if (isLoadingEdit) return <SkeletonList count={3} />;

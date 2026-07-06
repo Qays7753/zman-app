@@ -2,9 +2,11 @@
 
 import {
   ArrowLeft,
+  Calendar,
   Check,
   CheckCircle2,
   ChevronDown,
+  Clock,
   Edit,
   FileEdit,
   Loader2,
@@ -15,6 +17,7 @@ import {
   ShoppingCart,
   Truck,
   Trash2,
+  Wallet,
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -24,7 +27,8 @@ import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { useClickOutside } from "@/components/shared/useClickOutside";
-import { cn } from "@/lib/utils";
+import { cn, formatAmmanDate, getAmmanDate } from "@/lib/utils";
+import { formatDate } from "@/lib/dates";
 import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
 import type { Order } from "../types";
 import { useMessageTemplate, useUpdateOrderStatus } from "../hooks";
@@ -74,6 +78,31 @@ export function OrderCard({
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement>(null);
   useClickOutside(statusMenuRef, () => setStatusMenuOpen(false), statusMenuOpen);
+
+  // حساب المتبقي والعدّاد لتاريخ التسليم بالتوقيت المحلي لعمّان
+  let countdownText = "—";
+  let countdownColorClass = "text-ink-3";
+  let isToday = false;
+
+  if (order.deliveryDate) {
+    const todayStr = getAmmanDate();
+    const deliveryStr = formatAmmanDate(order.deliveryDate);
+    const d1 = new Date(deliveryStr + "T00:00:00Z");
+    const d2 = new Date(todayStr + "T00:00:00Z");
+    const diffTime = d1.getTime() - d2.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 0) {
+      countdownText = `باقٍ ${diffDays} أيام`;
+      countdownColorClass = "text-emerald-deep font-bold";
+    } else if (diffDays === 0) {
+      countdownText = "التسليم اليوم";
+      isToday = true;
+    } else {
+      countdownText = `متأخّر ${Math.abs(diffDays)} أيام`;
+      countdownColorClass = "text-alert font-bold";
+    }
+  }
 
   useEffect(() => {
     setLocalStatus(order.status);
@@ -209,6 +238,59 @@ export function OrderCard({
           {order.productName} {order.quantity > 1 && `(عدد ${order.quantity})`}
         </div>
 
+        {/* التفاصيل الإضافية للطلبات غير المكتملة/الملغاة */}
+        {localStatus !== "delivered" && localStatus !== "cancelled" && (
+          <div className="border-t border-hairline pt-2 mt-1 space-y-2">
+            {/* ب-1: تاريخ التسليم + العدّاد الذكي */}
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Calendar className="w-3.5 h-3.5 text-ink-3 shrink-0" />
+                {order.deliveryDate ? (
+                  <span className="text-ink-2 font-medium">
+                    التسليم: {formatDate(order.deliveryDate, "d MMMM")}
+                  </span>
+                ) : (
+                  <span className="text-ink-3 font-normal">
+                    لم يُحدّد تاريخ التسليم
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Clock className="w-3.5 h-3.5 text-ink-3 shrink-0" />
+                {order.deliveryDate ? (
+                  isToday ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-warn-soft text-warn-deep border border-warn/10">
+                      التسليم اليوم
+                    </span>
+                  ) : (
+                    <span className={countdownColorClass}>
+                      {countdownText}
+                    </span>
+                  )
+                ) : (
+                  <span className="text-ink-3">—</span>
+                )}
+              </div>
+            </div>
+
+            {/* ب-2: العربون + المتبقّي */}
+            {order.depositCents > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-ink-2">
+                <Wallet className="w-3.5 h-3.5 text-ink-3 shrink-0" />
+                <span>عربون: </span>
+                <span className="font-semibold text-ink">
+                  <AmountText amount={order.depositCents} />
+                </span>
+                <span className="text-ink-3">·</span>
+                <span>متبقٍّ: </span>
+                <span className="font-semibold text-info">
+                  <AmountText amount={order.totalPriceCents - order.depositCents} />
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* السطر الثالث: السعر النهائي (يسار RTL) والتاريخ (يمين RTL) */}
         <div className="flex justify-between items-end border-t border-hairline pt-3 mt-1">
           {/* التاريخ النسبي في جهة اليسار باللغة العربية (§10.1) */}
@@ -221,11 +303,6 @@ export function OrderCard({
             <span className="text-lg font-bold text-info leading-none">
               <AmountText amount={order.totalPriceCents} />
             </span>
-            {order.depositCents > 0 && order.status !== "delivered" && order.status !== "cancelled" && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-canvas border border-hairline text-ink-2 font-medium">
-                متبقي: <AmountText amount={order.totalPriceCents - order.depositCents} />
-              </span>
-            )}
           </div>
         </div>
 
@@ -262,7 +339,7 @@ export function OrderCard({
             // اكتملت الرحلة (تم التوصيل)
             <div className="flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-emerald-soft text-emerald-deep border border-emerald/20">
               <Check className="w-4 h-4" />
-              <span>مكتمل</span>
+              <span>{STATUS_LABELS[localStatus]}</span>
             </div>
           )}
 
@@ -394,7 +471,7 @@ export function OrderCard({
             هل أنت متأكد من تحويل هذا الطلب إلى مبيعات (تسجيل إيراد)؟
           </p>
           <p className="text-xs text-ink-3">
-            سيتم ترحيل كامل المبلغ المتبقي (<AmountText amount={order.totalPriceCents - (order.depositCents || 0)} />) إلى الصندوق كإيراد مبيعات، وتحديث حالة الطلب إلى مكتمل.
+            سيتم ترحيل كامل المبلغ المتبقي (<AmountText amount={order.totalPriceCents - (order.depositCents || 0)} />) إلى الصندوق كإيراد مبيعات، وتحديث حالة الطلب إلى تم التسليم.
           </p>
           <div className="flex gap-2">
             <button

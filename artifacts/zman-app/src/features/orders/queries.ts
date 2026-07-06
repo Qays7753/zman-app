@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, ilike, isNull, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or, type SQL, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { order, orderComponent } from "./db";
 
@@ -10,6 +10,7 @@ export interface GetOrdersFilters {
   cursor?: string;
   limit?: number;
   date?: string; // YYYY-MM-DD — تصفية حسب يوم بعينه
+  sort?: "newest" | "delivery" | "price_high" | "price_low";
 }
 
 /**
@@ -21,6 +22,7 @@ export async function getOrders({
   cursor,
   limit = 20,
   date,
+  sort = "newest",
 }: GetOrdersFilters = {}) {
   const conditions: (SQL | undefined)[] = [isNull(order.deletedAt)];
 
@@ -41,19 +43,64 @@ export async function getOrders({
     conditions.push(sql`(COALESCE(${order.deliveryDate}, ${order.receivedDate}))::date = ${date}::date`);
   }
 
-  // إذا تم إرسال cursor (وهو ID الطلب الأخير)، نقوم بجلب تاريخه وتصفية ما بعده بشكل ثنائي محدد (Tuple) لمنع تخطي الطلبات ذات نفس التوقيت
+  // إذا تم إرسال cursor (وهو ID الطلب الأخير)، نقوم بجلب حقوله وتصفيتها بشكل ثنائي محدد (Tuple) لمنع تخطي الطلبات ذات نفس التوقيت/القيمة
   if (cursor) {
     const [cursorOrder] = await db
-      .select({ createdAt: order.createdAt })
+      .select({
+        createdAt: order.createdAt,
+        deliveryDate: order.deliveryDate,
+        receivedDate: order.receivedDate,
+        totalPriceCents: order.totalPriceCents,
+      })
       .from(order)
       .where(eq(order.id, cursor))
       .limit(1);
 
     if (cursorOrder) {
-      conditions.push(
-        sql`(${order.createdAt}, ${order.id}) < (${cursorOrder.createdAt}, ${cursor})`,
-      );
+      if (sort === "delivery") {
+        const cursorVal = cursorOrder.deliveryDate || cursorOrder.receivedDate;
+        conditions.push(
+          sql`(COALESCE(${order.deliveryDate}, ${order.receivedDate}), ${order.id}) > (${cursorVal}::date, ${cursor})`
+        );
+      } else if (sort === "price_high") {
+        conditions.push(
+          sql`(${order.totalPriceCents}, ${order.id}) < (${cursorOrder.totalPriceCents}, ${cursor})`
+        );
+      } else if (sort === "price_low") {
+        conditions.push(
+          sql`(${order.totalPriceCents}, ${order.id}) > (${cursorOrder.totalPriceCents}, ${cursor})`
+        );
+      } else {
+        // newest
+        conditions.push(
+          sql`(${order.createdAt}, ${order.id}) < (${cursorOrder.createdAt}, ${cursor})`
+        );
+      }
     }
+  }
+
+  let orderByClause: SQL[] = [];
+  if (sort === "delivery") {
+    orderByClause = [
+      asc(sql`COALESCE(${order.deliveryDate}, ${order.receivedDate})`),
+      asc(order.id),
+    ];
+  } else if (sort === "price_high") {
+    orderByClause = [
+      desc(order.totalPriceCents),
+      desc(order.id),
+    ];
+  } else if (sort === "price_low") {
+    orderByClause = [
+      asc(order.totalPriceCents),
+      asc(order.id),
+    ];
+  } else {
+    // newest
+    orderByClause = [
+      desc(order.createdAt),
+      desc(order.id),
+    ];
   }
 
   // نجلب limit + 1 للتحقق من وجود صفحة تالية، مع استبعاد الحقول الكبيرة كالملاحظات (PERF-4)
@@ -80,7 +127,7 @@ export async function getOrders({
     })
     .from(order)
     .where(and(...conditions))
-    .orderBy(desc(order.createdAt), desc(order.id))
+    .orderBy(...orderByClause)
     .limit(limit + 1);
 
   const hasNextPage = rows.length > limit;

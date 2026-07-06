@@ -39,6 +39,8 @@ interface PageToolbarProps {
   menuItems?: ToolbarMenuItem[];
   /** فلتر مخصّص يحلّ محلّ زر الفلتر الافتراضي (نفس الموضع) — مثل StatusFilterSheet */
   filterSlot?: React.ReactNode;
+  /** يحجز مساحة زر البحث حتى لو غاب (يثبّت شكل الهيدر بين التبويبات) */
+  reserveSearchSpace?: boolean;
   /** يحجز مساحة زر الفلتر حتى لو غاب (يمنع قفز التخطيط بين تبويبات مختلفة) */
   reserveFilterSpace?: boolean;
   /** يحجز مساحة زر الإعدادات حتى لو غاب */
@@ -59,6 +61,7 @@ export function PageToolbar({
   filters,
   menuItems,
   filterSlot,
+  reserveSearchSpace = false,
   reserveFilterSpace = false,
   reserveMenuSpace = false,
   leading,
@@ -206,6 +209,14 @@ export function PageToolbar({
           >
             <Search className="w-5 h-5" />
           </HeaderIconButton>
+        )}
+
+        {/* حجز مساحة زر البحث عند غيابه (يثبّت شكل الهيدر بين التبويبات) */}
+        {!search && reserveSearchSpace && (
+          <>
+            <span className="w-2 shrink-0" aria-hidden="true" />
+            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
+          </>
         )}
 
         {/* فاصل بسيط قبل مبدّل العرض */}

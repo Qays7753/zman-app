@@ -415,7 +415,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             هل أنت متأكد من تحويل هذا الطلب إلى مبيعات (تسجيل إيراد)؟
           </p>
           <p className="text-xs text-ink-3">
-            سيتم ترحيل كامل المبلغ المتبقي (<AmountText amount={orderData.totalPriceCents - (orderData.depositCents || 0)} />) إلى الصندوق كإيراد مبيعات، وتحديث حالة الطلب إلى مكتمل.
+            سيتم ترحيل كامل المبلغ المتبقي (<AmountText amount={orderData.totalPriceCents - (orderData.depositCents || 0)} />) إلى الصندوق كإيراد مبيعات، وتحديث حالة الطلب إلى تم التسليم.
           </p>
           <div className="flex gap-2">
             <button

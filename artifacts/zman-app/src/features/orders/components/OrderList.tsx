@@ -34,6 +34,7 @@ export function OrderList({
   // هنا نقرأها فقط لجلب البيانات (تبقى مشتركة مع عرض التقويم)
   const currentStatus = searchParams.get("status") || "all";
   const currentQuery = searchParams.get("q") || "";
+  const currentSort = (searchParams.get("sort") || "newest") as any;
 
   // 2. جلب البيانات باستخدام Infinite Query (§10.1)
   const {
@@ -47,6 +48,7 @@ export function OrderList({
   } = useInfiniteOrders({
     status: currentStatus,
     q: currentQuery,
+    sort: currentSort,
   });
 
   const handleClearFilters = () => {

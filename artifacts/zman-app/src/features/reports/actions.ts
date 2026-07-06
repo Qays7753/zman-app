@@ -201,10 +201,10 @@ ${sources
       );
 
       const statusLabels: Record<string, string> = {
-        draft: "مسودة",
-        sent: "تم الإرسال",
-        confirmed: "مؤكد",
-        delivered: "تم التوصيل",
+        draft: "مقترح",
+        sent: "تم التأكيد",
+        confirmed: "تحت التنفيذ",
+        delivered: "تم التسليم",
         cancelled: "ملغى",
       };
 
@@ -406,10 +406,10 @@ export async function getAllReportData(
     });
 
     const statusLabels: Record<string, string> = {
-      draft: "مسودة",
-      sent: "تم الإرسال",
-      confirmed: "مؤكد",
-      delivered: "تم التوصيل",
+      draft: "مقترح",
+      sent: "تم التأكيد",
+      confirmed: "تحت التنفيذ",
+      delivered: "تم التسليم",
       cancelled: "ملغى",
     };
     const totalOrderCount = funnelsRes.reduce((s, f) => s + f.count, 0);
