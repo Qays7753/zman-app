@@ -18,6 +18,7 @@ import {
   Settings,
   ArrowLeftRight,
   User,
+  BarChart3,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -388,13 +389,13 @@ export function DashboardClient() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* صافي الأرباح (أزرق في الربح، أحمر في الخسارة - غير معتمد على اللون فقط) */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* صافي التدفق النقدي (أزرق في الربح، أحمر في الخسارة - غير معتمد على اللون فقط) */}
               <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
                     <NetIcon className={`h-4 w-4 ${netColorClass}`} />
-                    صافي الأرباح
+                    صافي التدفق النقدي
                   </span>
                   <TrendArrow data={netTrendData} goodWhenUp={true} />
                 </div>
@@ -405,25 +406,23 @@ export function DashboardClient() {
                     <span className="font-mono text-base shrink-0">{netSign}</span>
                     <AmountText amount={Math.abs(net)} />
                   </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    صافي الربح
+                  <span className="text-[10px] text-ink/40 mt-1 truncate" title="مبيعات − مشتريات − مصاريف">
+                    مبيعات − مشتريات − مصاريف
                   </span>
                 </div>
               </div>
 
               {/* إجمالي المبيعات (أزرق - Info) */}
-              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between">
+              <Link
+                href="/finance?tab=sales"
+                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-info/40 hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center justify-between w-full">
                   <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
                     <ShoppingBag className="h-4 w-4 text-info" />
                     المبيعات
                   </span>
-                  {trendData && (
-                    <TrendArrow
-                      data={trendData.salesTrend.map((d: any) => d.total)}
-                      goodWhenUp={true}
-                    />
-                  )}
+                  <ArrowLeft className="h-4 w-4 text-info/0 group-hover:text-info transition-all transform group-hover:-translate-x-1" />
                 </div>
                 <div className="mt-2 flex flex-col min-w-0">
                   <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
@@ -434,26 +433,27 @@ export function DashboardClient() {
                     إجمالي الإيرادات
                   </span>
                   {stats && stats.totalDepositsCents > 0 && (
-                    <span className="text-[10px] text-ink-3 mt-1 block truncate">
-                      منه عربون: <AmountText amount={stats.totalDepositsCents} />
+                    <span
+                      className="text-[10px] text-ink-3 mt-1 block truncate cursor-help"
+                      title="يمثل قيمة العربون المدفوعة مقدماً لطلبات لم تُسلّم بعد في هذه الفترة (دخلت ماليّاً قبل التسليم)"
+                    >
+                      يشمل طلبات بعربون: <AmountText amount={stats.totalDepositsCents} />
                     </span>
                   )}
                 </div>
-              </div>
+              </Link>
 
               {/* إجمالي المشتريات (أحمر - Alert) */}
-              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between">
+              <Link
+                href="/finance?tab=purchases"
+                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-alert/40 hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center justify-between w-full">
                   <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
                     <ShoppingCart className="h-4 w-4 text-alert" />
                     المشتريات
                   </span>
-                  {trendData && (
-                    <TrendArrow
-                      data={trendData.purchasesTrend.map((d: any) => d.total)}
-                      goodWhenUp={false}
-                    />
-                  )}
+                  <ArrowLeft className="h-4 w-4 text-alert/0 group-hover:text-alert transition-all transform group-hover:-translate-x-1" />
                 </div>
                 <div className="mt-2 flex flex-col min-w-0">
                   <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 whitespace-nowrap min-w-0">
@@ -464,21 +464,19 @@ export function DashboardClient() {
                     مواد خام
                   </span>
                 </div>
-              </div>
+              </Link>
 
               {/* إجمالي المصاريف (أحمر - Alert) */}
-              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between">
+              <Link
+                href="/finance?tab=expenses"
+                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-alert/40 hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center justify-between w-full">
                   <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
                     <ArrowDownRight className="h-4 w-4 text-alert" />
                     المصاريف
                   </span>
-                  {trendData && (
-                    <TrendArrow
-                      data={trendData.expensesTrend.map((d: any) => d.total)}
-                      goodWhenUp={false}
-                    />
-                  )}
+                  <ArrowLeft className="h-4 w-4 text-alert/0 group-hover:text-alert transition-all transform group-hover:-translate-x-1" />
                 </div>
                 <div className="mt-2 flex flex-col min-w-0">
                   <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 whitespace-nowrap min-w-0">
@@ -489,7 +487,29 @@ export function DashboardClient() {
                     تشغيل ورواتب
                   </span>
                 </div>
-              </div>
+              </Link>
+
+              {/* بطاقة التقارير (أزرق - Info) */}
+              <Link
+                href="/reports"
+                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-info/40 hover:shadow-md transition-all group col-span-2 lg:col-span-1"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
+                    <BarChart3 className="h-4 w-4 text-info" />
+                    التقارير
+                  </span>
+                  <ArrowLeft className="h-4 w-4 text-info/0 group-hover:text-info transition-all transform group-hover:-translate-x-1" />
+                </div>
+                <div className="mt-2 flex flex-col min-w-0">
+                  <span className="text-lg lg:text-xl font-bold text-info whitespace-nowrap">
+                    عرض التقارير
+                  </span>
+                  <span className="text-[10px] text-ink/40 mt-1 truncate">
+                    الربح والوضع المالي
+                  </span>
+                </div>
+              </Link>
             </div>
 
             {/* قسم الملخص النقدي الجديد (التزاماً بـ §8.2) */}

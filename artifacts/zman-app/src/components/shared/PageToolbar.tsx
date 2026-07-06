@@ -123,12 +123,13 @@ export function PageToolbar({
         >
           <X className="w-5 h-5" />
         </HeaderIconButton>
+        {trailing && <div className="flex items-center shrink-0">{trailing}</div>}
       </div>
     );
   }
 
   return (
-    <div className="flex items-center flex-nowrap justify-between w-full gap-2">
+    <div className="flex items-center flex-nowrap justify-between w-full gap-2 overflow-x-auto no-scrollbar">
       {/* يمين (start في RTL): زر الإضافة (الإجراء الأساسي) */}
       <div className="flex items-center shrink-0">
         {trailing}

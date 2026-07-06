@@ -264,17 +264,19 @@ export default function FinanceClient() {
   const pageAction = (
     <PageToolbar
       leading={
-        <SegmentedControl
-          value={activeTab}
-          onChange={handleTabChange}
-          compact
-          options={tabs.map((t) => ({
-            value: t.id,
-            label: t.label, // التسميات تظهر على الديسكتوب وتختفي تلقائياً على الجوال
-            icon: <t.icon className="h-5 w-5 shrink-0" />,
-          }))}
-          className="shrink-0 gap-0.5"
-        />
+        <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+          <SegmentedControl
+            value={activeTab}
+            onChange={handleTabChange}
+            compact
+            options={tabs.map((t) => ({
+              value: t.id,
+              label: "", // أبقِ label: "" (أيقونات فقط، قرار المالك)
+              icon: <t.icon className="h-5 w-5 shrink-0" />,
+            }))}
+            className="shrink-0 gap-0.5"
+          />
+        </div>
       }
       search={hasSearch ? {
         value: searchInput,

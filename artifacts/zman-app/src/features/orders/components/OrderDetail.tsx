@@ -46,9 +46,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   const [isConverting, setIsConverting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [showConvertConfirm, setShowConvertConfirm] = useState(false);
 
   const handleConvertToSale = async () => {
     setIsConverting(true);
+    setShowConvertConfirm(false);
     try {
       const response = await convertOrderToSaleMutation.mutateAsync({
         orderId: orderData?.id ?? "",
@@ -392,9 +394,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         {orderData.status !== "delivered" &&
           orderData.status !== "cancelled" && (
             <Button
-              onClick={handleConvertToSale}
+              onClick={() => setShowConvertConfirm(true)}
               disabled={isConverting}
-              isLoading={isConverting}
               className="w-full py-3"
               icon={<ShoppingCart className="w-5 h-5" />}
             >
@@ -402,6 +403,39 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             </Button>
           )}
       </div>
+
+      {/* تأكيد تحويل الطلب إلى مبيعات (إيراد) */}
+      <ResponsiveModal
+        isOpen={showConvertConfirm}
+        onClose={() => setShowConvertConfirm(false)}
+        title="تأكيد تحويل الطلب إلى مبيعات"
+      >
+        <div className="space-y-4 p-4 font-medium text-ink">
+          <p className="text-sm text-ink-2 leading-relaxed">
+            هل أنت متأكد من تحويل هذا الطلب إلى مبيعات (تسجيل إيراد)؟
+          </p>
+          <p className="text-xs text-ink-3">
+            سيتم ترحيل كامل المبلغ المتبقي (<AmountText amount={orderData.totalPriceCents - (orderData.depositCents || 0)} />) إلى الصندوق كإيراد مبيعات، وتحديث حالة الطلب إلى مكتمل.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowConvertConfirm(false)}
+              className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
+            >
+              إلغاء
+            </button>
+            <button
+              type="button"
+              disabled={isConverting}
+              onClick={handleConvertToSale}
+              className="flex-1 min-h-[44px] rounded-lg text-paper font-bold bg-emerald hover:bg-emerald/90 transition-colors disabled:opacity-50 flex items-center justify-center"
+            >
+              {isConverting ? "جارٍ التحويل..." : "تأكيد التحويل"}
+            </button>
+          </div>
+        </div>
+      </ResponsiveModal>
 
       {/* شيت الحذف للتأكيد (Tier 2 Destructive Action) (§9.4) */}
       <ResponsiveModal

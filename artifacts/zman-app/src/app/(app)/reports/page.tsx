@@ -85,6 +85,7 @@ export default function ReportsPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<"all" | "month" | "30d">("all");
   const [activeSection, setActiveSection] = useState<"analytics" | "balance_sheet">("analytics");
+  const [activeReportTab, setActiveReportTab] = useState<"pnl" | "expenses" | "sales" | "orders" | "products">("pnl");
   const [asOfDate, setAsOfDate] = useState(() => new Date().toLocaleDateString("en-CA"));
 
   const { data: queryData, isLoading, refetch } = useQuery({
@@ -164,11 +165,12 @@ export default function ReportsPage() {
             />
             <Button
               onClick={() => {
-                if (activeSection === "analytics") void refetch();
-                else void refetchPosition();
+                void refetch();
+                void refetchPosition();
               }}
-              isLoading={activeSection === "analytics" ? isLoading : positionLoading}
+              isLoading={isLoading || positionLoading}
               variant="secondary"
+              icon={<RefreshCw className="h-4 w-4" />}
             >
               تحديث
             </Button>
@@ -176,30 +178,16 @@ export default function ReportsPage() {
         }
       />
 
-      {activeSection === "analytics" ? (
-        isLoading ? (
-          <SkeletonList count={4} />
-        ) : !data ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-20">
-            <p className="text-sm text-ink/60">تعذّر تحميل البيانات</p>
-            <button
-              type="button"
-              onClick={() => void refetch()}
-              className="px-4 h-10 bg-ink text-paper rounded-md text-sm font-bold"
-            >
-              إعادة المحاولة
-            </button>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-hairline">
+          <div>
+            <p className="text-xs text-ink/50">
+              آخر تحديث: {new Date().toLocaleString("ar-JO", { dateStyle: "medium", timeStyle: "short" })}
+            </p>
           </div>
-        ) : (
-          <div className="space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-hairline">
-            <div>
-              <p className="text-xs text-ink/50">
-                آخر تحديث: {new Date().toLocaleString("ar-JO", { dateStyle: "medium", timeStyle: "short" })}
-              </p>
-            </div>
 
-            {/* فلتر فترة التقارير */}
+          {activeSection === "analytics" ? (
+            /* فلتر فترة التقارير */
             <SegmentedControl
               value={dateRange}
               onChange={(val) => setDateRange(val as any)}
@@ -209,319 +197,371 @@ export default function ReportsPage() {
                 { value: "30d", label: "آخر 30 يوم" },
               ]}
             />
-          </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-ink/70">تاريخ الحساب:</span>
+              <input
+                type="date"
+                value={asOfDate}
+                onChange={(e) => setAsOfDate(e.target.value)}
+                className="h-10 px-3 bg-canvas border border-hairline rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ink"
+              />
+            </div>
+          )}
+        </div>
 
-          {/* ===== ١ — ملخص الأرباح والخسائر ===== */}
-          <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <SectionTitle>
-                <span className="flex items-center gap-2">
-                  {isProfit ? (
-                    <TrendingUp className="h-4 w-4 text-info" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-alert" />
-                  )}
-                  ملخص الأرباح والخسائر (P&L)
-                </span>
-              </SectionTitle>
+        {activeSection === "analytics" ? (
+          isLoading ? (
+            <SkeletonList count={4} />
+          ) : !data ? (
+            <div className="flex flex-col items-center justify-center gap-4 py-20">
+              <p className="text-sm text-ink/60">تعذّر تحميل البيانات</p>
               <button
                 type="button"
-                onClick={() => void handleDownload("pnl", "الأرباح والخسائر")}
-                disabled={downloadingId !== null}
-                className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
+                onClick={() => void refetch()}
+                className="px-4 h-10 bg-ink text-paper rounded-md text-sm font-bold"
               >
-                {downloadingId === "pnl" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">تحميل</span>
+                إعادة المحاولة
               </button>
             </div>
+          ) : (
+            <div className="space-y-6">
+              {/* تبويبات الأقسام الخمسة للتقارير */}
+              <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
+                <SegmentedControl
+                  value={activeReportTab}
+                  onChange={(val) => setActiveReportTab(val as any)}
+                  options={[
+                    { value: "pnl", label: "الأرباح والخسائر" },
+                    { value: "expenses", label: "المصاريف" },
+                    { value: "sales", label: "المبيعات" },
+                    { value: "orders", label: "الطلبات" },
+                    { value: "products", label: "المنتجات" },
+                  ]}
+                  className="shrink-0 gap-0.5"
+                />
+              </div>
 
-            {/* بطاقة صافي الربح */}
-            <div className={`p-5 rounded-lg border ${isProfit ? "border-info/30 bg-info-soft" : "border-alert/30 bg-alert-soft"}`}>
-              <p className="text-xs font-bold text-ink/60 mb-1.5">صافي الأرباح / الخسائر الإجمالية</p>
-              <p className={`text-3xl font-bold flex items-baseline gap-1 ${isProfit ? "text-info" : "text-alert"}`}>
-                <span className="font-mono text-2xl">{isProfit ? "+" : "−"}</span>
-                <AmountText amount={Math.abs(net)} />
-              </p>
-              <p className="text-[11px] text-ink/50 mt-1.5 flex justify-between items-center flex-wrap gap-1">
-                <span>المبيعات ناقصاً المشتريات والمصاريف التشغيلية</span>
-                {data.pnl.salesCents > 0 && (
-                  <span className="font-bold">
-                    هامش الربح: {((net / data.pnl.salesCents) * 100).toFixed(1)}%
-                  </span>
-                )}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <StatCard
-                label="إجمالي المبيعات"
-                amount={data.pnl.salesCents}
-                sub="مجموع الإيرادات الواردة"
-                icon={ShoppingBag}
-                colorClass="text-info"
-                sign="+"
-              />
-              <StatCard
-                label="إجمالي المشتريات"
-                amount={data.pnl.purchasesCents}
-                sub="تكاليف المواد الخام"
-                icon={ShoppingCart}
-                colorClass="text-alert"
-                sign="−"
-              />
-              <StatCard
-                label="إجمالي المصاريف"
-                amount={data.pnl.expensesCents}
-                sub="المصاريف التشغيلية والرواتب"
-                icon={ArrowDownRight}
-                colorClass="text-alert"
-                sign="−"
-              />
-            </div>
-          </section>
-
-          {/* ===== ٢ — فئات المصاريف ===== */}
-          <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <SectionTitle>
-                <span className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-alert" />
-                  توزيع المصاريف حسب الفئة
-                </span>
-              </SectionTitle>
-              <button
-                type="button"
-                onClick={() => void handleDownload("expenses", "فئات المصاريف")}
-                disabled={downloadingId !== null}
-                className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-              >
-                {downloadingId === "expenses" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">تحميل</span>
-              </button>
-            </div>
-
-            {data.expensesByCategory.length === 0 ? (
-              <p className="text-sm text-ink/45 text-center py-6">لا توجد مصاريف مسجّلة بعد</p>
-            ) : (
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                {/* Donut SVG */}
-                <div className="relative w-36 h-36 flex-shrink-0 flex items-center justify-center">
-                  <svg viewBox="0 0 100 100" className="w-36 h-36 -rotate-90">
-                    {(() => {
-                      let cumulativePct = 0;
-                      return data.expensesByCategory.map((cat, i) => {
-                        const dash = (cat.pct / 100) * 251.2;
-                        const offset = (cumulativePct / 100) * 251.2;
-                        cumulativePct += cat.pct;
-                        return (
-                          <circle
-                            key={cat.category}
-                            cx="50"
-                            cy="50"
-                            r="40"
-                            fill="none"
-                            stroke={DONUT_COLORS[i % DONUT_COLORS.length]}
-                            strokeWidth="12"
-                            strokeDasharray={`${dash} 251.2`}
-                            strokeDashoffset={-offset}
-                            className="transition-all duration-300"
-                          />
-                        );
-                      });
-                    })()}
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-[10px] text-ink/50 font-bold">المصاريف</span>
-                    <span className="text-xs font-bold text-ink truncate max-w-[100px] text-center">
-                      <AmountText amount={data.pnl.expensesCents} />
-                    </span>
+              {activeReportTab === "pnl" && (
+                /* ===== ١ — ملخص الأرباح والخسائر ===== */
+                <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle>
+                      <span className="flex items-center gap-2">
+                        {isProfit ? (
+                          <TrendingUp className="h-4 w-4 text-info" />
+                        ) : (
+                          <TrendingDown className="h-4 w-4 text-alert" />
+                        )}
+                        ملخص الأرباح والخسائر (P&L)
+                      </span>
+                    </SectionTitle>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownload("pnl", "الأرباح والخسائر")}
+                      disabled={downloadingId !== null}
+                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
+                    >
+                      {downloadingId === "pnl" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">تحميل</span>
+                    </button>
                   </div>
-                </div>
 
-                {/* Legend & Progress Bars */}
-                <div className="flex-1 w-full space-y-3">
-                  {data.expensesByCategory.map((cat, i) => (
-                    <div key={cat.category} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-semibold text-ink/85 flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-                          {cat.category}
+                  {/* بطاقة صافي الربح */}
+                  <div className={`p-5 rounded-lg border ${isProfit ? "border-info/30 bg-info-soft" : "border-alert/30 bg-alert-soft"}`}>
+                    <p className="text-xs font-bold text-ink/60 mb-1.5">صافي الأرباح / الخسائر الإجمالية</p>
+                    <p className={`text-3xl font-bold flex items-baseline gap-1 ${isProfit ? "text-info" : "text-alert"}`}>
+                      <span className="font-mono text-2xl">{isProfit ? "+" : "−"}</span>
+                      <AmountText amount={Math.abs(net)} />
+                    </p>
+                    <p className="text-[11px] text-ink/50 mt-1.5 flex justify-between items-center flex-wrap gap-1">
+                      <span>المبيعات ناقصاً المشتريات والمصاريف التشغيلية</span>
+                      {data.pnl.salesCents > 0 && (
+                        <span className="font-bold">
+                          هامش الربح: {((net / data.pnl.salesCents) * 100).toFixed(1)}%
                         </span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-ink/45">{cat.count} حركة</span>
-                          <span className="font-bold text-alert">
-                            <AmountText amount={cat.totalCents} />
-                          </span>
-                          <span className="text-xs text-ink/40 w-10 text-end">
-                            {cat.pct.toFixed(0)}%
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <StatCard
+                      label="إجمالي المبيعات"
+                      amount={data.pnl.salesCents}
+                      sub="مجموع الإيرادات الواردة"
+                      icon={ShoppingBag}
+                      colorClass="text-info"
+                      sign="+"
+                    />
+                    <StatCard
+                      label="إجمالي المشتريات"
+                      amount={data.pnl.purchasesCents}
+                      sub="تكاليف المواد الخام"
+                      icon={ShoppingCart}
+                      colorClass="text-alert"
+                      sign="−"
+                    />
+                    <StatCard
+                      label="إجمالي المصاريف"
+                      amount={data.pnl.expensesCents}
+                      sub="المصاريف التشغيلية والرواتب"
+                      icon={ArrowDownRight}
+                      colorClass="text-alert"
+                      sign="−"
+                    />
+                  </div>
+                </section>
+              )}
+
+              {activeReportTab === "expenses" && (
+                /* ===== ٢ — فئات المصاريف ===== */
+                <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle>
+                      <span className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 text-alert" />
+                        توزيع المصاريف حسب الفئة
+                      </span>
+                    </SectionTitle>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownload("expenses", "فئات المصاريف")}
+                      disabled={downloadingId !== null}
+                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
+                    >
+                      {downloadingId === "expenses" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">تحميل</span>
+                    </button>
+                  </div>
+
+                  {data.expensesByCategory.length === 0 ? (
+                    <p className="text-sm text-ink/45 text-center py-6">لا توجد مصاريف مسجّلة بعد</p>
+                  ) : (
+                    <div className="flex flex-col md:flex-row items-center gap-8">
+                      {/* Donut SVG */}
+                      <div className="relative w-36 h-36 flex-shrink-0 flex items-center justify-center">
+                        <svg viewBox="0 0 100 100" className="w-36 h-36 -rotate-90">
+                          {(() => {
+                            let cumulativePct = 0;
+                            return data.expensesByCategory.map((cat, i) => {
+                              const dash = (cat.pct / 100) * 251.2;
+                              const offset = (cumulativePct / 100) * 251.2;
+                              cumulativePct += cat.pct;
+                              return (
+                                <circle
+                                  key={cat.category}
+                                  cx="50"
+                                  cy="50"
+                                  r="40"
+                                  fill="none"
+                                  stroke={DONUT_COLORS[i % DONUT_COLORS.length]}
+                                  strokeWidth="12"
+                                  strokeDasharray={`${dash} 251.2`}
+                                  strokeDashoffset={-offset}
+                                  className="transition-all duration-300"
+                                />
+                              );
+                            });
+                          })()}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-[10px] text-ink/50 font-bold">المصاريف</span>
+                          <span className="text-xs font-bold text-ink truncate max-w-[100px] text-center">
+                            <AmountText amount={data.pnl.expensesCents} />
                           </span>
                         </div>
                       </div>
-                      <ProgressBar pct={cat.pct} style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+
+                      {/* Legend & Progress Bars */}
+                      <div className="flex-1 w-full space-y-3">
+                        {data.expensesByCategory.map((cat, i) => (
+                          <div key={cat.category} className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-semibold text-ink/85 flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                                {cat.category}
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-ink/45">{cat.count} حركة</span>
+                                <span className="font-bold text-alert">
+                                  <AmountText amount={cat.totalCents} />
+                                </span>
+                                <span className="text-xs text-ink/40 w-10 text-end">
+                                  {cat.pct.toFixed(0)}%
+                                </span>
+                              </div>
+                            </div>
+                            <ProgressBar pct={cat.pct} style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
+                  )}
+                </section>
+              )}
 
-          {/* ===== ٣ — مصادر المبيعات ===== */}
-          <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <SectionTitle>
-                <span className="flex items-center gap-2">
-                  <BarChart2 className="h-4 w-4 text-info" />
-                  مصادر المبيعات والإيرادات
-                </span>
-              </SectionTitle>
-              <button
-                type="button"
-                onClick={() => void handleDownload("sales", "مصادر المبيعات")}
-                disabled={downloadingId !== null}
-                className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-              >
-                {downloadingId === "sales" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">تحميل</span>
-              </button>
-            </div>
+              {activeReportTab === "sales" && (
+                /* ===== ٣ — مصادر المبيعات ===== */
+                <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle>
+                      <span className="flex items-center gap-2">
+                        <BarChart2 className="h-4 w-4 text-info" />
+                        مصادر المبيعات والإيرادات
+                      </span>
+                    </SectionTitle>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownload("sales", "مصادر المبيعات")}
+                      disabled={downloadingId !== null}
+                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
+                    >
+                      {downloadingId === "sales" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">تحميل</span>
+                    </button>
+                  </div>
 
-            {data.salesBySource.length === 0 ? (
-              <p className="text-sm text-ink/45 text-center py-6">لا توجد مبيعات مسجّلة بعد</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {data.salesBySource.map((src) => (
-                  <div key={src.source} className="p-4 border border-hairline rounded-lg bg-canvas space-y-2">
-                    <p className="text-xs font-bold text-ink/65">{src.label}</p>
-                    <p className="text-xl font-bold text-info">
-                      <AmountText amount={src.totalCents} />
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-ink/45">
-                      <span>{src.count} عملية</span>
-                      <span>{src.pct.toFixed(1)}% من المبيعات</span>
+                  {data.salesBySource.length === 0 ? (
+                    <p className="text-sm text-ink/45 text-center py-6">لا توجد مبيعات مسجّلة بعد</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {data.salesBySource.map((src) => (
+                        <div key={src.source} className="p-4 border border-hairline rounded-lg bg-canvas space-y-2">
+                          <p className="text-xs font-bold text-ink/65">{src.label}</p>
+                          <p className="text-xl font-bold text-info">
+                            <AmountText amount={src.totalCents} />
+                          </p>
+                          <div className="flex items-center justify-between text-xs text-ink/45">
+                            <span>{src.count} عملية</span>
+                            <span>{src.pct.toFixed(1)}% من المبيعات</span>
+                          </div>
+                          <ProgressBar pct={src.pct} colorClass="bg-info" />
+                        </div>
+                      ))}
                     </div>
-                    <ProgressBar pct={src.pct} colorClass="bg-info" />
+                  )}
+                </section>
+              )}
+
+              {activeReportTab === "orders" && (
+                /* ===== ٤ — حالة الطلبات ===== */
+                <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle>
+                      <span className="flex items-center gap-2">
+                        <BarChart2 className="h-4 w-4 text-ink/60" />
+                        توزيع الطلبات حسب الحالة
+                      </span>
+                    </SectionTitle>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownload("orders", "حالة الطلبات")}
+                      disabled={downloadingId !== null}
+                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
+                    >
+                      {downloadingId === "orders" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">تحميل</span>
+                    </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
 
-          {/* ===== ٤ — حالة الطلبات ===== */}
-          <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <SectionTitle>
-                <span className="flex items-center gap-2">
-                  <BarChart2 className="h-4 w-4 text-ink/60" />
-                  توزيع الطلبات حسب الحالة
-                </span>
-              </SectionTitle>
-              <button
-                type="button"
-                onClick={() => void handleDownload("orders", "حالة الطلبات")}
-                disabled={downloadingId !== null}
-                className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-              >
-                {downloadingId === "orders" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">تحميل</span>
-              </button>
-            </div>
-
-            {data.ordersByStatus.length === 0 ? (
-              <p className="text-sm text-ink/45 text-center py-6">لا توجد طلبات مسجّلة بعد</p>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {data.ordersByStatus.map((row) => (
-                  <div key={row.status} className="flex items-center gap-4 py-3">
-                    <span className={`px-2.5 py-1 rounded text-[11px] font-bold border flex-shrink-0 ${STATUS_COLORS[row.status] ?? "bg-canvas text-ink/60 border-hairline"}`}>
-                      {row.label}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <ProgressBar pct={row.pct} colorClass={
-                        row.status === "delivered" ? "bg-info" :
-                        row.status === "confirmed" ? "bg-info/80" :
-                        row.status === "sent" ? "bg-info/60" :
-                        row.status === "draft" ? "bg-warn" : "bg-alert"
-                      } />
+                  {data.ordersByStatus.length === 0 ? (
+                    <p className="text-sm text-ink/45 text-center py-6">لا توجد طلبات مسجّلة بعد</p>
+                  ) : (
+                    <div className="divide-y divide-hairline">
+                      {data.ordersByStatus.map((row) => (
+                        <div key={row.status} className="flex items-center gap-4 py-3">
+                          <span className={`px-2.5 py-1 rounded text-[11px] font-bold border flex-shrink-0 ${STATUS_COLORS[row.status] ?? "bg-canvas text-ink/60 border-hairline"}`}>
+                            {row.label}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <ProgressBar pct={row.pct} colorClass={
+                              row.status === "delivered" ? "bg-info" :
+                              row.status === "confirmed" ? "bg-info/80" :
+                              row.status === "sent" ? "bg-info/60" :
+                              row.status === "draft" ? "bg-warn" : "bg-alert"
+                            } />
+                          </div>
+                          <span className="text-xs text-ink/45 w-8 text-end flex-shrink-0">
+                            {row.count}
+                          </span>
+                          <span className="text-sm font-bold text-ink w-28 text-end flex-shrink-0">
+                            <AmountText amount={row.totalCents} />
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                    <span className="text-xs text-ink/45 w-8 text-end flex-shrink-0">
-                      {row.count}
-                    </span>
-                    <span className="text-sm font-bold text-ink w-28 text-end flex-shrink-0">
-                      <AmountText amount={row.totalCents} />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+                  )}
+                </section>
+              )}
 
-          {/* ===== ٥ — أكثر المنتجات طلباً ===== */}
-          <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <SectionTitle>
-                <span className="flex items-center gap-2">
-                  <Archive className="h-4 w-4 text-ink/60" />
-                  أكثر المنتجات طلباً (أعلى 15)
-                </span>
-              </SectionTitle>
-              <button
-                type="button"
-                onClick={() => void handleDownload("products", "أكثر المنتجات طلباً")}
-                disabled={downloadingId !== null}
-                className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-              >
-                {downloadingId === "products" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                <span className="hidden sm:inline">تحميل</span>
-              </button>
+              {activeReportTab === "products" && (
+                /* ===== ٥ — أكثر المنتجات طلباً ===== */
+                <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle>
+                      <span className="flex items-center gap-2">
+                        <Archive className="h-4 w-4 text-ink/60" />
+                        أكثر المنتجات طلباً (أعلى 15)
+                      </span>
+                    </SectionTitle>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownload("products", "أكثر المنتجات طلباً")}
+                      disabled={downloadingId !== null}
+                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
+                    >
+                      {downloadingId === "products" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">تحميل</span>
+                    </button>
+                  </div>
+
+                  {data.topProducts.length === 0 ? (
+                    <p className="text-sm text-ink/45 text-center py-6">لا توجد طلبات مسجّلة بعد</p>
+                  ) : (
+                    <div className="divide-y divide-hairline">
+                      {data.topProducts.map((product, idx) => (
+                        <div key={product.name} className="flex items-center gap-3 py-3">
+                          <span className="text-sm font-bold text-ink/25 w-6 text-center flex-shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="flex-1 min-w-0 text-sm font-semibold text-ink/85 truncate">
+                            {product.name}
+                          </span>
+                          <span className="text-xs text-ink/45 flex-shrink-0">
+                            {product.orderCount} طلب
+                          </span>
+                          <span className="text-sm font-bold text-info flex-shrink-0">
+                            <AmountText amount={product.revenueCents} />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
-
-            {data.topProducts.length === 0 ? (
-              <p className="text-sm text-ink/45 text-center py-6">لا توجد طلبات مسجّلة بعد</p>
-            ) : (
-              <div className="divide-y divide-hairline">
-                {data.topProducts.map((product, idx) => (
-                  <div key={product.name} className="flex items-center gap-3 py-3">
-                    <span className="text-sm font-bold text-ink/25 w-6 text-center flex-shrink-0">
-                      {idx + 1}
-                    </span>
-                    <span className="flex-1 min-w-0 text-sm font-semibold text-ink/85 truncate">
-                      {product.name}
-                    </span>
-                    <span className="text-xs text-ink/45 flex-shrink-0">
-                      {product.orderCount} طلب
-                    </span>
-                    <span className="text-sm font-bold text-info flex-shrink-0">
-                      <AmountText amount={product.revenueCents} />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      )
-    ) : (
-      <div className="space-y-6">
+          )
+        ) : (
           <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline pb-4">
               <div>
@@ -530,15 +570,6 @@ export default function ReportsPage() {
                   ميزان الوضع المالي (الميزانية العمومية)
                 </h3>
                 <p className="text-xs text-ink/50 mt-1">عرض الأصول والالتزامات وحقوق الملكية للورشة في تاريخ محدد (أساس نقدي مبسط)</p>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-center">
-                <span className="text-xs font-bold text-ink/70">تاريخ الحساب:</span>
-                <input
-                  type="date"
-                  value={asOfDate}
-                  onChange={(e) => setAsOfDate(e.target.value)}
-                  className="h-10 px-3 bg-canvas border border-hairline rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ink"
-                />
               </div>
             </div>
             
@@ -671,8 +702,8 @@ export default function ReportsPage() {
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }

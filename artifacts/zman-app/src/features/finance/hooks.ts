@@ -339,12 +339,15 @@ export function useConvertOrderToSale() {
       orderId: string;
       requestId?: string;
     }) => convertOrderToSale(orderId, requestId),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       if (res.status === "ok") {
-        queryClient.invalidateQueries({ queryKey: financeKeys.sales() });
-        queryClient.invalidateQueries({ queryKey: ["orders"] }); // إبطال كاش الطلبات لتحديث الحالة
-        queryClient.invalidateQueries({ queryKey: ["reports"] });
-        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: financeKeys.sales() }),
+          queryClient.invalidateQueries({ queryKey: ["orders"] }),
+          queryClient.invalidateQueries({ queryKey: ["reports"] }),
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        ]);
+        await queryClient.refetchQueries({ queryKey: ["orders"] });
       }
     },
   });

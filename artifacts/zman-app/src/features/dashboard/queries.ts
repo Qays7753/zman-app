@@ -276,6 +276,7 @@ export async function getDashboardStats(
       .where(
         and(
           isNull(order.deletedAt),
+          sql`${order.status} <> 'cancelled'`,
           sql`coalesce(${order.depositDate}, ${order.createdAt})::date >= ${startDate}::date`,
           sql`coalesce(${order.depositDate}, ${order.createdAt})::date <= ${endDate}::date`,
         ),

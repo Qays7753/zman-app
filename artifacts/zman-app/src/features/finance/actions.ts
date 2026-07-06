@@ -992,6 +992,10 @@ export async function convertOrderToSale(
         return { status: "error", message: "لا يمكن تحويل طلب محذوف" };
       }
 
+      if (orderRow.totalPriceCents <= 0) {
+        return { status: "error", message: "لا يمكن تحويل طلب بسعر صفر إلى مبيعات. حدّد السعر أولاً." };
+      }
+
       // P0-2 extension: منع تحويل طلب ملغى إلى مبيعات
       if (orderRow.status === "cancelled") {
         return { status: "error", message: "لا يمكن تحويل طلب ملغى. أنشئ طلباً جديداً بدلاً من ذلك." };
@@ -1020,9 +1024,11 @@ export async function convertOrderToSale(
       }
 
       // 5. إدراج سجل المبيعات الفعلي
+      const saleDate = getAmmanDate();
       const [newSale] = await tx
         .insert(sale)
         .values({
+          date: saleDate,
           source: "order",
           orderId: orderId,
           amountCents: orderRow.totalPriceCents,
@@ -1039,7 +1045,7 @@ export async function convertOrderToSale(
       if (remainderCents > 0) {
         const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
         await tx.insert(cashMovement).values({
-          date: orderRow.receivedDate || getAmmanDate(),
+          date: saleDate,
           accountId: defaultAccountId,
           direction: "in",
           amountCents: remainderCents,
