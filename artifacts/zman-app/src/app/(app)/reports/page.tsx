@@ -40,6 +40,33 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** زر تحميل تقرير — مكوّن موحّد يُستخدم لكل الأقسام بدل التكرار */
+function DownloadBtn({
+  type,
+  title,
+  downloadingId,
+  onDownload,
+}: {
+  type: string;
+  title: string;
+  downloadingId: string | null;
+  onDownload: (type: "pnl" | "expenses" | "sales" | "orders" | "products", title: string) => void;
+}) {
+  return (
+    <Button
+      onClick={() => onDownload(type as "pnl" | "expenses" | "sales" | "orders" | "products", title)}
+      disabled={downloadingId !== null}
+      isLoading={downloadingId === type}
+      variant="secondary"
+      size="sm"
+      icon={downloadingId !== type ? <Download className="h-3.5 w-3.5" /> : undefined}
+      className="flex-shrink-0"
+    >
+      <span className="hidden sm:inline">تحميل</span>
+    </Button>
+  );
+}
+
 function StatCard({
   label,
   amount,
@@ -152,28 +179,37 @@ export default function ReportsPage() {
   return (
     <>
       <AppShellHeader
-        title="التقارير والوضع المالي"
+        title=""
         action={
-          <div className="flex items-center gap-2">
-            <SegmentedControl
-              value={activeSection}
-              onChange={(val) => setActiveSection(val as any)}
-              options={[
-                { value: "analytics", label: "التقارير" },
-                { value: "balance_sheet", label: "الوضع المالي" },
-              ]}
-            />
+          <div className="flex items-center gap-2 w-full">
+            {/* زر التحديث — أيقونة فقط لتوفير المساحة */}
             <Button
               onClick={() => {
                 void refetch();
                 void refetchPosition();
               }}
               isLoading={isLoading || positionLoading}
+              size="icon"
               variant="secondary"
-              icon={<RefreshCw className="h-4 w-4" />}
+              aria-label="تحديث البيانات"
+              title="تحديث البيانات"
             >
-              تحديث
+              <RefreshCw className="h-4.5 w-4.5" />
             </Button>
+            {/* مبدّل التقارير / الوضع المالي — وسط مرن */}
+            <div className="flex-1 flex justify-center">
+              <SegmentedControl
+                value={activeSection}
+                onChange={(val) => setActiveSection(val as any)}
+                compact
+                options={[
+                  { value: "analytics", label: "التقارير", icon: <BarChart2 className="h-4.5 w-4.5" /> },
+                  { value: "balance_sheet", label: "الوضع المالي", icon: <Wallet className="h-4.5 w-4.5" /> },
+                ]}
+              />
+            </div>
+            {/* حاجز متماثل لتوسيط المبدّل */}
+            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
           </div>
         }
       />
@@ -216,13 +252,14 @@ export default function ReportsPage() {
           ) : !data ? (
             <div className="flex flex-col items-center justify-center gap-4 py-20">
               <p className="text-sm text-ink/60">تعذّر تحميل البيانات</p>
-              <button
-                type="button"
+              <Button
                 onClick={() => void refetch()}
-                className="px-4 h-10 bg-ink text-paper rounded-md text-sm font-bold"
+                variant="ink"
+                size="sm"
+                icon={<RefreshCw className="h-4 w-4" />}
               >
                 إعادة المحاولة
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="space-y-6">
@@ -231,12 +268,13 @@ export default function ReportsPage() {
                 <SegmentedControl
                   value={activeReportTab}
                   onChange={(val) => setActiveReportTab(val as any)}
+                  compact
                   options={[
-                    { value: "pnl", label: "الأرباح والخسائر" },
-                    { value: "expenses", label: "المصاريف" },
-                    { value: "sales", label: "المبيعات" },
-                    { value: "orders", label: "الطلبات" },
-                    { value: "products", label: "المنتجات" },
+                    { value: "pnl", label: "الأرباح والخسائر", icon: <TrendingUp className="h-4 w-4" /> },
+                    { value: "expenses", label: "المصاريف", icon: <Wallet className="h-4 w-4" /> },
+                    { value: "sales", label: "المبيعات", icon: <ShoppingBag className="h-4 w-4" /> },
+                    { value: "orders", label: "الطلبات", icon: <Archive className="h-4 w-4" /> },
+                    { value: "products", label: "المنتجات", icon: <BarChart2 className="h-4 w-4" /> },
                   ]}
                   className="shrink-0 gap-0.5"
                 />
@@ -256,19 +294,7 @@ export default function ReportsPage() {
                         ملخص الأرباح والخسائر (P&L)
                       </span>
                     </SectionTitle>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownload("pnl", "الأرباح والخسائر")}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-                    >
-                      {downloadingId === "pnl" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Download className="h-3.5 w-3.5" />
-                      )}
-                      <span className="hidden sm:inline">تحميل</span>
-                    </button>
+                    <DownloadBtn type="pnl" title="الأرباح والخسائر" downloadingId={downloadingId} onDownload={handleDownload} />
                   </div>
 
                   {/* بطاقة صافي الربح */}
@@ -327,19 +353,7 @@ export default function ReportsPage() {
                         توزيع المصاريف حسب الفئة
                       </span>
                     </SectionTitle>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownload("expenses", "فئات المصاريف")}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-                    >
-                      {downloadingId === "expenses" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Download className="h-3.5 w-3.5" />
-                      )}
-                      <span className="hidden sm:inline">تحميل</span>
-                    </button>
+                    <DownloadBtn type="expenses" title="فئات المصاريف" downloadingId={downloadingId} onDownload={handleDownload} />
                   </div>
 
                   {data.expensesByCategory.length === 0 ? (
@@ -418,19 +432,7 @@ export default function ReportsPage() {
                         مصادر المبيعات والإيرادات
                       </span>
                     </SectionTitle>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownload("sales", "مصادر المبيعات")}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-                    >
-                      {downloadingId === "sales" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Download className="h-3.5 w-3.5" />
-                      )}
-                      <span className="hidden sm:inline">تحميل</span>
-                    </button>
+                    <DownloadBtn type="sales" title="مصادر المبيعات" downloadingId={downloadingId} onDownload={handleDownload} />
                   </div>
 
                   {data.salesBySource.length === 0 ? (
@@ -465,19 +467,7 @@ export default function ReportsPage() {
                         توزيع الطلبات حسب الحالة
                       </span>
                     </SectionTitle>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownload("orders", "حالة الطلبات")}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-                    >
-                      {downloadingId === "orders" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Download className="h-3.5 w-3.5" />
-                      )}
-                      <span className="hidden sm:inline">تحميل</span>
-                    </button>
+                    <DownloadBtn type="orders" title="حالة الطلبات" downloadingId={downloadingId} onDownload={handleDownload} />
                   </div>
 
                   {data.ordersByStatus.length === 0 ? (
@@ -520,19 +510,7 @@ export default function ReportsPage() {
                         أكثر المنتجات طلباً (أعلى 15)
                       </span>
                     </SectionTitle>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownload("products", "أكثر المنتجات طلباً")}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink border border-hairline rounded-md px-3 min-h-[44px] h-11 transition-colors disabled:opacity-50 flex-shrink-0"
-                    >
-                      {downloadingId === "products" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Download className="h-3.5 w-3.5" />
-                      )}
-                      <span className="hidden sm:inline">تحميل</span>
-                    </button>
+                    <DownloadBtn type="products" title="أكثر المنتجات طلباً" downloadingId={downloadingId} onDownload={handleDownload} />
                   </div>
 
                   {data.topProducts.length === 0 ? (
@@ -580,13 +558,14 @@ export default function ReportsPage() {
             ) : !positionData ? (
               <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
                 <p className="text-sm text-ink/60">تعذر تحميل بيانات الوضع المالي.</p>
-                <button
-                  type="button"
+                <Button
                   onClick={() => void refetchPosition()}
-                  className="px-4 h-9 bg-ink text-paper rounded-md text-sm font-semibold"
+                  variant="ink"
+                  size="sm"
+                  icon={<RefreshCw className="h-4 w-4" />}
                 >
                   إعادة المحاولة
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="space-y-6">
