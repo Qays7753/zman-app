@@ -409,7 +409,7 @@ export function DashboardClient() {
                 </div>
               </div>
 
-              {/* المبيعات المحصلة */}
+              {/* السيولة المتاحة (بيع + عربون) — نقد داخل خلال الفترة */}
               <Link
                 href="/finance?tab=sales"
                 className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-info/40 hover:shadow-md transition-all group"
@@ -417,7 +417,7 @@ export function DashboardClient() {
                 <div className="flex items-center justify-between w-full">
                   <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
                     <ShoppingBag className="h-4 w-4 text-info" />
-                    المبيعات المُحصَّلة
+                    السيولة المتاحة (بيع + عربون)
                   </span>
                   <ArrowLeft className="h-4 w-4 text-info/0 group-hover:text-info transition-all transform group-hover:-translate-x-1" />
                 </div>
@@ -427,7 +427,7 @@ export function DashboardClient() {
                     <AmountText amount={summary?.sales ?? 0} />
                   </span>
                   <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    كافة المقبوضات والنقد الوارد
+                    نقد مُحصَّل خلال الفترة (يشمل عربونات طلبات لم تكتمل)
                   </span>
                 </div>
               </Link>
