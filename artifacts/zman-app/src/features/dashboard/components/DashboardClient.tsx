@@ -434,10 +434,11 @@ export function DashboardClient() {
                   </span>
                   {stats && stats.totalDepositsCents > 0 && (
                     <span
-                      className="text-[10px] text-ink-3 mt-1 block truncate cursor-help"
+                      className="text-[10px] text-ink-3 mt-1 flex flex-wrap items-baseline gap-x-1 cursor-help"
                       title="يمثل قيمة العربون المدفوعة مقدماً لطلبات لم تُسلّم بعد في هذه الفترة (دخلت ماليّاً قبل التسليم)"
                     >
-                      يشمل طلبات بعربون: <AmountText amount={stats.totalDepositsCents} />
+                      <span>يشمل طلبات بعربون:</span>
+                      <AmountText amount={stats.totalDepositsCents} />
                     </span>
                   )}
                 </div>

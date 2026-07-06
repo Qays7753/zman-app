@@ -25,9 +25,12 @@ export default function FinancialChart({
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const key = d.toLocaleDateString("en-CA");
-      if (key) datesMap[key] = { sales: 0, outgoings: 0 };
+    for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      const key = `${y}-${m}-${day}`;
+      datesMap[key] = { sales: 0, outgoings: 0 };
     }
 
     for (const item of salesData) {

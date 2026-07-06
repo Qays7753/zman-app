@@ -1778,7 +1778,7 @@ export async function saveOpeningBalance(rawInput: unknown): Promise<ActionRespo
       let [cashAcc] = await tx
         .select()
         .from(account)
-        .where(and(eq(account.type, "cash"), isNull(account.deletedAt)))
+        .where(and(eq(account.type, "cash"), eq(account.name, "الصندوق الرئيسي"), isNull(account.deletedAt)))
         .limit(1);
       if (!cashAcc) {
         [cashAcc] = await tx
@@ -1799,7 +1799,7 @@ export async function saveOpeningBalance(rawInput: unknown): Promise<ActionRespo
       let [bankAcc] = await tx
         .select()
         .from(account)
-        .where(and(eq(account.type, "bank"), isNull(account.deletedAt)))
+        .where(and(eq(account.type, "bank"), eq(account.name, "حساب البنك الرئيسي"), isNull(account.deletedAt)))
         .limit(1);
       if (!bankAcc) {
         [bankAcc] = await tx

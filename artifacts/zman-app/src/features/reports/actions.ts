@@ -17,22 +17,25 @@ function formatJOD(cents: number): string {
 
 function buildDateCondition(table: any, range?: "all" | "month" | "30d") {
   const conditions = [isNull(table.deletedAt)];
+  const dateField = table.receivedDate ?? table.date;
+
   if (range === "month") {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const ammanToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
+    const [year, month] = ammanToday.split("-");
     const start = `${year}-${month}-01`;
-    const dateField = table.receivedDate ?? table.date;
+    const lastDayNum = new Date(Number(year), Number(month), 0).getDate();
+    const end = `${year}-${month}-${String(lastDayNum).padStart(2, "0")}`;
+
     conditions.push(sql`${dateField} >= ${start}`);
+    conditions.push(sql`${dateField} <= ${end}`);
   } else if (range === "30d") {
-    const startOf30Days = new Date();
-    startOf30Days.setDate(startOf30Days.getDate() - 30);
-    const year = startOf30Days.getFullYear();
-    const month = String(startOf30Days.getMonth() + 1).padStart(2, "0");
-    const day = String(startOf30Days.getDate()).padStart(2, "0");
-    const start = `${year}-${month}-${day}`;
-    const dateField = table.receivedDate ?? table.date;
+    const now = new Date();
+    const startOf30Days = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
+    const start = startOf30Days.toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
+    const end = now.toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
+
     conditions.push(sql`${dateField} >= ${start}`);
+    conditions.push(sql`${dateField} <= ${end}`);
   }
   return and(...conditions);
 }
@@ -471,12 +474,12 @@ export async function getFinancialPosition(
       const cashAccounts = await tx
         .select({ id: account.id })
         .from(account)
-        .where(and(eq(account.type, "cash"), isNull(account.deletedAt)));
+        .where(and(eq(account.type, "cash"), eq(account.isArchived, false), isNull(account.deletedAt)));
 
       const bankAccounts = await tx
         .select({ id: account.id })
         .from(account)
-        .where(and(eq(account.type, "bank"), isNull(account.deletedAt)));
+        .where(and(eq(account.type, "bank"), eq(account.isArchived, false), isNull(account.deletedAt)));
 
       const movements = await tx
         .select({
@@ -490,6 +493,7 @@ export async function getFinancialPosition(
           and(
             isNull(cashMovement.deletedAt),
             isNull(account.deletedAt),
+            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`
           )
         )
@@ -545,6 +549,7 @@ export async function getFinancialPosition(
           and(
             eq(cashMovement.sourceType, "opening"),
             isNull(account.deletedAt),
+            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`,
             isNull(cashMovement.deletedAt)
           )
@@ -562,11 +567,14 @@ export async function getFinancialPosition(
       const [injectionsRes] = await tx
         .select({ total: sum(ownerTransaction.amountCents) })
         .from(ownerTransaction)
+        .innerJoin(account, eq(ownerTransaction.accountId, account.id))
         .where(
           and(
             eq(ownerTransaction.type, "inject"),
             sql`${ownerTransaction.date} <= ${asOfDate}`,
-            isNull(ownerTransaction.deletedAt)
+            isNull(ownerTransaction.deletedAt),
+            isNull(account.deletedAt),
+            eq(account.isArchived, false)
           )
         );
       const injectionsCents = Number(injectionsRes?.total) || 0;
@@ -574,11 +582,14 @@ export async function getFinancialPosition(
       const [drawingsRes] = await tx
         .select({ total: sum(ownerTransaction.amountCents) })
         .from(ownerTransaction)
+        .innerJoin(account, eq(ownerTransaction.accountId, account.id))
         .where(
           and(
             eq(ownerTransaction.type, "draw"),
             sql`${ownerTransaction.date} <= ${asOfDate}`,
-            isNull(ownerTransaction.deletedAt)
+            isNull(ownerTransaction.deletedAt),
+            isNull(account.deletedAt),
+            eq(account.isArchived, false)
           )
         );
       const drawingsCents = Number(drawingsRes?.total) || 0;
@@ -593,6 +604,7 @@ export async function getFinancialPosition(
             eq(cashMovement.direction, "in"),
             sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
             isNull(account.deletedAt),
+            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`,
             isNull(cashMovement.deletedAt)
           )
@@ -608,6 +620,7 @@ export async function getFinancialPosition(
             eq(cashMovement.direction, "out"),
             sql`${cashMovement.sourceType} in ('expense', 'purchase')`,
             isNull(account.deletedAt),
+            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`,
             isNull(cashMovement.deletedAt)
           )
