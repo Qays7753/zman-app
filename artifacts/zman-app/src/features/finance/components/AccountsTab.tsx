@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Landmark, ArrowLeftRight, Plus, Loader2, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Landmark, Loader2, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useAccountBalancesQuery, useCreateAccount, useTransferBetweenAccounts, useArchiveAccount, useUnarchiveAccount, useDeleteAccount } from "../hooks";
 import { AmountText } from "@/components/shared/AmountText";
@@ -151,28 +151,9 @@ export function AccountsTab() {
   return (
     <div className="space-y-6">
       {/* الأزرار العلوية */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base font-bold text-ink">الحسابات النقدية والبنكية</h2>
-          <p className="text-xs text-ink/50 mt-0.5">إدارة الخزائن النقدية، الحسابات البنكية وحركات التحويل البيني</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => updateUrl({ newTransfer: "true" })}
-            variant="secondary"
-            className="flex items-center gap-1 text-xs"
-          >
-            <ArrowLeftRight className="h-4 w-4" />
-            تحويل بيني
-          </Button>
-          <Button
-            onClick={() => updateUrl({ newAccount: "true" })}
-            className="flex items-center gap-1 text-xs"
-          >
-            <Plus className="h-4 w-4" />
-            حساب جديد
-          </Button>
-        </div>
+      <div>
+        <h2 className="text-base font-bold text-ink">الحسابات النقدية والبنكية</h2>
+        <p className="text-xs text-ink/50 mt-0.5">إدارة الخزائن النقدية، الحسابات البنكية وحركات التحويل البيني</p>
       </div>
 
       {/* قائمة الحسابات */}

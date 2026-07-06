@@ -1,7 +1,7 @@
 "use client";
 
 import { Edit3, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { AppShellHeader } from "@/providers/app-shell-context";
@@ -43,9 +43,9 @@ export default function SnippetsClient() {
   const updateMutation = useUpdateSnippet();
   const deleteMutation = useDeleteSnippet();
 
-  const handleSearchChange = (q: string) => {
+  const handleSearchChange = useCallback((q: string) => {
     setSearch(q);
-  };
+  }, []);
 
   const handleCopy = async (text: string, id: string) => {
     try {
@@ -64,7 +64,7 @@ export default function SnippetsClient() {
     return acc;
   }, {});
 
-  const pageAction = (
+  const pageAction = useMemo(() => (
     <PageToolbar
       search={{
         value: search,
@@ -82,7 +82,7 @@ export default function SnippetsClient() {
         </Button>
       }
     />
-  );
+  ), [search, handleSearchChange]);
 
   return (
     <>

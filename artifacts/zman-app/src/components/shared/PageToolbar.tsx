@@ -129,7 +129,7 @@ export function PageToolbar({
   }
 
   return (
-    <div className="flex items-center flex-nowrap justify-between w-full gap-2 overflow-x-auto no-scrollbar">
+    <div className="flex items-center flex-nowrap justify-between w-full gap-2">
       {/* يمين (start في RTL): زر الإضافة (الإجراء الأساسي) */}
       <div className="flex items-center shrink-0">
         {trailing}
@@ -151,7 +151,7 @@ export function PageToolbar({
               <Filter className="w-5 h-5" />
             </HeaderIconButton>
             {filterOpen && (
-              <div className="absolute start-0 top-full mt-2 z-dropdown w-60 max-w-[80vw] max-h-[70vh] overflow-y-auto bg-paper rounded-lg border border-hairline-2 shadow-lg p-3 space-y-4 animate-fade-in">
+              <div className="absolute start-0 top-full mt-2 z-dropdown w-60 max-w-[calc(100vw-1rem)] max-h-[70vh] overflow-y-auto bg-paper rounded-lg border border-hairline-2 shadow-lg p-3 space-y-4 animate-fade-in">
                 {filters.map((group) => (
                   <div key={group.key} className="space-y-1.5">
                     <p className="text-[11px] font-bold text-ink/50 px-1">
@@ -226,7 +226,7 @@ export function PageToolbar({
               <Settings2 className="w-5 h-5" />
             </HeaderIconButton>
             {menuOpen && (
-              <div className="absolute start-0 top-full mt-2 z-dropdown w-56 max-w-[80vw] bg-paper rounded-lg border border-hairline-2 shadow-lg p-1.5 animate-fade-in">
+              <div className="absolute end-0 top-full mt-2 z-dropdown w-56 max-w-[calc(100vw-1rem)] bg-paper rounded-lg border border-hairline-2 shadow-lg p-1.5 animate-fade-in">
                 {menuItems.map((item) => (
                   <button
                     key={item.key}

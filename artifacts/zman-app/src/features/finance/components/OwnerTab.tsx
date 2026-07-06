@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Coins, Plus, Trash2, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
+import { Coins, Trash2, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useOwnerTransactions, useCreateOwnerTransaction, useDeleteOwnerTransaction, useAccounts } from "../hooks";
 import { AmountText } from "@/components/shared/AmountText";
@@ -98,18 +98,9 @@ export function OwnerTab() {
   return (
     <div className="space-y-6">
       {/* الهيدر وزر الإضافة */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base font-bold text-ink">سحوبات وإيداعات المالك (حقوق الملكية)</h2>
-          <p className="text-xs text-ink/50 mt-0.5">تسجيل السحوبات الشخصية وحقن رأس المال الإضافي للورشة</p>
-        </div>
-        <Button
-          onClick={() => updateUrl({ newOwnerTx: "true" })}
-          className="flex items-center gap-1 text-xs"
-        >
-          <Plus className="h-4 w-4" />
-          معاملة مالك جديدة
-        </Button>
+      <div>
+        <h2 className="text-base font-bold text-ink">سحوبات وإيداعات المالك (حقوق الملكية)</h2>
+        <p className="text-xs text-ink/50 mt-0.5">تسجيل السحوبات الشخصية وحقن رأس المال الإضافي للورشة</p>
       </div>
 
       {/* قائمة المعاملات */}

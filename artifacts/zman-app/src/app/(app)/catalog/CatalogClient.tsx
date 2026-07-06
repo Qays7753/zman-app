@@ -1,7 +1,7 @@
 "use client";
 
 import { Edit3, Plus, Trash2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { toast } from "sonner";
 import { AppShellHeader } from "@/providers/app-shell-context";
@@ -54,29 +54,32 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
   const updateMutation = useUpdateCatalogComponent();
   const deleteMutation = useDeleteCatalogComponent();
 
-  const handleSearch = (q: string) => {
+  const handleSearch = useCallback((q: string) => {
     setSearch(q);
-  };
+  }, []);
 
-  const pageAction = !hideHeader ? (
-    <PageToolbar
-      search={{
-        value: search,
-        onChange: handleSearch,
-        placeholder: "بحث في المكوّنات...",
-      }}
-      trailing={
-        <Button
-          onClick={() => setCreating(true)}
-          size="icon"
-          aria-label="إضافة مكوّن جديد"
-          title="إضافة مكوّن جديد"
-        >
-          <Plus className="w-5 h-5" />
-        </Button>
-      }
-    />
-  ) : null;
+  const pageAction = useMemo(() => {
+    if (hideHeader) return null;
+    return (
+      <PageToolbar
+        search={{
+          value: search,
+          onChange: handleSearch,
+          placeholder: "بحث في المكوّنات...",
+        }}
+        trailing={
+          <Button
+            onClick={() => setCreating(true)}
+            size="icon"
+            aria-label="إضافة مكوّن جديد"
+            title="إضافة مكوّن جديد"
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        }
+      />
+    );
+  }, [hideHeader, search, handleSearch]);
 
   return (
     <>

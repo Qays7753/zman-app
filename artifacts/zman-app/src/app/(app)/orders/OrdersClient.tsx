@@ -3,7 +3,7 @@
 import { Boxes, CalendarDays, LayoutList, MessageSquare, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { SkeletonList } from "@/components/shared/SkeletonList";
@@ -111,12 +111,12 @@ export default function OrdersClient() {
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const handleShowList = () => navigateTo({});
-  const handleShowDetail = (order: Order) => navigateTo({ view: order.id });
-  const handleShowEdit = (order: Order) => navigateTo({ edit: order.id });
-  const handleShowCreate = () => navigateTo({ new: "true" });
+  const handleShowList = useCallback(() => navigateTo({}), [searchParams, pathname, router]);
+  const handleShowDetail = useCallback((order: Order) => navigateTo({ view: order.id }), [searchParams, pathname, router]);
+  const handleShowEdit = useCallback((order: Order) => navigateTo({ edit: order.id }), [searchParams, pathname, router]);
+  const handleShowCreate = useCallback(() => navigateTo({ new: "true" }), [searchParams, pathname, router]);
 
-  const setTab = (t: "list" | "calendar") => {
+  const setTab = useCallback((t: "list" | "calendar") => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("view");
     params.delete("edit");
@@ -124,7 +124,7 @@ export default function OrdersClient() {
     if (t === "list") params.delete("tab");
     else params.set("tab", t);
     router.push(`${pathname}?${params.toString()}`);
-  };
+  }, [searchParams, pathname, router]);
 
   const isInSubView = isNew || !!editId || !!viewId;
 
@@ -135,60 +135,63 @@ export default function OrdersClient() {
   else if (editId) pageTitle = "تعديل بيانات الطلب";
   else if (viewId) pageTitle = "تفاصيل الطلب";
 
-  const pageAction: React.ReactNode = isInSubView ? null : (
-    <PageToolbar
-      leading={
-        // زر تبديل عرض واحد — يعرض أيقونة الوضع الذي سينتقل إليه
-        <HeaderIconButton
-          label={tab === "calendar" ? "عرض القائمة" : "عرض التقويم"}
-          onClick={() => setTab(tab === "calendar" ? "list" : "calendar")}
-        >
-          {tab === "calendar" ? (
-            <LayoutList className="w-5 h-5" />
-          ) : (
-            <CalendarDays className="w-5 h-5" />
-          )}
-        </HeaderIconButton>
-      }
-      search={{
-        value: searchInput,
-        onChange: setSearchInput,
-        placeholder: "ابحث باسم العميل أو المنتج...",
-      }}
-      filterSlot={
-        <StatusFilterSheet
-          value={currentStatus}
-          counts={statusCounts ?? {}}
-          onChange={setStatusFilter}
-        />
-      }
-      menuItems={[
-        {
-          key: "template",
-          label: "قالب رسالة واتساب",
-          icon: <MessageSquare className="w-5 h-5 text-info" />,
-          onClick: () => setIsTemplateOpen(true),
-        },
-        {
-          key: "components",
-          label: "إدارة المكوّنات",
-          icon: <Boxes className="w-5 h-5" />,
-          onClick: () => setIsComponentsOpen(true),
-        },
-      ]}
-      trailing={
-        // زر طلب جديد — مربّع بعلامة + (يوفّر المساحة، يمنع القص)
-        <Button
-          onClick={handleShowCreate}
-          size="icon"
-          aria-label="طلب جديد"
-          title="طلب جديد"
-        >
-          <Plus className="w-5 h-5" />
-        </Button>
-      }
-    />
-  );
+  const pageAction: React.ReactNode = useMemo(() => {
+    if (isInSubView) return null;
+    return (
+      <PageToolbar
+        leading={
+          // زر تبديل عرض واحد — يعرض أيقونة الوضع الذي سينتقل إليه
+          <HeaderIconButton
+            label={tab === "calendar" ? "عرض القائمة" : "عرض التقويم"}
+            onClick={() => setTab(tab === "calendar" ? "list" : "calendar")}
+          >
+            {tab === "calendar" ? (
+              <LayoutList className="w-5 h-5" />
+            ) : (
+              <CalendarDays className="w-5 h-5" />
+            )}
+          </HeaderIconButton>
+        }
+        search={{
+          value: searchInput,
+          onChange: setSearchInput,
+          placeholder: "ابحث باسم العميل أو المنتج...",
+        }}
+        filterSlot={
+          <StatusFilterSheet
+            value={currentStatus}
+            counts={statusCounts ?? {}}
+            onChange={setStatusFilter}
+          />
+        }
+        menuItems={[
+          {
+            key: "template",
+            label: "قالب رسالة واتساب",
+            icon: <MessageSquare className="w-5 h-5 text-info" />,
+            onClick: () => setIsTemplateOpen(true),
+          },
+          {
+            key: "components",
+            label: "إدارة المكوّنات",
+            icon: <Boxes className="w-5 h-5" />,
+            onClick: () => setIsComponentsOpen(true),
+          },
+        ]}
+        trailing={
+          // زر طلب جديد — مربّع بعلامة + (يوفّر المساحة، يمنع القص)
+          <Button
+            onClick={handleShowCreate}
+            size="icon"
+            aria-label="طلب جديد"
+            title="طلب جديد"
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        }
+      />
+    );
+  }, [isInSubView, tab, setTab, searchInput, setSearchInput, currentStatus, statusCounts, setStatusFilter, handleShowCreate]);
 
   const renderEditForm = () => {
     if (isLoadingEdit) return <SkeletonList count={3} />;

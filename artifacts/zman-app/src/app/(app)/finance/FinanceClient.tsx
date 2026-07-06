@@ -3,7 +3,7 @@
 import { Banknote, ShoppingCart, Wallet, Plus, Boxes, Landmark, User, Settings, ArrowLeftRight, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState, useEffect } from "react";
+import { useTransition, useState, useEffect, useCallback, useMemo } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
@@ -133,7 +133,7 @@ export default function FinanceClient() {
     return () => clearTimeout(t);
   }, [searchInput, currentQuery, pathname, router, searchParams]);
 
-  const handleTabChange = (tabId: string) => {
+  const handleTabChange = useCallback((tabId: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tabId);
     // إزالة فلاتر البحث وصفحات التعديل للتبويب الآخر عند التنقل
@@ -150,7 +150,7 @@ export default function FinanceClient() {
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
-  };
+  }, [searchParams, pathname, router]);
 
   // فلاتر ديناميكية حسب التبويب
   let filters: ToolbarFilterGroup[] | undefined = undefined;
@@ -225,7 +225,7 @@ export default function FinanceClient() {
   }
 
   // الإجراء الأساسي المربّع (+)
-  const getTrailingAction = () => {
+  const getTrailingAction = useCallback(() => {
     let label = "مشتريات جديدة";
     let queryParam = "newPurchase";
     if (activeTab === "expenses") {
@@ -256,12 +256,12 @@ export default function FinanceClient() {
         <Plus className="w-5 h-5" />
       </Button>
     );
-  };
+  }, [activeTab, searchParams, pathname, router]);
 
   const isActionableTab = activeTab === "purchases" || activeTab === "expenses" || activeTab === "sales" || activeTab === "accounts" || activeTab === "owner";
   const hasSearch = activeTab === "purchases" || activeTab === "expenses" || activeTab === "sales";
 
-  const pageAction = (
+  const pageAction = useMemo(() => (
     <PageToolbar
       leading={
         <div className="overflow-x-auto no-scrollbar -mx-1 px-1">
@@ -294,7 +294,7 @@ export default function FinanceClient() {
       reserveMenuSpace={!!menuItems && menuItems.length > 0}
       trailing={isActionableTab ? getTrailingAction() : undefined}
     />
-  );
+  ), [activeTab, handleTabChange, hasSearch, searchInput, filters, menuItems, isActionableTab, getTrailingAction]);
 
   return (
     <>

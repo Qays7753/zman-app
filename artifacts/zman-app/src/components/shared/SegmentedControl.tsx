@@ -40,8 +40,10 @@ export function SegmentedControl<T = string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "min-h-[44px] h-11 rounded-md flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-[120ms] ease-out active:scale-[0.94]",
-              compact ? "px-3.5" : "flex-1 px-3",
+              "flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-[120ms] ease-out active:scale-[0.94]",
+              compact
+                ? "min-h-[36px] h-9 px-3.5 rounded-md"
+                : "min-h-[44px] h-11 px-3 rounded-md flex-1",
               isActive
                 ? "bg-info text-paper shadow-sm"
                 : "text-ink-3 hover:text-ink hover:bg-paper/60"

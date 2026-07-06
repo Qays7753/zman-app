@@ -144,17 +144,19 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       {/* المنطقة الرئيسية */}
       <main className="flex-1 overflow-hidden flex flex-col lg:pe-[240px]">
         {/* شريط الأدوات للديسكتوب */}
-        <div className="hidden lg:flex flex-shrink-0 items-center justify-between px-8 h-16 border-b border-hairline bg-paper">
-          {title ? (
-            <h2 className="text-lg font-bold text-ink">{title}</h2>
-          ) : (
-            <span />
-          )}
-          {action && (
-            <div className={cn("flex items-center", !title ? "flex-1 w-full" : "ms-3")}>
-              {action}
-            </div>
-          )}
+        <div className="hidden lg:flex flex-shrink-0 h-16 border-b border-hairline bg-paper">
+          <div className="w-full max-w-6xl mx-auto px-8 flex items-center justify-between">
+            {title ? (
+              <h2 className="text-lg font-bold text-ink">{title}</h2>
+            ) : (
+              <span />
+            )}
+            {action && (
+              <div className={cn("flex items-center", !title ? "flex-1 w-full" : "ms-3")}>
+                {action}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* منطقة المحتوى القابلة للتمرير مع دعم السحب للتحديث */}
