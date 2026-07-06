@@ -42,10 +42,18 @@ export function AppShellHeader({ title, action }: AppShellHeaderProps) {
     setTitle(title);
   }, [title, setTitle]);
 
+  // نحدّث الـ action عند كل تغيير دون cleanup وسطي (setAction(null))
+  // لأن الـ action كائن JSX جديد في كل رندر، فأي cleanup وسطي يُومض الهيدر
+  // (يظهر فارغاً/قديماً لوهلة عند تبديل تبويبات المالية). التنظيف يتم فقط
+  // عند مغادرة الصفحة (unmount) عبر الـ effect المنفصل أدناه.
   useEffect(() => {
     setAction(action || null);
-    return () => setAction(null);
   }, [action, setAction]);
+
+  // تنظيف الهيدر عند إلغاء التركيب فقط (مغادرة الصفحة)
+  useEffect(() => {
+    return () => setAction(null);
+  }, [setAction]);
 
   return null;
 }
