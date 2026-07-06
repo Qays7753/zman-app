@@ -30,14 +30,16 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.2",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "drizzle-kit": "catalog:",
-    "lightningcss-win32-x64-msvc": "^1.32.0",
     "tailwindcss": "catalog:",
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.2",
+    "lightningcss-win32-x64-msvc": "^1.32.0"
   }
 }
