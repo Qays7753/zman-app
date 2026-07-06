@@ -338,6 +338,59 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
         }
       }
 
+      // 6.2. مزامنة حركة البيع إن كان الطلب محوّلاً لمبيعة نشطة (P0 — منع تباعد
+      // الدفتر عن السعر المعدّل). لو عُدّل سعر طلب مُسلَّم/مُحوّل، يجب أن يتبع
+      // المتبقي المُرحّل للصندوق السعر الجديد: sale_in = totalPrice − deposit.
+      const [linkedSale] = await tx
+        .select({ id: sale.id })
+        .from(sale)
+        .where(and(eq(sale.orderId, id), isNull(sale.deletedAt)));
+
+      if (linkedSale) {
+        // حدّث مبلغ المبيعة نفسها ليطابق سعر الطلب الجديد
+        await tx
+          .update(sale)
+          .set({ amountCents: totalPriceCents, updatedAt: new Date() })
+          .where(eq(sale.id, linkedSale.id));
+
+        const remainderCents = Math.max(0, totalPriceCents - (depositCents ?? 0));
+        const [existingSaleMov] = await tx
+          .select()
+          .from(cashMovement)
+          .where(
+            and(
+              eq(cashMovement.sourceType, "sale"),
+              eq(cashMovement.sourceId, linkedSale.id),
+              isNull(cashMovement.deletedAt),
+            ),
+          );
+
+        if (remainderCents > 0) {
+          const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
+          if (existingSaleMov) {
+            await tx
+              .update(cashMovement)
+              .set({ amountCents: remainderCents, updatedAt: new Date() })
+              .where(eq(cashMovement.id, existingSaleMov.id));
+          } else {
+            await tx.insert(cashMovement).values({
+              date: receivedDate || getAmmanDate(),
+              accountId: defaultAccountId,
+              direction: "in",
+              amountCents: remainderCents,
+              sourceType: "sale",
+              sourceId: linkedSale.id,
+              description: `متبقي مبيعات الطلب #${id.slice(0, 8)}`,
+            });
+          }
+        } else if (existingSaleMov) {
+          await tx
+            .update(cashMovement)
+            .set({ deletedAt: new Date(), updatedAt: new Date() })
+            .where(eq(cashMovement.id, existingSaleMov.id));
+        }
+      }
+
       // 7. تحديث المكونات الفرعية: حذف القديم وإعادة إدخال الجديد داخل المعاملة
       await tx.delete(orderComponent).where(eq(orderComponent.orderId, id));
       if (components.length > 0) {

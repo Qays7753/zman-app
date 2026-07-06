@@ -9,6 +9,10 @@ import { ratelimit } from "@/lib/ratelimit";
 import { idempotencyKey, order } from "../orders/db";
 import { getAmmanDate } from "@/lib/utils";
 import {
+  runFinancialIntegrityCheck,
+  type IntegrityReport,
+} from "./integrityCheck";
+import {
   expense,
   purchase,
   sale,
@@ -1993,6 +1997,21 @@ export async function lockOpeningBalance(id: string): Promise<ActionResponse> {
 
     revalidatePath("/finance");
     return { status: "ok", data: updated };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+// -------------------------------------------------------------
+// 9. فحص السلامة المالية (Financial Integrity Check)
+// -------------------------------------------------------------
+
+export async function runFinancialIntegrityCheckAction(
+  asOfDate?: string,
+): Promise<ActionResponse<IntegrityReport>> {
+  try {
+    const report = await runFinancialIntegrityCheck(asOfDate);
+    return { status: "ok", data: report };
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }

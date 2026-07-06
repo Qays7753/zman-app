@@ -30,6 +30,7 @@ import {
   getFinancialPosition,
   type StructuredReportData,
 } from "@/features/reports/actions";
+import { IntegrityCheckReportPanel } from "@/features/reports/components/IntegrityCheckReportPanel";
 
 const DONUT_COLORS = ["#1565c0", "#0f9d58", "#9f7300", "#c0392b"];
 
@@ -751,6 +752,9 @@ export default function ReportsPage() {
                 </div>
               </div>
             )}
+
+            {/* لوحة الفحص المالي الدوري */}
+            <IntegrityCheckReportPanel />
           </div>
         )}
       </div>
