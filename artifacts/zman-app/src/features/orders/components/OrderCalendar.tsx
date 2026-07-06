@@ -262,7 +262,9 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
 
             const dateStr = toLocalDateString(date);
             const isToday = dateStr === todayStr;
-            const dayStatuses = orderDates[dateStr] ?? [];
+            const dayInfo = orderDates[dateStr];
+            const dayStatuses = dayInfo?.statuses ?? [];
+            const dayCount = dayInfo?.count ?? 0;
             const hasOrders = dayStatuses.length > 0;
             const isSelected = dateStr === selectedDate;
 
@@ -293,6 +295,20 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
                   {date.getDate()}
                 </span>
 
+                {/* شارة عدد الطلبات في اليوم (زاوية الخلية) */}
+                {dayCount > 0 && (
+                  <span
+                    className={cn(
+                      "absolute top-1 end-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center leading-none tabular-nums",
+                      isSelected
+                        ? "bg-paper/90 text-info"
+                        : "bg-info text-paper",
+                    )}
+                  >
+                    {dayCount}
+                  </span>
+                )}
+
                 {/* نقاط حالات الطلبات */}
                 {hasOrders && (
                   <div className="flex gap-0.5 mt-1 justify-center">
@@ -319,19 +335,31 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
         </div>
       </div>
 
-      {/* مفتاح الألوان */}
-      <div className="flex items-center gap-4 px-1 text-xs text-ink-3">
+      {/* مفتاح الألوان — يشرح كل حالات الطلبات */}
+      <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 px-1 text-xs text-ink-3">
         <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-info" />
-          <span>يوم به طلبات</span>
+          <div className="w-2 h-2 rounded-full bg-warn" />
+          <span>مسودة</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded bg-info-soft border border-info/30 flex items-center justify-center">
-            <span className="text-info text-[9px] font-bold leading-none">
-              {today.getDate()}
-            </span>
-          </div>
-          <span>اليوم</span>
+          <div className="w-2 h-2 rounded-full bg-info/60" />
+          <span>تم الإرسال</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-info" />
+          <span>مؤكد</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-emerald" />
+          <span>تم التوصيل</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-alert" />
+          <span>ملغى</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="min-w-[16px] h-4 px-1 rounded-full bg-info text-paper text-[9px] font-bold flex items-center justify-center leading-none">3</span>
+          <span>عدد الطلبات</span>
         </div>
       </div>
 

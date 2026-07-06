@@ -501,6 +501,16 @@ export async function updateOrderStatus(
     return { status: "error", message: "حالة غير صالحة" };
   }
 
+  // 2.5. منع الانتقال المباشر إلى "تم التوصيل" عبر هذا المسار — يجب أن يمرّ
+  // عبر convertOrderToSale (ينشئ سجل المبيعات ويرحّل المتبقّي للصندوق)،
+  // وإلا يبقى الطلب delivered بمبيعات صفرية.
+  if (newStatus === "delivered") {
+    return {
+      status: "error",
+      message: "لتأكيد التوصيل، استخدم زر «تحويل إلى مبيعات» ليُسجَّل الإيراد.",
+    };
+  }
+
   try {
     return await db.transaction(async (tx) => {
       // 3. قفل الصف

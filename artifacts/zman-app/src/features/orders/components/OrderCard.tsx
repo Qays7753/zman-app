@@ -88,6 +88,16 @@ export function OrderCard({
   };
 
   const applyStatus = async (newStatus: string) => {
+    // الوصول إلى "تم التوصيل" (delivered) يجب أن يمرّ عبر تحويل الطلب لمبيعات
+    // (ينشئ سجل sale + يرحّل المتبقّي للصندوق). تغيير الحالة المجرّد يترك
+    // مبيعات صفرية — فنحوّل هنا للمسار الصحيح.
+    if (newStatus === "delivered") {
+      setPendingStatus(null);
+      setStatusMenuOpen(false);
+      await handleConvertToSale();
+      return;
+    }
+
     const oldStatus = localStatus;
     setLocalStatus(newStatus);
     setIsUpdatingStatus(true);

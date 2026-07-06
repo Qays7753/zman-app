@@ -95,10 +95,15 @@ export async function getOrders({
   };
 }
 
+export interface CalendarDayInfo {
+  statuses: string[]; // الحالات الفريدة الموجودة في اليوم (للنقاط الملوّنة)
+  count: number; // العدد الكلي للطلبات في اليوم
+}
+
 export async function getOrderDatesForMonth(
   year: number,
   month: number,
-): Promise<Record<string, string[]>> {
+): Promise<Record<string, CalendarDayInfo>> {
   const rows = await db
     .select({
       d: sql<string>`TO_CHAR((COALESCE(${order.deliveryDate}, ${order.receivedDate}))::date, 'YYYY-MM-DD')`,
@@ -113,12 +118,13 @@ export async function getOrderDatesForMonth(
       ),
     );
 
-  const map: Record<string, string[]> = {};
+  const map: Record<string, CalendarDayInfo> = {};
   for (const r of rows) {
     if (!r.d) continue;
-    if (!map[r.d]) map[r.d] = [];
-    if (!map[r.d].includes(r.status)) {
-      map[r.d].push(r.status);
+    if (!map[r.d]) map[r.d] = { statuses: [], count: 0 };
+    map[r.d].count += 1; // عدّ كل طلب
+    if (!map[r.d].statuses.includes(r.status)) {
+      map[r.d].statuses.push(r.status);
     }
   }
   return map;
