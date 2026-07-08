@@ -636,30 +636,33 @@ export async function getFinancialPosition(
         .limit(1);
       const openingCapitalCents = opBal ? opBal.capitalCents : 0;
 
-      // 4. معاملات سحب وايداع المالك
+      // 4. معاملات سحب وايداع المالك — من دفتر الصندوق (cash_movement) لا من جدول owner_transaction
+      // للحفاظ على قاعدة الأساس النقدي: كل أرقام الميزانية تُشتق من الدفتر. متطابق مع owner_transaction في التشغيل السليم.
       const [injectionsRes] = await tx
-        .select({ total: sum(ownerTransaction.amountCents) })
-        .from(ownerTransaction)
-        .innerJoin(account, eq(ownerTransaction.accountId, account.id))
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .innerJoin(account, eq(cashMovement.accountId, account.id))
         .where(
           and(
-            eq(ownerTransaction.type, "inject"),
-            sql`${ownerTransaction.date} <= ${asOfDate}`,
-            isNull(ownerTransaction.deletedAt),
+            eq(cashMovement.direction, "in"),
+            eq(cashMovement.sourceType, "owner_inject"),
+            sql`${cashMovement.date} <= ${asOfDate}`,
+            isNull(cashMovement.deletedAt),
             isNull(account.deletedAt)
           )
         );
       const injectionsCents = Number(injectionsRes?.total) || 0;
 
       const [drawingsRes] = await tx
-        .select({ total: sum(ownerTransaction.amountCents) })
-        .from(ownerTransaction)
-        .innerJoin(account, eq(ownerTransaction.accountId, account.id))
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .innerJoin(account, eq(cashMovement.accountId, account.id))
         .where(
           and(
-            eq(ownerTransaction.type, "draw"),
-            sql`${ownerTransaction.date} <= ${asOfDate}`,
-            isNull(ownerTransaction.deletedAt),
+            eq(cashMovement.direction, "out"),
+            eq(cashMovement.sourceType, "owner_draw"),
+            sql`${cashMovement.date} <= ${asOfDate}`,
+            isNull(cashMovement.deletedAt),
             isNull(account.deletedAt)
           )
         );
