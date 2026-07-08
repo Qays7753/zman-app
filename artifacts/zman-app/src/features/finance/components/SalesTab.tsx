@@ -164,14 +164,18 @@ export function SalesTab() {
                   <span className="font-bold text-ink text-base">
                     {item.description || "عملية بيع"}
                   </span>
-                  <span className="font-bold text-ink text-base">
+                  <span 
+                    className="font-bold text-ink text-base"
+                    title={item.source === "order" ? "إجمالي قيمة الطلب (شاملاً العربون والمتبقي)" : "قيمة البيع المباشر"}
+                    aria-label={item.source === "order" ? "إجمالي قيمة الطلب شاملاً العربون والمتبقي" : "قيمة البيع المباشر"}
+                  >
                     <AmountText amount={item.amountCents} />
                   </span>
                 </div>
                  {item.source === "order" && (item as any).depositCents !== undefined && (item as any).depositCents !== null && (
                   <div className="text-xs text-ink/50 border-t border-hairline/60 pt-1.5 mt-0.5 flex justify-between items-center font-medium">
                     <span>منها عربون مُحصَّل سابقاً: <span className="font-mono text-info font-bold"><AmountText amount={(item as any).depositCents} /></span></span>
-                    <span>المتبقي المُرحَّل: <span className="font-mono text-info font-bold"><AmountText amount={item.amountCents} /></span></span>
+                    <span>المتبقي المُرحَّل: <span className="font-mono text-info font-bold"><AmountText amount={item.amountCents - (Number((item as any).depositCents) || 0)} /></span></span>
                   </div>
                 )}
                 <div className="flex justify-between items-center text-xs text-ink/60">

@@ -6,6 +6,7 @@ import { Lock, Unlock, Loader2, Info } from "lucide-react";
 import { useOpeningBalance, useSaveOpeningBalance, useLockOpeningBalance } from "../hooks";
 import { AmountText } from "@/components/shared/AmountText";
 import { Button } from "@/components/shared/Button";
+import { formatFilsToInput } from "@/lib/money";
 
 export function OpeningTab() {
   const { data: opBal, isLoading } = useOpeningBalance();
@@ -20,9 +21,9 @@ export function OpeningTab() {
   useEffect(() => {
     if (opBal) {
       setGoLiveDate(opBal.goLiveDate);
-      setCash((opBal.cashCents / 1000).toString());
-      setBank((opBal.bankCents / 1000).toString());
-      setCapital((opBal.capitalCents / 1000).toString());
+      setCash(formatFilsToInput(opBal.cashCents));
+      setBank(formatFilsToInput(opBal.bankCents));
+      setCapital(formatFilsToInput(opBal.capitalCents));
     } else {
       setGoLiveDate(new Date().toLocaleDateString("en-CA"));
       setCash("0");

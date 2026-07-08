@@ -46,6 +46,57 @@ function buildDateCondition(table: any, range?: "all" | "month" | "30d") {
   return and(...conditions);
 }
 
+export async function computeCashBasisPnl(
+  range: "all" | "month" | "30d" = "all",
+  tx: any = db,
+) {
+  const baseConds = [isNull(cashMovement.deletedAt)];
+  const sStart = rangeStartDate(range);
+  const sEnd = rangeEndDate(range);
+  if (sStart) baseConds.push(sql`${cashMovement.date} >= ${sStart}`);
+  if (sEnd) baseConds.push(sql`${cashMovement.date} <= ${sEnd}`);
+
+  const [[salesRes], [purchasesRes], [expensesRes]] = await Promise.all([
+    tx
+      .select({ total: sum(cashMovement.amountCents) })
+      .from(cashMovement)
+      .where(
+        and(
+          ...baseConds,
+          eq(cashMovement.direction, "in"),
+          sql`${cashMovement.sourceType} in ('sale', 'deposit')`
+        )
+      ),
+    tx
+      .select({ total: sum(cashMovement.amountCents) })
+      .from(cashMovement)
+      .where(
+        and(
+          ...baseConds,
+          eq(cashMovement.direction, "out"),
+          eq(cashMovement.sourceType, "purchase")
+        )
+      ),
+    tx
+      .select({ total: sum(cashMovement.amountCents) })
+      .from(cashMovement)
+      .where(
+        and(
+          ...baseConds,
+          eq(cashMovement.direction, "out"),
+          eq(cashMovement.sourceType, "expense")
+        )
+      ),
+  ]);
+
+  const salesCents = Number(salesRes?.total) || 0;
+  const purchasesCents = Number(purchasesRes?.total) || 0;
+  const expensesCents = Number(expensesRes?.total) || 0;
+  const netCents = salesCents - purchasesCents - expensesCents;
+
+  return { salesCents, purchasesCents, expensesCents, netCents };
+}
+
 export async function downloadReport(
   type: "pnl" | "expenses" | "sales" | "orders" | "products",
   range: "all" | "month" | "30d" = "all",
@@ -62,35 +113,7 @@ export async function downloadReport(
 
     if (type === "pnl") {
       // 1. P&L Report
-      const salesDateConds = [
-        isNull(cashMovement.deletedAt),
-        eq(cashMovement.direction, "in"),
-        sql`${cashMovement.sourceType} in ('sale', 'deposit')`
-      ];
-      const sStart = rangeStartDate(range);
-      const sEnd = rangeEndDate(range);
-      if (sStart) salesDateConds.push(sql`${cashMovement.date} >= ${sStart}`);
-      if (sEnd) salesDateConds.push(sql`${cashMovement.date} <= ${sEnd}`);
-
-      const [[salesRes], [purchasesRes], [expensesRes]] = await Promise.all([
-        db
-          .select({ total: sum(cashMovement.amountCents) })
-          .from(cashMovement)
-          .where(and(...salesDateConds)),
-        db
-          .select({ total: sum(purchase.totalCents) })
-          .from(purchase)
-          .where(buildDateCondition(purchase, range)),
-        db
-          .select({ total: sum(expense.amountCents) })
-          .from(expense)
-          .where(buildDateCondition(expense, range)),
-      ]);
-
-      const salesCents = Number(salesRes?.total) || 0;
-      const purchasesCents = Number(purchasesRes?.total) || 0;
-      const expensesCents = Number(expensesRes?.total) || 0;
-      const netCents = salesCents - purchasesCents - expensesCents;
+      const { salesCents, purchasesCents, expensesCents, netCents } = await computeCashBasisPnl(range);
 
       markdown = `# تقرير الأرباح والخسائر (P&L)
 
@@ -153,34 +176,44 @@ ${categories
 `;
     } else if (type === "sales") {
       // 3. Sales sources
+      const salesDateConds = [
+        isNull(cashMovement.deletedAt),
+        eq(cashMovement.direction, "in"),
+        sql`${cashMovement.sourceType} in ('sale', 'deposit')`
+      ];
+      const sStart = rangeStartDate(range);
+      const sEnd = rangeEndDate(range);
+      if (sStart) salesDateConds.push(sql`${cashMovement.date} >= ${sStart}`);
+      if (sEnd) salesDateConds.push(sql`${cashMovement.date} <= ${sEnd}`);
+
       const sources = await db
         .select({
-          source: sale.source,
-          total: sum(sale.amountCents),
-          count: count(sale.id),
+          sourceType: cashMovement.sourceType,
+          total: sum(cashMovement.amountCents),
+          count: count(cashMovement.id),
         })
-        .from(sale)
-        .where(buildDateCondition(sale, range))
-        .groupBy(sale.source)
-        .orderBy(desc(sql`sum(${sale.amountCents})`));
+        .from(cashMovement)
+        .where(and(...salesDateConds))
+        .groupBy(cashMovement.sourceType)
+        .orderBy(desc(sql`sum(${cashMovement.amountCents})`));
 
       const totalCents = sources.reduce(
         (sum, s) => sum + (Number(s.total) || 0),
         0,
       );
 
-      const sourceLabels: Record<string, string> = {
-        manual: "إدخال يدوي مباشر",
-        order: "مبيعات مرتبطة بطلب معتمد",
+      const sourceTypeLabels: Record<string, string> = {
+        deposit: "عربونات طلبات (دُفعت مقدماً)",
+        sale: "تسويات مبيعات (متبقّي مُحصَّل)",
       };
 
-      markdown = `# تقرير مصادر المبيعات والإيرادات
+      markdown = `# تقرير مصادر المبيعات والإيرادات النقدية
 
 **تاريخ التصدير:** ${todayStr}
 
 ---
 
-## تفصيل الإيرادات حسب القناة والمصدر
+## تفصيل الإيرادات حسب القناة والمصدر (أساس نقدي)
 
 | مصدر المبيعات | عدد العمليات | إجمالي الإيرادات | النسبة المئوية |
 | :--- | :---: | :--- | :---: |
@@ -189,7 +222,7 @@ ${sources
     const sCents = Number(s.total) || 0;
     const percentage =
       totalCents > 0 ? `${((sCents / totalCents) * 100).toFixed(1)}%` : "0%";
-    const label = sourceLabels[s.source] || s.source;
+    const label = sourceTypeLabels[s.sourceType] || s.sourceType;
     return `| ${label} | ${s.count} | ${formatFilsToJod(sCents)} | ${percentage} |`;
   })
   .join("\n")}
@@ -263,15 +296,15 @@ ${funnels
         .orderBy(desc(sql`sum(${order.totalPriceCents})`))
         .limit(15);
 
-      markdown = `# تقرير أكثر المنتجات طلباً وتحقيقاً للإيرادات
+      markdown = `# تقرير أكثر المنتجات طلباً (قيمة تقديرية)
 
 **تاريخ التصدير:** ${todayStr}
 
 ---
 
-## المنتجات الأكثر مبيعاً (أعلى 15 منتج)
+## المنتجات الأكثر طلباً (أعلى 15 منتج)
 
-| اسم المنتج | عدد الطلبات | إجمالي الكمية المباعة | إجمالي الإيرادات المحققة |
+| اسم المنتج | عدد الطلبات | إجمالي الكمية المطلوبة | إجمالي القيمة التقديرية |
 | :--- | :---: | :---: | :--- |
 ${products
   .map((p) => {
@@ -345,11 +378,9 @@ export async function getAllReportData(
     if (sStart) salesDateConds.push(sql`${cashMovement.date} >= ${sStart}`);
     if (sEnd) salesDateConds.push(sql`${cashMovement.date} <= ${sEnd}`);
 
-    const [salesRes, purchasesRes, expensesRes, categoriesRes, sourcesRes, funnelsRes, productsRes] =
+    const [pnl, categoriesRes, sourcesRes, funnelsRes, productsRes] =
       await Promise.all([
-        db.select({ total: sum(cashMovement.amountCents) }).from(cashMovement).where(and(...salesDateConds)),
-        db.select({ total: sum(purchase.totalCents) }).from(purchase).where(buildDateCondition(purchase, range)),
-        db.select({ total: sum(expense.amountCents) }).from(expense).where(buildDateCondition(expense, range)),
+        computeCashBasisPnl(range),
         db
           .select({
             category: expense.category,
@@ -393,10 +424,7 @@ export async function getAllReportData(
           .limit(15),
       ]);
 
-    const salesCents = Number(salesRes[0]?.total) || 0;
-    const purchasesCents = Number(purchasesRes[0]?.total) || 0;
-    const expensesCents = Number(expensesRes[0]?.total) || 0;
-    const netCents = salesCents - purchasesCents - expensesCents;
+    const { salesCents, purchasesCents, expensesCents, netCents } = pnl;
 
     const totalExpensesCents = categoriesRes.reduce(
       (s, c) => s + (Number(c.total) || 0),
@@ -493,6 +521,9 @@ export type FinancialPositionData = {
   equityDriftCents: number;
   pnlAllTimeNetCents: number;
   pnlReconciliationCents: number;
+  ledgerPnlNetCents: number;
+  sourceTablePnlNetCents: number;
+  pnlSourceReconciliationCents: number;
 };
 
 export async function getFinancialPosition(
@@ -504,12 +535,12 @@ export async function getFinancialPosition(
       const cashAccounts = await tx
         .select({ id: account.id })
         .from(account)
-        .where(and(eq(account.type, "cash"), eq(account.isArchived, false), isNull(account.deletedAt)));
+        .where(and(eq(account.type, "cash"), isNull(account.deletedAt)));
 
       const bankAccounts = await tx
         .select({ id: account.id })
         .from(account)
-        .where(and(eq(account.type, "bank"), eq(account.isArchived, false), isNull(account.deletedAt)));
+        .where(and(eq(account.type, "bank"), isNull(account.deletedAt)));
 
       const movements = await tx
         .select({
@@ -523,7 +554,6 @@ export async function getFinancialPosition(
           and(
             isNull(cashMovement.deletedAt),
             isNull(account.deletedAt),
-            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`
           )
         )
@@ -580,7 +610,6 @@ export async function getFinancialPosition(
           and(
             eq(cashMovement.sourceType, "opening"),
             isNull(account.deletedAt),
-            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`,
             isNull(cashMovement.deletedAt)
           )
@@ -604,8 +633,7 @@ export async function getFinancialPosition(
             eq(ownerTransaction.type, "inject"),
             sql`${ownerTransaction.date} <= ${asOfDate}`,
             isNull(ownerTransaction.deletedAt),
-            isNull(account.deletedAt),
-            eq(account.isArchived, false)
+            isNull(account.deletedAt)
           )
         );
       const injectionsCents = Number(injectionsRes?.total) || 0;
@@ -619,8 +647,7 @@ export async function getFinancialPosition(
             eq(ownerTransaction.type, "draw"),
             sql`${ownerTransaction.date} <= ${asOfDate}`,
             isNull(ownerTransaction.deletedAt),
-            isNull(account.deletedAt),
-            eq(account.isArchived, false)
+            isNull(account.deletedAt)
           )
         );
       const drawingsCents = Number(drawingsRes?.total) || 0;
@@ -635,7 +662,6 @@ export async function getFinancialPosition(
             eq(cashMovement.direction, "in"),
             sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
             isNull(account.deletedAt),
-            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`,
             isNull(cashMovement.deletedAt)
           )
@@ -651,7 +677,6 @@ export async function getFinancialPosition(
             eq(cashMovement.direction, "out"),
             sql`${cashMovement.sourceType} in ('expense', 'purchase')`,
             isNull(account.deletedAt),
-            eq(account.isArchived, false),
             sql`${cashMovement.date} <= ${asOfDate}`,
             isNull(cashMovement.deletedAt)
           )
@@ -672,6 +697,70 @@ export async function getFinancialPosition(
       // Check 2: retained profit (cash-basis, all time) vs cash-basis P&L (all time).
       const pnlAllTimeNetCents = salesCashInCents - expensesPurchasesCashOutCents;
       const pnlReconciliationCents = pnlAllTimeNetCents - (retainedProfitCents + depositsCents);
+
+      // F-05: real reconciliation between ledger (cash_movement) and source tables (sale, purchase, expense, order deposits).
+      // Both sides are archived-inclusive to avoid false alarms from archived accounts in normal operation (Option b).
+      
+      // 1. Ledger-side P&L Net (All time, archived-inclusive)
+      const [ledgerSalesAllTimeRes] = await tx
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.direction, "in"),
+            sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
+            isNull(cashMovement.deletedAt)
+          )
+        );
+      const ledgerSalesAllTimeCents = Number(ledgerSalesAllTimeRes?.total) || 0;
+
+      const [ledgerOutAllTimeRes] = await tx
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.direction, "out"),
+            sql`${cashMovement.sourceType} in ('expense', 'purchase')`,
+            isNull(cashMovement.deletedAt)
+          )
+        );
+      const ledgerOutAllTimeCents = Number(ledgerOutAllTimeRes?.total) || 0;
+      const ledgerPnlNetCents = ledgerSalesAllTimeCents - ledgerOutAllTimeCents;
+
+      // 2. Source-side P&L Net (All time, archived-inclusive)
+      const [srcSalesAllTimeRes] = await tx
+        .select({ total: sum(sale.amountCents) })
+        .from(sale)
+        .where(isNull(sale.deletedAt));
+      const srcSalesAllTimeCents = Number(srcSalesAllTimeRes?.total) || 0;
+
+      const [srcPurchasesAllTimeRes] = await tx
+        .select({ total: sum(purchase.totalCents) })
+        .from(purchase)
+        .where(isNull(purchase.deletedAt));
+      const srcPurchasesAllTimeCents = Number(srcPurchasesAllTimeRes?.total) || 0;
+
+      const [srcExpensesAllTimeRes] = await tx
+        .select({ total: sum(expense.amountCents) })
+        .from(expense)
+        .where(isNull(expense.deletedAt));
+      const srcExpensesAllTimeCents = Number(srcExpensesAllTimeRes?.total) || 0;
+
+      // Active order deposits represent cash collected (deposit) that has not yet been converted into a sale.
+      const [activeDepositsRes] = await tx
+        .select({ total: sum(order.depositCents) })
+        .from(order)
+        .where(
+          and(
+            isNull(order.deletedAt),
+            sql`${order.status} not in ('delivered', 'cancelled')`,
+            sql`${order.depositCents} > 0`
+          )
+        );
+      const activeDepositsCents = Number(activeDepositsRes?.total) || 0;
+
+      const sourceTablePnlNetCents = (srcSalesAllTimeCents + activeDepositsCents) - srcPurchasesAllTimeCents - srcExpensesAllTimeCents;
+      const pnlSourceReconciliationCents = ledgerPnlNetCents - sourceTablePnlNetCents;
 
       if (Math.abs(equityDriftCents) > 0) {
         console.warn(`[balance-sheet] equity drift detected: ${equityDriftCents} fils`);
@@ -702,6 +791,9 @@ export async function getFinancialPosition(
           equityDriftCents,
           pnlAllTimeNetCents,
           pnlReconciliationCents,
+          ledgerPnlNetCents,
+          sourceTablePnlNetCents,
+          pnlSourceReconciliationCents,
         },
       };
     });

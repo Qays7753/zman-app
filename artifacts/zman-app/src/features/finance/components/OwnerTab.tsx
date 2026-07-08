@@ -259,7 +259,7 @@ export function OwnerTab() {
               className="w-full h-10 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
             >
               <option value="">اختر الحساب...</option>
-              {accounts?.map((acc) => (
+              {accounts?.filter((acc) => !acc.isArchived).map((acc) => (
                 <option key={acc.id} value={acc.id}>
                   {acc.name} ({acc.type === "cash" ? "نقدي" : "بنكي"})
                 </option>

@@ -62,6 +62,8 @@ function DownloadBtn({
       variant="secondary"
       size="sm"
       icon={downloadingId !== type ? <Download className="h-3.5 w-3.5" /> : undefined}
+      aria-label={`تحميل تقرير ${title}`}
+      title={`تحميل تقرير ${title}`}
       className="flex-shrink-0"
     >
       <span className="hidden sm:inline">تحميل</span>
@@ -729,23 +731,51 @@ export default function ReportsPage() {
                 <div className="mt-4 border border-hairline rounded-lg overflow-hidden">
                   <details className="group">
                     <summary className="p-3 bg-canvas/30 hover:bg-canvas/50 text-xs font-bold text-ink/70 flex items-center justify-between cursor-pointer select-none">
-                      <span>تفاصيل المطابقة المتقدمة (مع قائمة الأرباح والخسائر)</span>
+                      <span>تفاصيل المطابقة المتقدمة (تسوية الدفتر والقوائم)</span>
                       <span className="transition-transform group-open:rotate-180 text-ink/40">▼</span>
                     </summary>
-                    <div className="p-4 bg-paper text-xs space-y-2 border-t border-hairline font-mono text-ink/80">
-                      <div className="flex justify-between">
-                        <span>صافي الأرباح النقدي التراكمي (P&L All-Time Net):</span>
-                        <span><AmountText amount={positionData.pnlAllTimeNetCents} /></span>
+                    <div className="p-4 bg-paper text-xs space-y-4 border-t border-hairline font-mono text-ink/80">
+                      {/* التسوية الداخلية للميزانية */}
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-ink border-b border-hairline pb-1">1. تسوية توازن الأرباح المدورة (رصيد الميزانية)</h5>
+                        <div className="flex justify-between">
+                          <span>الأرباح المحتجزة المترتبة في الميزانية:</span>
+                          <span><AmountText amount={positionData.equity.retainedProfitCents} /></span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>صافي الأرباح النقدي (النشط) بعد خصم الالتزام:</span>
+                          <span><AmountText amount={positionData.pnlAllTimeNetCents - positionData.liabilities.depositsCents} /></span>
+                        </div>
+                        <div className="flex justify-between border-t border-dashed border-hairline pt-1.5 font-bold">
+                          <span>فرق المطابقة الداخلي:</span>
+                          <span className={positionData.pnlReconciliationCents === 0 ? "text-info" : "text-alert"}>
+                            <AmountText amount={positionData.pnlReconciliationCents} />
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>الأرباح المحتجزة + العربونات كالتزام:</span>
-                        <span><AmountText amount={positionData.equity.retainedProfitCents + positionData.liabilities.depositsCents} /></span>
-                      </div>
-                      <div className="flex justify-between border-t border-hairline pt-2 font-bold">
-                        <span>فرق التسوية (Reconciliation Difference):</span>
-                        <span className={positionData.pnlReconciliationCents === 0 ? "text-info" : "text-alert"}>
-                          <AmountText amount={positionData.pnlReconciliationCents} />
-                        </span>
+
+                      {/* تسوية الدفتر المالي مع الجداول المصدرية */}
+                      <div className="space-y-2 pt-2 border-t border-hairline">
+                        <h5 className="font-bold text-ink border-b border-hairline pb-1">2. تسوية تطابق الدفتر النقدي (Ledger) مع الجداول المصدرية</h5>
+                        <div className="flex justify-between">
+                          <span>صافي الأرباح من الدفتر النقدي (Ledger Net Profit):</span>
+                          <span><AmountText amount={positionData.ledgerPnlNetCents} /></span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>صافي الأرباح من الجداول المصدرية (Source Tables Net Profit):</span>
+                          <span><AmountText amount={positionData.sourceTablePnlNetCents} /></span>
+                        </div>
+                        <div className="flex justify-between border-t border-dashed border-hairline pt-1.5 font-bold">
+                          <span>فرق تسوية الدفتر والمصدر (Drift):</span>
+                          <span className={positionData.pnlSourceReconciliationCents === 0 ? "text-info" : "text-alert"}>
+                            <AmountText amount={positionData.pnlSourceReconciliationCents} />
+                          </span>
+                        </div>
+                        {positionData.pnlSourceReconciliationCents !== 0 && (
+                          <div className="text-[10px] text-alert font-sans leading-relaxed mt-1">
+                            تنبيه: يوجد عدم تطابق بين حركات الصندوق والبنك والبيانات المصدرية للمبيعات/المشتريات/المصاريف. يرجى التحقق من وجود حركات مفقودة أو محذوفة.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </details>
