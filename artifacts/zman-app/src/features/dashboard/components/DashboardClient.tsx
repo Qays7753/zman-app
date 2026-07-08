@@ -425,46 +425,72 @@ export function DashboardClient() {
               </div>
             )}
 
-            {/* 1. الوضع النقدي الحالي (Current Cash Position Hero) */}
-            {cashSummary && (
-              <div className="bg-gradient-to-r from-info-soft to-info/5 p-6 rounded-xl border border-info/20 shadow-sm flex flex-col justify-between gap-4">
-                <div className="flex items-center justify-between w-full">
-                  <div className="space-y-1">
-                    <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
-                      <Wallet className="h-4.5 w-4.5 text-info animate-pulse" />
-                      إجمالي النقد المتاح
-                    </span>
-                    <h2 className="text-2xl lg:text-3xl font-black text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                      <AmountText amount={totalCashCents + totalBankCents} />
-                    </h2>
-                    <p className="text-[10px] text-ink/50 mt-0.5">
-                      = نقد الصندوق + البنك (كل ما تملكه نقدًا)
-                    </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 1. الوضع النقدي الحالي (Current Cash Position Hero) */}
+              {cashSummary && (
+                <div className="md:col-span-2 bg-gradient-to-r from-info-soft to-info/5 p-6 rounded-xl border border-info/20 shadow-sm flex flex-col justify-between gap-4">
+                  <div className="flex items-center justify-between w-full">
+                    <div className="space-y-1">
+                      <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
+                        <Wallet className="h-4.5 w-4.5 text-info animate-pulse" />
+                        إجمالي النقد المتاح
+                      </span>
+                      <h2 className="text-2xl lg:text-3xl font-black text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
+                        <AmountText amount={totalCashCents + totalBankCents} />
+                      </h2>
+                      <p className="text-[10px] text-ink/50 mt-0.5">
+                        = نقد الصندوق + البنك (كل ما تملكه نقدًا)
+                      </p>
+                    </div>
+                    <div className="px-3 py-1 bg-info/10 text-info text-[10px] font-extrabold rounded-full border border-info/20">
+                      أساس نقدي
+                    </div>
                   </div>
-                  <div className="px-3 py-1 bg-info/10 text-info text-[10px] font-extrabold rounded-full border border-info/20">
-                    أساس نقدي
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline-2">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] text-ink/40">صندوق (نقد متاح)</p>
+                      <p className="text-sm font-bold text-ink-3">
+                        <AmountText amount={totalCashCents} />
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] text-ink/40">حسابات البنك</p>
+                      <p className="text-sm font-bold text-ink-3">
+                        <AmountText amount={totalBankCents} />
+                      </p>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline-2">
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] text-ink/40">صندوق (نقد متاح)</p>
-                    <p className="text-sm font-bold text-ink-3">
-                      <AmountText amount={totalCashCents} />
-                    </p>
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] text-ink/40">حسابات البنك</p>
-                    <p className="text-sm font-bold text-ink-3">
-                      <AmountText amount={totalBankCents} />
-                    </p>
-                  </div>
+              {/* صافي هذا الشهر (غير متأثر بالفلتر) — معروض في الأعلى بجانب النقد المتاح */}
+              <div className="p-6 bg-paper rounded-xl border border-hairline shadow-sm flex flex-col justify-between gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
+                    <NetIconThisMonth className={`h-4.5 w-4.5 ${netThisMonthColorClass}`} />
+                    صافي هذا الشهر
+                  </span>
+                  <span className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
+                    تراكمي ثابت
+                  </span>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span
+                    className={`text-2xl lg:text-3xl font-black flex items-baseline gap-1 ${netThisMonthColorClass} whitespace-nowrap min-w-0`}
+                  >
+                    <span className="font-mono text-base shrink-0">{netThisMonthSign}</span>
+                    <AmountText amount={Math.abs(netThisMonth)} />
+                  </span>
+                  <p className="text-[10px] text-ink/50 mt-1">
+                    ربح/خسارة الشهر الحالي (لا يتأثر بالفلتر أعلاه)
+                  </p>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* 2. ملخص الفترة (Period Summary 5-card Grid) */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* 2. ملخص الفترة (Period Summary 4-card Grid) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* صافي التدفق النقدي (الربح) */}
               <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
                 <div className="flex items-center justify-between">
@@ -487,27 +513,6 @@ export function DashboardClient() {
                 </div>
               </div>
 
-              {/* صافي هذا الشهر (غير متأثر بالفلتر) */}
-              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
-                    <NetIconThisMonth className={`h-4 w-4 ${netThisMonthColorClass}`} />
-                    صافي هذا الشهر
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-col min-w-0">
-                  <span
-                    className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 ${netThisMonthColorClass} whitespace-nowrap min-w-0`}
-                  >
-                    <span className="font-mono text-base shrink-0">{netThisMonthSign}</span>
-                    <AmountText amount={Math.abs(netThisMonth)} />
-                  </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate" title="ربح/خسارة الشهر الحالي (لا يتأثر بالفلتر أعلاه)">
-                    ربح/خسارة الشهر الحالي (لا يتأثر بالفلتر أعلاه)
-                  </span>
-                </div>
-              </div>
-
               {/* السيولة المتاحة (بيع + عربون) — نقد داخل خلال الفترة */}
               <Link
                 href="/finance?tab=sales"
@@ -521,23 +526,23 @@ export function DashboardClient() {
                   <ArrowLeft className="h-4 w-4 text-info/0 group-hover:text-info transition-all transform group-hover:-translate-x-1" />
                 </div>
                 <div className="mt-2 space-y-2">
-                  <div className="flex items-baseline justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5">
                     <span className="text-[10px] text-ink/50">مبيعات فعلية:</span>
-                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono">
+                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono whitespace-nowrap">
                       <span>+</span>
                       <AmountText amount={summary?.actualSales ?? 0} />
                     </span>
                   </div>
-                  <div className="flex items-baseline justify-between border-t border-dashed border-hairline pt-1.5">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 border-t border-dashed border-hairline pt-1.5">
                     <span className="text-[10px] text-ink/50">عربونات محصّلة:</span>
-                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono">
+                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono whitespace-nowrap">
                       <span>+</span>
                       <AmountText amount={summary?.deposits ?? 0} />
                     </span>
                   </div>
-                  <div className="flex items-baseline justify-between border-t border-hairline pt-1.5 font-bold">
+                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 border-t border-hairline pt-1.5 font-bold">
                     <span className="text-[10px] text-ink">إجمالي السيولة:</span>
-                    <span className="text-sm font-black text-info flex items-baseline gap-0.5 font-mono">
+                    <span className="text-sm font-black text-info flex items-baseline gap-0.5 font-mono whitespace-nowrap">
                       <span>+</span>
                       <AmountText amount={summary?.sales ?? 0} />
                     </span>
