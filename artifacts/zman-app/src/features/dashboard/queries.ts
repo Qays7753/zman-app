@@ -42,24 +42,28 @@ export async function getFinancialSummary(
     );
 
   const expensesPromise = db
-    .select({ total: sql<any>`coalesce(sum(${expense.amountCents}), 0)::bigint` })
-    .from(expense)
+    .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+    .from(cashMovement)
     .where(
       and(
-        isNull(expense.deletedAt),
-        sql`${expense.date} >= ${startDate}`,
-        sql`${expense.date} <= ${endDate}`,
+        isNull(cashMovement.deletedAt),
+        eq(cashMovement.direction, "out"),
+        eq(cashMovement.sourceType, "expense"),
+        sql`${cashMovement.date} >= ${startDate}`,
+        sql`${cashMovement.date} <= ${endDate}`,
       ),
     );
 
   const purchasesPromise = db
-    .select({ total: sql<any>`coalesce(sum(${purchase.totalCents}), 0)::bigint` })
-    .from(purchase)
+    .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+    .from(cashMovement)
     .where(
       and(
-        isNull(purchase.deletedAt),
-        sql`${purchase.date} >= ${startDate}`,
-        sql`${purchase.date} <= ${endDate}`,
+        isNull(cashMovement.deletedAt),
+        eq(cashMovement.direction, "out"),
+        eq(cashMovement.sourceType, "purchase"),
+        sql`${cashMovement.date} >= ${startDate}`,
+        sql`${cashMovement.date} <= ${endDate}`,
       ),
     );
 
@@ -213,32 +217,36 @@ export async function getFinancialTrendData(
       .groupBy(cashMovement.date),
     db
       .select({
-        day: expense.date,
-        total: sql<any>`sum(${expense.amountCents})::bigint`,
+        day: cashMovement.date,
+        total: sql<any>`sum(${cashMovement.amountCents})::bigint`,
       })
-      .from(expense)
+      .from(cashMovement)
       .where(
         and(
-          isNull(expense.deletedAt),
-          sql`${expense.date} >= ${startDate}`,
-          sql`${expense.date} <= ${endDate}`,
+          isNull(cashMovement.deletedAt),
+          eq(cashMovement.direction, "out"),
+          eq(cashMovement.sourceType, "expense"),
+          sql`${cashMovement.date} >= ${startDate}`,
+          sql`${cashMovement.date} <= ${endDate}`,
         ),
       )
-      .groupBy(expense.date),
+      .groupBy(cashMovement.date),
     db
       .select({
-        day: purchase.date,
-        total: sql<any>`sum(${purchase.totalCents})::bigint`,
+        day: cashMovement.date,
+        total: sql<any>`sum(${cashMovement.amountCents})::bigint`,
       })
-      .from(purchase)
+      .from(cashMovement)
       .where(
         and(
-          isNull(purchase.deletedAt),
-          sql`${purchase.date} >= ${startDate}`,
-          sql`${purchase.date} <= ${endDate}`,
+          isNull(cashMovement.deletedAt),
+          eq(cashMovement.direction, "out"),
+          eq(cashMovement.sourceType, "purchase"),
+          sql`${cashMovement.date} >= ${startDate}`,
+          sql`${cashMovement.date} <= ${endDate}`,
         ),
       )
-      .groupBy(purchase.date),
+      .groupBy(cashMovement.date),
   ]);
 
   return {

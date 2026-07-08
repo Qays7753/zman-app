@@ -48,7 +48,7 @@ export async function runFinancialIntegrityCheck(
 ): Promise<IntegrityReport> {
   const effectiveDate = asOfDate ?? new Date().toLocaleDateString("en-CA");
 
-  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7] = await Promise.all([
+  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8] = await Promise.all([
     checkIC1EquityDrift(effectiveDate),
     checkIC2OrphanMovements(),
     checkIC3DepositLiabilityConsistency(),
@@ -56,9 +56,10 @@ export async function runFinancialIntegrityCheck(
     checkIC5NoArchivedWithBalance(),
     checkIC6PnlReconcilesRetainedProfit(effectiveDate),
     checkIC7UnitConsistency(),
+    checkIC8SourceLedgerReconciliation(effectiveDate),
   ]);
 
-  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7];
+  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8];
 
   const overallStatus: IntegrityCheckStatus = results.some(
     (r) => r.status === "FAIL",
@@ -102,7 +103,6 @@ async function checkIC1EquityDrift(
       and(
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${cashMovement.date} <= ${asOfDate}`,
       ),
     )
@@ -137,7 +137,6 @@ async function checkIC1EquityDrift(
         eq(cashMovement.direction, "in"),
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${cashMovement.date} <= ${asOfDate}`,
       ),
     );
@@ -152,7 +151,6 @@ async function checkIC1EquityDrift(
         eq(ownerTransaction.type, "inject"),
         isNull(ownerTransaction.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${ownerTransaction.date} <= ${asOfDate}`,
       ),
     );
@@ -167,7 +165,6 @@ async function checkIC1EquityDrift(
         eq(ownerTransaction.type, "draw"),
         isNull(ownerTransaction.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${ownerTransaction.date} <= ${asOfDate}`,
       ),
     );
@@ -183,7 +180,6 @@ async function checkIC1EquityDrift(
         sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${cashMovement.date} <= ${asOfDate}`,
       ),
     );
@@ -199,7 +195,6 @@ async function checkIC1EquityDrift(
         sql`${cashMovement.sourceType} in ('expense', 'purchase')`,
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${cashMovement.date} <= ${asOfDate}`,
       ),
     );
@@ -521,7 +516,6 @@ async function checkIC6PnlReconcilesRetainedProfit(
         sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${cashMovement.date} <= ${asOfDate}`,
       ),
     );
@@ -537,7 +531,6 @@ async function checkIC6PnlReconcilesRetainedProfit(
         sql`${cashMovement.sourceType} in ('expense', 'purchase')`,
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
-        eq(account.isArchived, false),
         sql`${cashMovement.date} <= ${asOfDate}`,
       ),
     );
@@ -607,6 +600,87 @@ async function checkIC7UnitConsistency(): Promise<IntegrityCheckResult> {
     suggestedFixAr:
       issues.length !== 0
         ? `يوجد ${issues.length} حساب برصيد سالب. راجع الحركات الخارجة لهذه الحسابات وتأكّد من صحتها.`
+        : undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-8 — مطابقة سجل النقد مع الجداول المساعدة (F-05)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC8SourceLedgerReconciliation(
+  asOfDate: string,
+): Promise<IntegrityCheckResult> {
+  // 1. Ledger-side P&L Net (All time, archived-inclusive)
+  const [ledgerSalesAllTimeRes] = await db
+    .select({ total: sum(cashMovement.amountCents) })
+    .from(cashMovement)
+    .where(
+      and(
+        eq(cashMovement.direction, "in"),
+        sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
+        isNull(cashMovement.deletedAt)
+      )
+    );
+  const ledgerSalesCents = Number(ledgerSalesAllTimeRes?.total) || 0;
+
+  const [ledgerOutAllTimeRes] = await db
+    .select({ total: sum(cashMovement.amountCents) })
+    .from(cashMovement)
+    .where(
+      and(
+        eq(cashMovement.direction, "out"),
+        sql`${cashMovement.sourceType} in ('expense', 'purchase')`,
+        isNull(cashMovement.deletedAt)
+      )
+    );
+  const ledgerOutCents = Number(ledgerOutAllTimeRes?.total) || 0;
+  const ledgerPnlNetCents = ledgerSalesCents - ledgerOutCents;
+
+  // 2. Source-side P&L Net (All time, archived-inclusive)
+  const [srcSalesAllTimeRes] = await db
+    .select({ total: sum(sale.amountCents) })
+    .from(sale)
+    .where(isNull(sale.deletedAt));
+  const srcSalesCents = Number(srcSalesAllTimeRes?.total) || 0;
+
+  const [srcPurchasesAllTimeRes] = await db
+    .select({ total: sum(purchase.totalCents) })
+    .from(purchase)
+    .where(isNull(purchase.deletedAt));
+  const srcPurchasesCents = Number(srcPurchasesAllTimeRes?.total) || 0;
+
+  const [srcExpensesAllTimeRes] = await db
+    .select({ total: sum(expense.amountCents) })
+    .from(expense)
+    .where(isNull(expense.deletedAt));
+  const srcExpensesCents = Number(srcExpensesAllTimeRes?.total) || 0;
+
+  const [activeDepositsRes] = await db
+    .select({ total: sum(order.depositCents) })
+    .from(order)
+    .where(
+      and(
+        isNull(order.deletedAt),
+        sql`${order.status} not in ('delivered', 'cancelled')`,
+        sql`${order.depositCents} > 0`
+      )
+    );
+  const activeDepositsCents = Number(activeDepositsRes?.total) || 0;
+
+  const sourceTablePnlNetCents = (srcSalesCents + activeDepositsCents) - srcPurchasesCents - srcExpensesCents;
+  const drift = ledgerPnlNetCents - sourceTablePnlNetCents;
+
+  return {
+    id: "IC-8",
+    invariantId: "F-05-drift",
+    status: drift === 0 ? "PASS" : "FAIL",
+    titleAr: "مطابقة سجل النقد مع الجداول المساعدة",
+    descriptionAr: `صافي أرباح السجل النقدي = ${(ledgerPnlNetCents / 1000).toFixed(3)} د.أ. صافي أرباح الجداول المساعدة = ${(sourceTablePnlNetCents / 1000).toFixed(3)} د.أ. الانحراف = ${(drift / 1000).toFixed(3)} د.أ.`,
+    driftCents: drift,
+    suggestedFixAr:
+      drift !== 0
+        ? `يوجد انحراف قدره ${(drift / 1000).toFixed(3)} د.أ. ناتج عن فوارق بين سجل النقد والجداول المساعدة. تحقّق من المشتريات أو المصاريف غير المسجلة بالسجل.`
         : undefined,
   };
 }

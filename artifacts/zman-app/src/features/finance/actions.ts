@@ -1671,6 +1671,20 @@ export async function createOwnerTransaction(
         }
       }
 
+      const [acc] = await tx
+        .select()
+        .from(account)
+        .where(eq(account.id, parsed.data.accountId))
+        .limit(1);
+
+      if (!acc) {
+        return { status: "error", message: "الحساب المحدد غير موجود" };
+      }
+
+      if (acc.isArchived) {
+        return { status: "error", message: "لا يمكن تنفيذ عمليات مالية على حساب مؤرشف" };
+      }
+
       const [newTx] = await tx
         .insert(ownerTransaction)
         .values({
@@ -1846,6 +1860,13 @@ export async function saveOpeningBalance(rawInput: unknown): Promise<ActionRespo
           .update(account)
           .set({ updatedAt: new Date() })
           .where(eq(account.id, bankAcc.id));
+      }
+
+      if (cashAcc?.isArchived || bankAcc?.isArchived) {
+        return {
+          status: "error",
+          message: "لا يمكن تعديل الأرصدة الافتتاحية لأن حساب الصندوق أو البنك الرئيسي مؤرشف حالياً.",
+        };
       }
 
       // حفظ/تحديث سجل opening_balance

@@ -350,6 +350,9 @@ export function DashboardClient() {
                     <h2 className="text-2xl lg:text-3xl font-black text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
                       <AmountText amount={(totalCashCents + totalBankCents) - (cashSummary.depositsHeldCents || 0)} />
                     </h2>
+                    <p className="text-[10px] text-ink/50 mt-0.5">
+                      إجمالي تراكمي منذ بدء التشغيل (غير متأثر بفلتر الفترة المحددة أدناه)
+                    </p>
                   </div>
                   <div className="px-3 py-1 bg-info/10 text-info text-[10px] font-extrabold rounded-full border border-info/20">
                     أساس نقدي
