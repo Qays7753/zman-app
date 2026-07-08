@@ -330,18 +330,28 @@ export default function FinanceClient() {
     return (
       <div className="flex items-center w-full gap-1">
         {/* ─ العمود الأيمن (start في RTL): زر الإضافة ─ */}
-        {/* حجم ثابت 44px دائماً */}
-        <div className="w-11 h-11 shrink-0 flex items-center justify-center">
+        {/* حجم ثابت 44px دائماً على الجوال، ومرن على الديسكتوب */}
+        <div className="w-11 lg:w-auto h-11 shrink-0 flex items-center justify-center">
           {isActionableTab ? (
-            <Button onClick={handleAdd} size="icon" aria-label={addLabel[activeTab] ?? ""} title={addLabel[activeTab] ?? ""}>
-              <Plus className="w-5 h-5" />
+            <Button
+              onClick={handleAdd}
+              size="icon"
+              className="lg:w-auto lg:min-w-0 lg:px-4 lg:py-2 lg:gap-2 flex items-center justify-center"
+              aria-label={addLabel[activeTab] ?? ""}
+              title={addLabel[activeTab] ?? ""}
+            >
+              <Plus className="w-5 h-5 shrink-0" />
+              <span className="hidden lg:inline text-sm font-bold whitespace-nowrap">
+                {addLabel[activeTab]}
+              </span>
             </Button>
           ) : null}
         </div>
 
         {/* ─ العمود الوسط: شريط التبويبات ─ */}
+        {/* يتوزع كشبكة من 6 أعمدة متساوية بكامل العرض على الجوال، ويتحول إلى flex حر متناسق على الديسكتوب */}
         <div className="flex-1 flex items-center justify-center min-w-0 overflow-x-auto no-scrollbar">
-          <div className="flex items-center rounded-lg border border-hairline bg-canvas p-1 gap-0.5 shrink-0">
+          <div className="grid grid-cols-6 lg:flex items-center rounded-lg border border-hairline bg-canvas p-1 gap-0.5 w-full lg:w-auto shrink-0">
             {TABS.map((tab) => {
               const isActive = tab.id === activeTab;
               const Icon = tab.icon;
@@ -353,13 +363,14 @@ export default function FinanceClient() {
                   title={tab.label}
                   aria-label={tab.label}
                   className={cn(
-                    "flex items-center justify-center min-h-[36px] h-9 w-9 rounded-md transition-all duration-[120ms] ease-out active:scale-[0.94]",
+                    "flex items-center justify-center min-h-[36px] h-9 w-full lg:w-auto lg:px-3 lg:gap-1.5 rounded-md transition-all duration-[120ms] ease-out active:scale-[0.94]",
                     isActive
                       ? "bg-info text-paper shadow-sm"
                       : "text-ink-3 hover:text-ink hover:bg-paper/60"
                   )}
                 >
                   <Icon className="h-5 w-5 shrink-0" />
+                  <span className="hidden lg:inline text-xs font-bold whitespace-nowrap">{tab.label}</span>
                 </button>
               );
             })}
@@ -367,7 +378,7 @@ export default function FinanceClient() {
         </div>
 
         {/* ─ العمود الأيسر (end في RTL): بحث + فلتر + إعدادات ─ */}
-        {/* 3 خانات × 44px + فجوات = عرض ثابت دائماً */}
+        {/* يتم إخفاء الفراغات المحجوزة على الجوال لتوفير المساحة وتمديد شريط التبويبات، وتظهر فقط على الشاشات الأكبر لتأكيد الاتزان */}
         <div className="flex items-center gap-1 shrink-0">
           {/* زر البحث */}
           {hasSearch ? (
@@ -379,7 +390,7 @@ export default function FinanceClient() {
               <Search className="w-5 h-5" />
             </ToolbarBtn>
           ) : (
-            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
+            <span className="hidden sm:inline-block w-11 h-11 shrink-0" aria-hidden="true" />
           )}
 
           {/* زر الفلتر */}
@@ -423,7 +434,7 @@ export default function FinanceClient() {
               )}
             </div>
           ) : (
-            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
+            <span className="hidden sm:inline-block w-11 h-11 shrink-0" aria-hidden="true" />
           )}
 
           {/* زر الإعدادات/القائمة */}
@@ -453,7 +464,7 @@ export default function FinanceClient() {
               )}
             </div>
           ) : (
-            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
+            <span className="hidden sm:inline-block w-11 h-11 shrink-0" aria-hidden="true" />
           )}
         </div>
       </div>
