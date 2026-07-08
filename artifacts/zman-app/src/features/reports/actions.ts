@@ -98,8 +98,8 @@ export async function computeCashBasisPnl(
 }
 
 export async function downloadReport(
-  type: "pnl" | "expenses" | "sales" | "orders" | "products",
-  range: "all" | "month" | "30d" = "all",
+  type: "pnl" | "expenses" | "sales" | "orders" | "products" | "balance_sheet",
+  rangeOrAsOfDate: string = "all",
 ): Promise<ActionResponse<string>> {
   try {
     const todayStr = new Date().toLocaleDateString("ar-JO", {
@@ -110,8 +110,74 @@ export async function downloadReport(
     });
 
     let markdown = "";
+    const range = (type !== "balance_sheet" ? rangeOrAsOfDate : "all") as "all" | "month" | "30d";
 
-    if (type === "pnl") {
+    if (type === "balance_sheet") {
+      // 0. Balance Sheet Report
+      const posRes = await getFinancialPosition(rangeOrAsOfDate);
+      if (posRes.status === "error") {
+        throw new Error(posRes.message || "Failed to fetch financial position");
+      }
+      const p = posRes.data;
+      if (!p) {
+        throw new Error("Failed to fetch financial position data");
+      }
+
+      markdown = `# تقرير الوضع المالي (الميزانية العمومية)
+
+**تاريخ الحساب:** ${rangeOrAsOfDate}
+**تاريخ التصدير:** ${todayStr}
+
+---
+
+## 1. الأصول (الموجودات)
+
+| البند | القيمة |
+| :--- | :--- |
+| نقدية الصندوق | ${formatFilsToJod(p.assets.cashCents)} |
+| أرصدة البنك | ${formatFilsToJod(p.assets.bankCents)} |
+| **إجمالي الأصول** | **${formatFilsToJod(p.assets.totalCents)}** |
+
+---
+
+## 2. الالتزامات (المطالبات)
+
+| البند | القيمة |
+| :--- | :--- |
+| عربونات مؤجلة (غير موصلة) | ${formatFilsToJod(p.liabilities.depositsCents)} |
+| **إجمالي الالتزامات** | **${formatFilsToJod(p.liabilities.totalCents)}** |
+
+---
+
+## 3. حقوق الملكية (رأس المال والأرباح)
+
+| البند | القيمة |
+| :--- | :--- |
+| نقدية البداية (رأس المال الفعلي) | ${formatFilsToJod(p.equity.openingCashInEquityCents)} |
+| رأس المال المصرح به (مرجعي) | ${formatFilsToJod(p.equity.openingCapitalCents)} |
+| إيداعات إضافية للمالك | ${formatFilsToJod(p.equity.injectionsCents)} |
+| مسحوبات شخصية للمالك | ${formatFilsToJod(p.equity.drawingsCents)} |
+| أرباح مدورة محتجزة | ${formatFilsToJod(p.equity.retainedProfitCents)} |
+| **إجمالي حقوق الملكية** | **${formatFilsToJod(p.equity.totalCents)}** |
+
+---
+
+## 4. المطابقة والتوازن والتسوية
+
+* **حالة المعادلة الميزانية (الأصول = الالتزامات + حقوق الملكية):** ${
+  p.balanced
+    ? "متوازنة محاسبياً وبسلاسة"
+    : `غير متوازنة! الانحراف: ${formatFilsToJod(Math.abs(p.equityDriftCents))}`
+}
+* **أرباح محتجزة مترتبة في الميزانية:** ${formatFilsToJod(p.equity.retainedProfitCents)}
+* **صافي أرباح الدفتر النقدي (Ledger):** ${formatFilsToJod(p.ledgerPnlNetCents)}
+* **صافي أرباح الجداول المصدرية (Source):** ${formatFilsToJod(p.sourceTablePnlNetCents)}
+* **انحراف الدفتر النقدي والمصدر (Drift):** ${formatFilsToJod(p.pnlSourceReconciliationCents)}
+
+---
+*تم إنشاء هذا التقرير تلقائياً بواسطة نظام Zman الداخلي لإدارة الورش والمخازن.*
+`;
+    } else if (type === "pnl") {
       // 1. P&L Report
       const { salesCents, purchasesCents, expensesCents, netCents } = await computeCashBasisPnl(range);
 

@@ -37,6 +37,7 @@ import {
   useDashboardStats,
   useCashSummary,
   useAccountBalances,
+  useCurrentMonthNet,
 } from "../hooks";
 import { useOpeningBalance } from "@/features/finance/hooks";
 
@@ -167,7 +168,17 @@ export function DashboardClient() {
     data: accountBalances,
     refetch: refetchBalances,
   } = useAccountBalances();
+  const {
+    data: currentMonthNet,
+    refetch: refetchCurrentMonthNet,
+  } = useCurrentMonthNet();
   const { data: openingBal } = useOpeningBalance();
+
+  const [isDeliveriesExpanded, setIsDeliveriesExpanded] = useState(false);
+  const handleToggleDeliveries = () => {
+    setIsDeliveriesExpanded(!isDeliveriesExpanded);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleRetryAll = () => {
     refetchSummary();
@@ -176,6 +187,7 @@ export function DashboardClient() {
     refetchStats();
     refetchCash();
     refetchBalances();
+    refetchCurrentMonthNet();
   };
 
   const handlePresetSelect = (idx: number) => {
@@ -218,7 +230,7 @@ export function DashboardClient() {
     : 0;
 
   const totalBankCents = accountBalances
-    ? accountBalances.filter((a) => a.type === "bank").reduce((acc, a) => acc + a.balanceCents, 0)
+    ? accountBalances.filter((a) => a.type === "bank").reduce((acc, accAccount) => acc + accAccount.balanceCents, 0)
     : 0;
 
   // معالجة صافي الأرباح لتحديد اللون والإشارة للتسهيل على فاقدي التمييز اللوني (§14.3)
@@ -227,6 +239,12 @@ export function DashboardClient() {
   const netSign = isProfit ? "+" : "−";
   const netColorClass = isProfit ? "text-info" : "text-alert";
   const NetIcon = isProfit ? TrendingUp : TrendingDown;
+
+  const netThisMonth = currentMonthNet ?? 0;
+  const isNetThisMonthProfit = netThisMonth >= 0;
+  const netThisMonthSign = isNetThisMonthProfit ? "+" : "−";
+  const netThisMonthColorClass = isNetThisMonthProfit ? "text-info" : "text-alert";
+  const NetIconThisMonth = isNetThisMonthProfit ? TrendingUp : TrendingDown;
 
   const netTrendData = (() => {
     if (!trendData) return [];
@@ -338,6 +356,75 @@ export function DashboardClient() {
               </Link>
             )}
 
+            {/* 5. طلبات للتسليم (طلبات يستحق تسليمها) — منقولة لأعلى الصفحة وقابلة للطي */}
+            {stats && (
+              <div className="bg-paper rounded-lg border border-hairline shadow-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={handleToggleDeliveries}
+                  className={`w-full flex items-center justify-between p-4 transition-colors text-right font-bold ${
+                    stats.upcomingOrders.length > 0
+                      ? `text-white ${glowClass}`
+                      : "bg-canvas/30 hover:bg-canvas/50 text-ink"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Calendar className={`h-5 w-5 shrink-0 ${stats.upcomingOrders.length > 0 ? "text-white" : "text-info"}`} />
+                    <span className="text-sm md:text-base truncate">
+                      طلبات يستحق تسليمها (خلال 7 أيام) — {stats.upcomingOrders.length} طلبات
+                    </span>
+                  </div>
+                  <span className={`text-xs transition-transform ${isDeliveriesExpanded ? "rotate-180" : ""}`}>
+                    {isDeliveriesExpanded ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {isDeliveriesExpanded && (
+                  <div className="p-6 border-t border-hairline space-y-4">
+                    {stats.upcomingOrders.length === 0 ? (
+                      <p className="text-sm text-ink/45 text-center py-6 bg-canvas rounded-lg border border-hairline">
+                        لا توجد طلبات يستحق تسليمها هذا الأسبوع
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-hairline">
+                        {stats.upcomingOrders.map((o) => (
+                          <Link
+                            key={o.id}
+                            href={`/orders?view=${o.id}`}
+                            className="flex items-center justify-between gap-3 py-3 hover:bg-canvas px-2 -mx-2 rounded transition-colors"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-ink text-sm truncate">{o.customerName}</p>
+                              <p className="text-xs text-ink/50 mt-0.5 truncate">{o.productName}</p>
+                            </div>
+                            <div className="text-end shrink-0">
+                              <p className="text-xs text-ink/45 whitespace-nowrap">
+                                {o.deliveryDate
+                                  ? new Date(o.deliveryDate).toLocaleDateString("ar-JO", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })
+                                  : "تاريخ غير محدد"}
+                              </p>
+                              <p className="text-xs text-ink-2 mt-1 whitespace-nowrap flex flex-col items-end gap-0.5">
+                                <span>قيمة الطلب: <AmountText amount={o.totalPriceCents} /></span>
+                                {o.depositCents > 0 && (
+                                  <span className="text-[10px] text-info font-bold">
+                                    العربون المُحصَّل: +<AmountText amount={o.depositCents} />
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 1. الوضع النقدي الحالي (Current Cash Position Hero) */}
             {cashSummary && (
               <div className="bg-gradient-to-r from-info-soft to-info/5 p-6 rounded-xl border border-info/20 shadow-sm flex flex-col justify-between gap-4">
@@ -345,13 +432,13 @@ export function DashboardClient() {
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
                       <Wallet className="h-4.5 w-4.5 text-info animate-pulse" />
-                      النقد الحر (المتاح للتصرف الفعلي)
+                      إجمالي النقد المتاح
                     </span>
                     <h2 className="text-2xl lg:text-3xl font-black text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                      <AmountText amount={(totalCashCents + totalBankCents) - (cashSummary.depositsHeldCents || 0)} />
+                      <AmountText amount={totalCashCents + totalBankCents} />
                     </h2>
                     <p className="text-[10px] text-ink/50 mt-0.5">
-                      إجمالي تراكمي منذ بدء التشغيل (غير متأثر بفلتر الفترة المحددة أدناه)
+                      = نقد الصندوق + البنك (كل ما تملكه نقدًا)
                     </p>
                   </div>
                   <div className="px-3 py-1 bg-info/10 text-info text-[10px] font-extrabold rounded-full border border-info/20">
@@ -359,7 +446,7 @@ export function DashboardClient() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-hairline-2">
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline-2">
                   <div className="space-y-0.5">
                     <p className="text-[10px] text-ink/40">صندوق (نقد متاح)</p>
                     <p className="text-sm font-bold text-ink-3">
@@ -372,24 +459,12 @@ export function DashboardClient() {
                       <AmountText amount={totalBankCents} />
                     </p>
                   </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] text-ink/40">إجمالي النقد المتاح</p>
-                    <p className="text-sm font-bold text-ink">
-                      <AmountText amount={totalCashCents + totalBankCents} />
-                    </p>
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] text-ink/40">منها عربونات كالتزام</p>
-                    <p className="text-sm font-bold text-alert">
-                      <AmountText amount={cashSummary.depositsHeldCents || 0} />
-                    </p>
-                  </div>
                 </div>
               </div>
             )}
 
-            {/* 2. ملخص الفترة (Period Summary 4-card Grid) */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 2. ملخص الفترة (Period Summary 5-card Grid) */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {/* صافي التدفق النقدي (الربح) */}
               <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
                 <div className="flex items-center justify-between">
@@ -412,6 +487,27 @@ export function DashboardClient() {
                 </div>
               </div>
 
+              {/* صافي هذا الشهر (غير متأثر بالفلتر) */}
+              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
+                    <NetIconThisMonth className={`h-4 w-4 ${netThisMonthColorClass}`} />
+                    صافي هذا الشهر
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-col min-w-0">
+                  <span
+                    className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 ${netThisMonthColorClass} whitespace-nowrap min-w-0`}
+                  >
+                    <span className="font-mono text-base shrink-0">{netThisMonthSign}</span>
+                    <AmountText amount={Math.abs(netThisMonth)} />
+                  </span>
+                  <span className="text-[10px] text-ink/40 mt-1 truncate" title="ربح/خسارة الشهر الحالي (لا يتأثر بالفلتر أعلاه)">
+                    ربح/خسارة الشهر الحالي (لا يتأثر بالفلتر أعلاه)
+                  </span>
+                </div>
+              </div>
+
               {/* السيولة المتاحة (بيع + عربون) — نقد داخل خلال الفترة */}
               <Link
                 href="/finance?tab=sales"
@@ -424,14 +520,31 @@ export function DashboardClient() {
                   </span>
                   <ArrowLeft className="h-4 w-4 text-info/0 group-hover:text-info transition-all transform group-hover:-translate-x-1" />
                 </div>
-                <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                    <span className="font-mono text-base shrink-0">+</span>
-                    <AmountText amount={summary?.sales ?? 0} />
-                  </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    نقد مُحصَّل خلال الفترة (يشمل عربونات طلبات لم تكتمل)
-                  </span>
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[10px] text-ink/50">مبيعات فعلية:</span>
+                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono">
+                      <span>+</span>
+                      <AmountText amount={summary?.actualSales ?? 0} />
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between border-t border-dashed border-hairline pt-1.5">
+                    <span className="text-[10px] text-ink/50">عربونات محصّلة:</span>
+                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono">
+                      <span>+</span>
+                      <AmountText amount={summary?.deposits ?? 0} />
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between border-t border-hairline pt-1.5 font-bold">
+                    <span className="text-[10px] text-ink">إجمالي السيولة:</span>
+                    <span className="text-sm font-black text-info flex items-baseline gap-0.5 font-mono">
+                      <span>+</span>
+                      <AmountText amount={summary?.sales ?? 0} />
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-ink/45 leading-snug mt-1 font-sans">
+                    العربون نقد متاح تصرفه، لكنه يبقى التزامًا حتى تسليم الطلب.
+                  </p>
                 </div>
               </Link>
 
@@ -549,60 +662,6 @@ export function DashboardClient() {
                 </div>
               </div>
             </div>
-
-            {/* 5. طلبات للتسليم (طلبات يستحق تسليمها) */}
-            {stats && (
-              <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
-                <div className={
-                  stats.upcomingOrders.length > 0
-                    ? `flex items-center justify-between p-3.5 -mx-6 -mt-6 rounded-t-lg text-white font-bold ${glowClass}`
-                    : "flex items-center justify-between border-b border-hairline pb-3"
-                }>
-                  <h3 className={`text-base font-bold flex items-center gap-1.5 min-w-0 ${stats.upcomingOrders.length > 0 ? "text-white" : "text-ink"}`}>
-                    <Calendar className={`h-4.5 w-4.5 shrink-0 ${stats.upcomingOrders.length > 0 ? "text-white" : "text-info"}`} />
-                    <span className="truncate">طلبات يستحق تسليمها (خلال 7 أيام)</span>
-                  </h3>
-                  <span className={`text-xs shrink-0 ${stats.upcomingOrders.length > 0 ? "text-white/90" : "text-ink/45"}`}>
-                    {stats.upcomingOrders.length} طلبات
-                  </span>
-                </div>
-                {stats.upcomingOrders.length === 0 ? (
-                  <p className="text-sm text-ink/45 text-center py-6 bg-canvas rounded-lg border border-hairline">لا توجد طلبات يستحق تسليمها هذا الأسبوع</p>
-                ) : (
-                  <div className="divide-y divide-hairline">
-                    {stats.upcomingOrders.map((o) => (
-                      <Link
-                        key={o.id}
-                        href={`/orders?view=${o.id}`}
-                        className="flex items-center justify-between gap-3 py-3 hover:bg-canvas px-2 -mx-2 rounded transition-colors"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-ink text-sm truncate">{o.customerName}</p>
-                          <p className="text-xs text-ink/50 mt-0.5 truncate">{o.productName}</p>
-                        </div>
-                        <div className="text-end shrink-0">
-                          <p className="text-xs text-ink/45 whitespace-nowrap">
-                            {o.deliveryDate
-                              ? new Date(o.deliveryDate).toLocaleDateString("ar-JO", {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                })
-                              : "تاريخ غير محدد"}
-                          </p>
-                          <p className="text-xs text-ink-2 mt-1 whitespace-nowrap flex flex-col items-end gap-0.5">
-                            <span>قيمة الطلب: <AmountText amount={o.totalPriceCents} /></span>
-                            {o.depositCents > 0 && (
-                              <span className="text-[10px] text-info font-bold">العربون المُحصَّل: +<AmountText amount={o.depositCents} /></span>
-                            )}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 

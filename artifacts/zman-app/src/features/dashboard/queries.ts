@@ -7,6 +7,8 @@ import { db } from "@/lib/db/client";
 
 export interface FinancialSummary {
   sales: number;
+  actualSales: number;
+  deposits: number;
   expenses: number;
   purchases: number;
   netProfit: number;
@@ -28,14 +30,27 @@ export async function getFinancialSummary(
   endDate: string,
 ): Promise<FinancialSummary> {
   // D1: cash-basis revenue = cash received from customers in the period
-  const salesPromise = db
+  const actualSalesPromise = db
     .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
     .from(cashMovement)
     .where(
       and(
         isNull(cashMovement.deletedAt),
         eq(cashMovement.direction, "in"),
-        sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
+        eq(cashMovement.sourceType, "sale"),
+        sql`${cashMovement.date} >= ${startDate}`,
+        sql`${cashMovement.date} <= ${endDate}`,
+      ),
+    );
+
+  const depositsPromise = db
+    .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+    .from(cashMovement)
+    .where(
+      and(
+        isNull(cashMovement.deletedAt),
+        eq(cashMovement.direction, "in"),
+        eq(cashMovement.sourceType, "deposit"),
         sql`${cashMovement.date} >= ${startDate}`,
         sql`${cashMovement.date} <= ${endDate}`,
       ),
@@ -67,16 +82,21 @@ export async function getFinancialSummary(
       ),
     );
 
-  const [salesResult] = await salesPromise;
-  const [expensesResult] = await expensesPromise;
-  const [purchasesResult] = await purchasesPromise;
+  const [actualSalesResult, depositsResult, expensesResult, purchasesResult] = await Promise.all([
+    actualSalesPromise,
+    depositsPromise,
+    expensesPromise,
+    purchasesPromise,
+  ]);
 
-  const sales = Number(salesResult?.total) || 0;
-  const expenses = Number(expensesResult?.total) || 0;
-  const purchases = Number(purchasesResult?.total) || 0;
+  const actualSales = Number(actualSalesResult[0]?.total) || 0;
+  const deposits = Number(depositsResult[0]?.total) || 0;
+  const sales = actualSales + deposits;
+  const expenses = Number(expensesResult[0]?.total) || 0;
+  const purchases = Number(purchasesResult[0]?.total) || 0;
   const netProfit = sales - expenses - purchases;
 
-  return { sales, expenses, purchases, netProfit };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)
@@ -412,4 +432,54 @@ export async function getCashSummary(): Promise<CashSummary> {
     depositsHeldCents: Number(result?.depositsHeldCents) || 0,
     expectedRemainingCents: Number(result?.expectedRemainingCents) || 0,
   };
+}
+
+export async function getCurrentMonthNet(): Promise<number> {
+  const baseConds = [
+    isNull(cashMovement.deletedAt),
+    isNull(account.deletedAt),
+    sql`${cashMovement.date} >= date_trunc('month', CURRENT_DATE)::date`,
+    sql`${cashMovement.date} <= (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month' - INTERVAL '1 day')::date`
+  ];
+
+  const [[salesRes], [purchasesRes], [expensesRes]] = await Promise.all([
+    db
+      .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+      .from(cashMovement)
+      .innerJoin(account, eq(cashMovement.accountId, account.id))
+      .where(
+        and(
+          ...baseConds,
+          eq(cashMovement.direction, "in"),
+          sql`${cashMovement.sourceType} in ('sale', 'deposit')`
+        )
+      ),
+    db
+      .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+      .from(cashMovement)
+      .innerJoin(account, eq(cashMovement.accountId, account.id))
+      .where(
+        and(
+          ...baseConds,
+          eq(cashMovement.direction, "out"),
+          eq(cashMovement.sourceType, "purchase")
+        )
+      ),
+    db
+      .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+      .from(cashMovement)
+      .innerJoin(account, eq(cashMovement.accountId, account.id))
+      .where(
+        and(
+          ...baseConds,
+          eq(cashMovement.direction, "out"),
+          eq(cashMovement.sourceType, "expense")
+        )
+      ),
+  ]);
+
+  const salesCents = Number(salesRes?.total) || 0;
+  const purchasesCents = Number(purchasesRes?.total) || 0;
+  const expensesCents = Number(expensesRes?.total) || 0;
+  return salesCents - purchasesCents - expensesCents;
 }

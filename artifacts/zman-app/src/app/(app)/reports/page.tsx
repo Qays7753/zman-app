@@ -183,10 +183,10 @@ export default function ReportsPage() {
   return (
     <>
       <AppShellHeader
-        title=""
+        title="التقارير"
         action={
-          <div className="flex items-center gap-2 w-full">
-            {/* زر التحديث — أيقونة فقط لتوفير المساحة */}
+          <div className="flex items-center gap-2">
+            {/* زر التحديث */}
             <Button
               onClick={() => {
                 void refetch();
@@ -200,20 +200,16 @@ export default function ReportsPage() {
             >
               <RefreshCw className="h-4.5 w-4.5" />
             </Button>
-            {/* مبدّل التقارير / الوضع المالي — وسط مرن */}
-            <div className="flex-1 flex justify-center">
-              <SegmentedControl
-                value={activeSection}
-                onChange={(val) => setActiveSection(val as any)}
-                compact
-                options={[
-                  { value: "analytics", label: "التقارير", icon: <BarChart2 className="h-4.5 w-4.5" /> },
-                  { value: "balance_sheet", label: "الوضع المالي", icon: <Wallet className="h-4.5 w-4.5" /> },
-                ]}
-              />
-            </div>
-            {/* حاجز متماثل لتوسيط المبدّل */}
-            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
+            {/* مبدّل التقارير / الوضع المالي */}
+            <SegmentedControl
+              value={activeSection}
+              onChange={(val) => setActiveSection(val as any)}
+              compact
+              options={[
+                { value: "analytics", label: "التقارير", icon: <BarChart2 className="h-4.5 w-4.5" /> },
+                { value: "balance_sheet", label: "الوضع المالي", icon: <Wallet className="h-4.5 w-4.5" /> },
+              ]}
+            />
           </div>
         }
       />
@@ -267,38 +263,20 @@ export default function ReportsPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* تبويبات الأقسام الخمسة للتقارير */}
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-start overflow-x-auto no-scrollbar pb-1">
-                {/* تقارير مالية */}
-                <div className="flex items-center gap-1.5 bg-canvas/60 p-1 rounded-lg border border-hairline shrink-0">
-                  <span className="text-[10px] font-bold text-ink-3 px-1.5">تقارير مالية:</span>
-                  <SegmentedControl
-                    value={["pnl", "expenses", "sales"].includes(activeReportTab) ? activeReportTab : ""}
-                    onChange={(val) => val && setActiveReportTab(val as any)}
-                    compact
-                    options={[
-                      { value: "pnl", label: "الأرباح والخسائر", icon: <TrendingUp className="h-3.5 w-3.5" /> },
-                      { value: "expenses", label: "المصاريف", icon: <Wallet className="h-3.5 w-3.5" /> },
-                      { value: "sales", label: "المبيعات", icon: <ShoppingBag className="h-3.5 w-3.5" /> },
-                    ]}
-                    className="gap-0.5 border-0 bg-transparent"
-                  />
-                </div>
-
-                {/* تقارير تشغيلية */}
-                <div className="flex items-center gap-1.5 bg-canvas/60 p-1 rounded-lg border border-hairline shrink-0">
-                  <span className="text-[10px] font-bold text-ink-3 px-1.5">تقارير تشغيلية:</span>
-                  <SegmentedControl
-                    value={["orders", "products"].includes(activeReportTab) ? activeReportTab : ""}
-                    onChange={(val) => val && setActiveReportTab(val as any)}
-                    compact
-                    options={[
-                      { value: "orders", label: "الطلبات", icon: <Archive className="h-3.5 w-3.5" /> },
-                      { value: "products", label: "المنتجات", icon: <BarChart2 className="h-3.5 w-3.5" /> },
-                    ]}
-                    className="gap-0.5 border-0 bg-transparent"
-                  />
-                </div>
+              {/* تبويبات الأقسام الخمسة للتقارير مدمجة في شريط واحد يمرر أفقياً بسلاسة */}
+              <div className="w-full overflow-x-auto no-scrollbar pb-1">
+                <SegmentedControl
+                  value={activeReportTab}
+                  onChange={(val) => setActiveReportTab(val as any)}
+                  options={[
+                    { value: "pnl", label: "الأرباح والخسائر", icon: <TrendingUp className="h-3.5 w-3.5" /> },
+                    { value: "expenses", label: "المصاريف", icon: <Wallet className="h-3.5 w-3.5" /> },
+                    { value: "sales", label: "المبيعات", icon: <ShoppingBag className="h-3.5 w-3.5" /> },
+                    { value: "orders", label: "الطلبات", icon: <Archive className="h-3.5 w-3.5" /> },
+                    { value: "products", label: "المنتجات", icon: <BarChart2 className="h-3.5 w-3.5" /> },
+                  ]}
+                  className="w-full bg-canvas/60"
+                />
               </div>
 
               {activeReportTab === "pnl" && (
@@ -587,6 +565,12 @@ export default function ReportsPage() {
                 </h3>
                 <p className="text-xs text-ink/50 mt-1">عرض الأصول والالتزامات وحقوق الملكية للورشة في تاريخ محدد (أساس نقدي مبسط)</p>
               </div>
+              <DownloadBtn
+                type="balance_sheet"
+                title="الوضع المالي"
+                downloadingId={downloadingId}
+                onDownload={handleDownload}
+              />
             </div>
             
             {positionLoading ? (
@@ -728,52 +712,69 @@ export default function ReportsPage() {
                 )}
 
                 {/* تسوية متقدمة مع قائمة الدخل */}
-                <div className="mt-4 border border-hairline rounded-lg overflow-hidden">
+                <div className="mt-4 border border-hairline rounded-lg overflow-hidden bg-paper shadow-sm">
                   <details className="group">
-                    <summary className="p-3 bg-canvas/30 hover:bg-canvas/50 text-xs font-bold text-ink/70 flex items-center justify-between cursor-pointer select-none">
-                      <span>تفاصيل المطابقة المتقدمة (تسوية الدفتر والقوائم)</span>
+                    <summary className="p-4 bg-canvas/30 hover:bg-canvas/50 text-xs font-bold text-ink/75 flex items-center justify-between cursor-pointer select-none transition-colors">
+                      <span className="flex items-center gap-2">
+                        <span>تفاصيل المطابقة المتقدمة (تسوية الدفتر والقوائم)</span>
+                      </span>
                       <span className="transition-transform group-open:rotate-180 text-ink/40">▼</span>
                     </summary>
-                    <div className="p-4 bg-paper text-xs space-y-4 border-t border-hairline font-mono text-ink/80">
+                    <div className="p-5 bg-paper text-xs space-y-5 border-t border-hairline leading-relaxed text-ink/80">
                       {/* التسوية الداخلية للميزانية */}
-                      <div className="space-y-2">
-                        <h5 className="font-bold text-ink border-b border-hairline pb-1">1. تسوية توازن الأرباح المدورة (رصيد الميزانية)</h5>
-                        <div className="flex justify-between">
+                      <div className="space-y-2.5">
+                        <h5 className="font-bold text-ink border-b border-hairline pb-2 flex items-center justify-between">
+                          <span>1. تسوية توازن الأرباح المدورة (رصيد الميزانية)</span>
+                          {positionData.pnlReconciliationCents === 0 ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-info/10 text-info border border-info/20">تطابق مالي ✓</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-alert/10 text-alert border border-alert/20">فرق محاسبي ⚠</span>
+                          )}
+                        </h5>
+                        <div className="flex justify-between text-ink/75">
                           <span>الأرباح المحتجزة المترتبة في الميزانية:</span>
-                          <span><AmountText amount={positionData.equity.retainedProfitCents} /></span>
+                          <span className="font-mono"><AmountText amount={positionData.equity.retainedProfitCents} /></span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-ink/75">
                           <span>صافي الأرباح النقدي (النشط) بعد خصم الالتزام:</span>
-                          <span><AmountText amount={positionData.pnlAllTimeNetCents - positionData.liabilities.depositsCents} /></span>
+                          <span className="font-mono"><AmountText amount={positionData.pnlAllTimeNetCents - positionData.liabilities.depositsCents} /></span>
                         </div>
-                        <div className="flex justify-between border-t border-dashed border-hairline pt-1.5 font-bold">
+                        <div className="flex justify-between border-t border-dashed border-hairline pt-2 font-bold">
                           <span>فرق المطابقة الداخلي:</span>
-                          <span className={positionData.pnlReconciliationCents === 0 ? "text-info" : "text-alert"}>
+                          <span className={positionData.pnlReconciliationCents === 0 ? "text-info font-mono" : "text-alert font-mono"}>
                             <AmountText amount={positionData.pnlReconciliationCents} />
                           </span>
                         </div>
                       </div>
 
                       {/* تسوية الدفتر المالي مع الجداول المصدرية */}
-                      <div className="space-y-2 pt-2 border-t border-hairline">
-                        <h5 className="font-bold text-ink border-b border-hairline pb-1">2. تسوية تطابق الدفتر النقدي (Ledger) مع الجداول المصدرية</h5>
-                        <div className="flex justify-between">
+                      <div className="space-y-2.5 pt-3 border-t border-hairline">
+                        <h5 className="font-bold text-ink border-b border-hairline pb-2 flex items-center justify-between">
+                          <span>2. تسوية تطابق الدفتر النقدي (Ledger) مع الجداول المصدرية</span>
+                          {positionData.pnlSourceReconciliationCents === 0 ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-info/10 text-info border border-info/20">سليم ومطابق ✓</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-alert/10 text-alert border border-alert/20">انحراف غير مطابق ⚠</span>
+                          )}
+                        </h5>
+                        <div className="flex justify-between text-ink/75">
                           <span>صافي الأرباح من الدفتر النقدي (Ledger Net Profit):</span>
-                          <span><AmountText amount={positionData.ledgerPnlNetCents} /></span>
+                          <span className="font-mono"><AmountText amount={positionData.ledgerPnlNetCents} /></span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-ink/75">
                           <span>صافي الأرباح من الجداول المصدرية (Source Tables Net Profit):</span>
-                          <span><AmountText amount={positionData.sourceTablePnlNetCents} /></span>
+                          <span className="font-mono"><AmountText amount={positionData.sourceTablePnlNetCents} /></span>
                         </div>
-                        <div className="flex justify-between border-t border-dashed border-hairline pt-1.5 font-bold">
+                        <div className="flex justify-between border-t border-dashed border-hairline pt-2 font-bold">
                           <span>فرق تسوية الدفتر والمصدر (Drift):</span>
-                          <span className={positionData.pnlSourceReconciliationCents === 0 ? "text-info" : "text-alert"}>
+                          <span className={positionData.pnlSourceReconciliationCents === 0 ? "text-info font-mono" : "text-alert font-mono"}>
                             <AmountText amount={positionData.pnlSourceReconciliationCents} />
                           </span>
                         </div>
                         {positionData.pnlSourceReconciliationCents !== 0 && (
-                          <div className="text-[10px] text-alert font-sans leading-relaxed mt-1">
-                            تنبيه: يوجد عدم تطابق بين حركات الصندوق والبنك والبيانات المصدرية للمبيعات/المشتريات/المصاريف. يرجى التحقق من وجود حركات مفقودة أو محذوفة.
+                          <div className="p-3 rounded-md bg-alert-soft border border-alert/15 text-[11px] text-alert font-sans leading-relaxed mt-2 flex items-start gap-2">
+                            <span className="mt-0.5">⚠️</span>
+                            <span>تنبيه: يوجد عدم تطابق بين حركات الصندوق والبنك والبيانات المصدرية للمبيعات/المشتريات/المصاريف. يرجى التحقق من وجود حركات مفقودة أو محذوفة.</span>
                           </div>
                         )}
                       </div>
