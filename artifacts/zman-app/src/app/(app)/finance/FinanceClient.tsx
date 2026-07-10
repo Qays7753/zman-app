@@ -11,7 +11,6 @@ import { FinanceCatalogModal } from "@/features/finance/components/FinanceCatalo
 import { useOpeningBalance } from "@/features/finance/hooks";
 import { cn } from "@/lib/utils";
 import { PageToolbar } from "@/components/shared/PageToolbar";
-import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 
 // استيراد تبويبات المالية ديناميكياً لتقسيم الحزم البرمجية (§12.1)
 const PurchasesTab = dynamic(
@@ -222,38 +221,6 @@ export default function FinanceClient() {
         title=""
         action={
           <PageToolbar
-            leading={
-              <div className="flex items-center gap-0.5">
-                {[
-                  TABS.find((t) => t.id === "purchases")!,
-                  TABS.find((t) => t.id === "expenses")!,
-                  TABS.find((t) => t.id === "owner")!,
-                  TABS.find((t) => t.id === "sales")!,
-                ].map((tab) => {
-                  const isActive = tab.id === activeTab;
-                  const Icon = tab.icon;
-                  return (
-                    <HeaderIconButton
-                      key={tab.id}
-                      label={tab.label}
-                      isActive={isActive}
-                      onClick={() => handleTabChange(tab.id)}
-                      className={cn(
-                        isActive
-                          ? "bg-info text-paper border-transparent shadow-sm font-bold"
-                          : "text-ink-3 hover:text-ink hover:bg-canvas",
-                        "lg:w-auto lg:px-3 lg:gap-1.5",
-                      )}
-                    >
-                      <Icon className="h-5 w-5 shrink-0" />
-                      <span className="hidden lg:inline text-xs font-bold whitespace-nowrap">
-                        {tab.label}
-                      </span>
-                    </HeaderIconButton>
-                  );
-                })}
-              </div>
-            }
             search={
               hasSearch
                 ? {
@@ -293,7 +260,42 @@ export default function FinanceClient() {
           />
         }
       />
-      <div className="flex-1 flex flex-col gap-6">
+
+      {/* صف التبويبات المستقل — عرض كامل بلا قصّ، كل تبويب حصة متساوية */}
+      <div className="flex items-stretch border-b border-hairline -mx-4 px-1 sm:mx-0 sm:px-0">
+        {[
+          TABS.find((t) => t.id === "purchases")!,
+          TABS.find((t) => t.id === "expenses")!,
+          TABS.find((t) => t.id === "owner")!,
+          TABS.find((t) => t.id === "sales")!,
+        ].map((tab) => {
+          const isActive = tab.id === activeTab;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => handleTabChange(tab.id)}
+              title={tab.label}
+              aria-label={tab.label}
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center gap-1 min-h-[52px] px-1 border-b-2 -mb-px transition-colors",
+                isActive
+                  ? "border-info text-info font-bold"
+                  : "border-transparent text-ink-3 hover:text-ink",
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              <span className="text-[11px] font-semibold whitespace-nowrap">
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 flex flex-col gap-6 pt-4">
         <div className="flex-1 flex flex-col">
           {!isReady ? (
             <div className="flex items-center justify-center py-20">
