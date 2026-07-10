@@ -9,6 +9,7 @@ import {
   expense,
   purchase,
   sale,
+  openingBalance,
 } from "./db";
 import { order } from "../orders/db";
 
@@ -48,18 +49,22 @@ export async function runFinancialIntegrityCheck(
 ): Promise<IntegrityReport> {
   const effectiveDate = asOfDate ?? new Date().toLocaleDateString("en-CA");
 
-  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8] = await Promise.all([
-    checkIC1EquityDrift(effectiveDate),
-    checkIC2OrphanMovements(),
-    checkIC3DepositLiabilityConsistency(),
-    checkIC4SaleDepositNoDoubleCount(),
-    checkIC5NoArchivedWithBalance(),
-    checkIC6PnlReconcilesRetainedProfit(effectiveDate),
-    checkIC7UnitConsistency(),
-    checkIC8SourceLedgerReconciliation(effectiveDate),
-  ]);
+  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11] =
+    await Promise.all([
+      checkIC1EquityDrift(effectiveDate),
+      checkIC2OrphanMovements(),
+      checkIC3DepositLiabilityConsistency(),
+      checkIC4SaleDepositNoDoubleCount(),
+      checkIC5NoArchivedWithBalance(),
+      checkIC6PnlReconcilesRetainedProfit(effectiveDate),
+      checkIC7UnitConsistency(),
+      checkIC8SourceLedgerReconciliation(effectiveDate),
+      checkIC9SaleAmountMatchesOrderRevenue(),
+      checkIC10OwnerTxAmountMatchesCashMovement(),
+      checkIC11OpeningBalanceMatchesCashMovements(),
+    ]);
 
-  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8];
+  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11];
 
   const overallStatus: IntegrityCheckStatus = results.some(
     (r) => r.status === "FAIL",
@@ -405,6 +410,7 @@ async function checkIC4SaleDepositNoDoubleCount(): Promise<IntegrityCheckResult>
     .select({
       saleId: sale.id,
       orderTotalPriceCents: order.totalPriceCents,
+      orderAdditionalProfitCents: order.additionalProfitCents,
       orderDepositCents: order.depositCents,
       ledgerSaleIn: sql<number>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint`,
     })
@@ -426,28 +432,38 @@ async function checkIC4SaleDepositNoDoubleCount(): Promise<IntegrityCheckResult>
         isNull(order.deletedAt),
       ),
     )
-    .groupBy(sale.id, order.totalPriceCents, order.depositCents);
-
-  const badSales = orderSales.filter((s) => {
-    const expectedRemainder = Math.max(
-      0,
-      s.orderTotalPriceCents - s.orderDepositCents,
+    .groupBy(
+      sale.id,
+      order.totalPriceCents,
+      order.additionalProfitCents,
+      order.depositCents,
     );
-    return Number(s.ledgerSaleIn) !== expectedRemainder;
+
+  // REDEFINED under the deposit-transform resolution:
+  //   ledgerSaleIn must equal totalPriceCents + additionalProfitCents
+  //   (the full realized revenue). This sum comprises:
+  //     - the transformed-deposit movement (amount = original depositCents), PLUS
+  //     - the remainder movement (amount = realizedSaleCents − depositCents).
+  //   The old IC-4 expected the REMAINDER only — that was only coherent when the
+  //   deposit movement stayed separately active forever, which IC-3 forbids.
+  const badSales = orderSales.filter((s) => {
+    const expectedRealizedSaleCents =
+      s.orderTotalPriceCents + (s.orderAdditionalProfitCents ?? 0);
+    return Number(s.ledgerSaleIn) !== expectedRealizedSaleCents;
   });
 
   return {
     id: "IC-4",
     invariantId: "INV-4",
     status: badSales.length === 0 ? "PASS" : "FAIL",
-    titleAr: "لا ازدواج عدّ للعربون في المبيعات",
+    titleAr: "مطابقة مبيعات الطلب للإيراد المحقَّق الكامل",
     descriptionAr:
-      "لكل مبيعة محوَّلة من طلب: المبلغ المُرحَّل للسجل (مصدر 'sale') يجب أن يساوي (سعر الطلب − العربون). لو ساوى السعر الكامل، فالعربون محسوب مرتين.",
+      "لكل مبيعة محوَّلة من طلب: مجموع المبلغ المُرحَّل للسجل (مصدر 'sale') يجب أن يساوي (سعر الطلب + الأرباح الإضافية). يشمل ذلك حركة العربون المحوَّلة + حركة المتبقي. لو ساوى السعر الكامل فقط دون الأرباح الإضافية، فالأرباح الإضافية ضاعت من المالية.",
     offendingIds: badSales.map((s) => `مبيعة:${s.saleId}`).slice(0, 50),
     count: badSales.length,
     suggestedFixAr:
       badSales.length !== 0
-        ? `يوجد ${badSales.length} مبيعة فيها ازدواج عربون محتمل. صحّح cash_movement.amountCents للقيمة الصحيحة (السعر − العربون).`
+        ? `يوجد ${badSales.length} مبيعة لا تطابق الإيراد المحقَّق الكامل (سعر الطلب + أرباح إضافية). تحقّق من تحويل العربون وحركة المتبقي ومن تضمين additionalProfitCents.`
         : undefined,
   };
 }
@@ -681,6 +697,155 @@ async function checkIC8SourceLedgerReconciliation(
     suggestedFixAr:
       drift !== 0
         ? `يوجد انحراف قدره ${(drift / 1000).toFixed(3)} د.أ. ناتج عن فوارق بين سجل النقد والجداول المساعدة. تحقّق من المشتريات أو المصاريف غير المسجلة بالسجل.`
+        : undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-9 — Sale amount matches order realized revenue (INV-4 companion)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC9SaleAmountMatchesOrderRevenue(): Promise<IntegrityCheckResult> {
+  const badSales = await db
+    .select({
+      saleId: sale.id,
+      saleAmountCents: sale.amountCents,
+      orderTotalPriceCents: order.totalPriceCents,
+      orderAdditionalProfitCents: order.additionalProfitCents,
+    })
+    .from(sale)
+    .innerJoin(order, eq(sale.orderId, order.id))
+    .where(
+      and(
+        eq(sale.source, "order"),
+        isNull(sale.deletedAt),
+        isNull(order.deletedAt),
+      ),
+    );
+
+  const offenders = badSales
+    .filter((s) => {
+      const expected =
+        s.orderTotalPriceCents + (s.orderAdditionalProfitCents ?? 0);
+      return s.saleAmountCents !== expected;
+    })
+    .map((s) => `مبيعة:${s.saleId}`);
+
+  return {
+    id: "IC-9",
+    invariantId: "INV-4-companion",
+    status: offenders.length === 0 ? "PASS" : "FAIL",
+    titleAr: "مطابقة مبلغ المبيعة لإيراد الطلب المحقَّق",
+    descriptionAr:
+      "لكل مبيعة محوَّلة من طلب: sale.amountCents يجب أن يساوي (سعر الطلب + الأرباح الإضافية). يكشف التباعد بين جدول المبيعات وسجل الطلبات.",
+    offendingIds: offenders.slice(0, 50),
+    count: offenders.length,
+    suggestedFixAr:
+      offenders.length !== 0
+        ? `يوجد ${offenders.length} مبيعة لا يطابق مبلغها إيراد الطلب. تحقّق من تضمين additionalProfitCents في convertOrderToSale.`
+        : undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-10 — Owner transaction amount matches cash_movement amount
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC10OwnerTxAmountMatchesCashMovement(): Promise<IntegrityCheckResult> {
+  const ownerTxWithMovs = await db
+    .select({
+      txId: ownerTransaction.id,
+      txAmountCents: ownerTransaction.amountCents,
+      txType: ownerTransaction.type,
+      movAmountCents: cashMovement.amountCents,
+      movId: cashMovement.id,
+    })
+    .from(ownerTransaction)
+    .leftJoin(
+      cashMovement,
+      and(
+        sql`${cashMovement.sourceType} in ('owner_draw', 'owner_inject')`,
+        eq(cashMovement.sourceId, ownerTransaction.id),
+        isNull(cashMovement.deletedAt),
+      ),
+    )
+    .where(isNull(ownerTransaction.deletedAt));
+
+  const offenders: string[] = [];
+  for (const row of ownerTxWithMovs) {
+    if (!row.movId) {
+      offenders.push(`معاملة-مالك-بلا-حركة:${row.txId}`);
+    } else if (row.txAmountCents !== row.movAmountCents) {
+      offenders.push(`معاملة-مالك-مبلغ-مختلف:${row.txId}`);
+    }
+  }
+
+  return {
+    id: "IC-10",
+    invariantId: "INV-owner-amount",
+    status: offenders.length === 0 ? "PASS" : "FAIL",
+    titleAr: "مطابقة مبلغ معاملة المالك لحركة الصندوق",
+    descriptionAr:
+      "لكل معاملة مالك (سحب/حقن): يجب أن يكون لها حركة صندوق نشطة واحدة بنفس المبلغ. يكشف الحذف الناعم غير المتزامن أو خطأ في المبلغ.",
+    offendingIds: offenders.slice(0, 50),
+    count: offenders.length,
+    suggestedFixAr:
+      offenders.length !== 0
+        ? `يوجد ${offenders.length} معاملة مالك بدون حركة صندوق مطابقة. تحقّق من الحذف الناعم المتزامن بين owner_transaction و cash_movement.`
+        : undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-11 — Opening balance matches sum of opening cash_movements
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC11OpeningBalanceMatchesCashMovements(): Promise<IntegrityCheckResult> {
+  const [opBal] = await db
+    .select()
+    .from(openingBalance)
+    .where(isNull(openingBalance.deletedAt))
+    .limit(1);
+
+  if (!opBal) {
+    return {
+      id: "IC-11",
+      invariantId: "INV-opening",
+      status: "PASS",
+      titleAr: "مطابقة الرصيد الافتتاحي مع حركات الصندوق",
+      descriptionAr: "لا يوجد رصيد افتتاحي مسجَّل — التحقق غير مطلوب.",
+    };
+  }
+
+  const expectedTotal = opBal.cashCents + opBal.bankCents;
+  const [actualRow] = await db
+    .select({
+      total: sql<number>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint`,
+    })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        eq(cashMovement.sourceType, "opening"),
+        eq(cashMovement.direction, "in"),
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+      ),
+    );
+  const actualTotal = Number(actualRow?.total) || 0;
+
+  const drift = expectedTotal - actualTotal;
+
+  return {
+    id: "IC-11",
+    invariantId: "INV-opening",
+    status: drift === 0 ? "PASS" : "FAIL",
+    titleAr: "مطابقة الرصيد الافتتاحي مع حركات الصندوق",
+    descriptionAr: `مجموع (cashCents + bankCents) من opening_balance = ${(expectedTotal / 1000).toFixed(3)} د.أ. مجموع حركات sourceType='opening' النشطة = ${(actualTotal / 1000).toFixed(3)} د.أ. الانحراف = ${(drift / 1000).toFixed(3)} د.أ.`,
+    driftCents: drift,
+    suggestedFixAr:
+      drift !== 0
+        ? `الانحراف ${(drift / 1000).toFixed(3)} د.أ. تحقّق من حذف حساب يحمل رصيداً افتتاحياً، أو من تعديل يدوي لـ opening_balance دون إنشاء حركة صندوق مقابلة.`
         : undefined,
   };
 }

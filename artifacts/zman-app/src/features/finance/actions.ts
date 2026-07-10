@@ -960,7 +960,7 @@ export async function convertOrderToSale(
 
   try {
     return await db.transaction(async (tx) => {
-      // 1. فحص الـ Idempotency Key كأول خطوة لخدمة المحاولات المكررة (§5.6)
+      // 1. Idempotency check (serves retries first).
       if (requestId) {
         const [existingKey] = await tx
           .select()
@@ -979,7 +979,7 @@ export async function convertOrderToSale(
         }
       }
 
-      // 2. قفل صف الطلب الحالي لمنع التعديل المتزامن (Row-level locking) (§5.6)
+      // 2. Lock the order row to prevent concurrent modification.
       const [orderRow] = await tx
         .select()
         .from(order)
@@ -989,21 +989,30 @@ export async function convertOrderToSale(
       if (!orderRow) {
         return { status: "error", message: "الطلب غير موجود" };
       }
-
       if (orderRow.deletedAt) {
         return { status: "error", message: "لا يمكن تحويل طلب محذوف" };
       }
-
       if (orderRow.totalPriceCents <= 0) {
         return { status: "error", message: "لا يمكن تحويل طلب بسعر صفر إلى مبيعات. حدّد السعر أولاً." };
       }
-
-      // P0-2 extension: منع تحويل طلب ملغى إلى مبيعات
       if (orderRow.status === "cancelled") {
         return { status: "error", message: "لا يمكن تحويل طلب ملغى. أنشئ طلباً جديداً بدلاً من ذلك." };
       }
+      if (orderRow.status === "delivered") {
+        return { status: "error", message: "هذا الطلب مُسلَّم مسبقاً." };
+      }
+      // Defensive re-validation: deposit must not exceed total realized revenue.
+      // (Schema + action enforce this at create/update, but we re-check here as a backstop.)
+      const realizedSaleCents =
+        orderRow.totalPriceCents + (orderRow.additionalProfitCents ?? 0);
+      if (orderRow.depositCents > realizedSaleCents) {
+        return {
+          status: "error",
+          message: "العربون أكبر من إجمالي سعر الطلب والأرباح الإضافية. صحّح الطلب أولاً.",
+        };
+      }
 
-      // 3. التحقق من وجود مبيعات غير محذوفة مرتبطة بهذا الطلب مسبقاً لمنع التكرار
+      // 3. Check for existing non-deleted sale (prevent double conversion).
       const [existingSale] = await tx
         .select()
         .from(sale)
@@ -1016,7 +1025,7 @@ export async function convertOrderToSale(
         };
       }
 
-      // 4. تسجيل مفتاح الـ Idempotency
+      // 4. Record idempotency key.
       if (requestId) {
         await tx.insert(idempotencyKey).values({
           requestId,
@@ -1025,7 +1034,9 @@ export async function convertOrderToSale(
         });
       }
 
-      // 5. إدراج سجل المبيعات الفعلي
+      // 5. Insert the sale row. amountCents = FULL realized revenue
+      //    (totalPrice + additionalProfit). additionalProfit is real earned income
+      //    per the owner's clarification — it enters finance at the delivery moment.
       const saleDate = getAmmanDate();
       const [newSale] = await tx
         .insert(sale)
@@ -1033,7 +1044,7 @@ export async function convertOrderToSale(
           date: saleDate,
           source: "order",
           orderId: orderId,
-          amountCents: orderRow.totalPriceCents,
+          amountCents: realizedSaleCents,
           description: `مبيعات الطلب #${orderId.slice(0, 8)}`,
         })
         .returning();
@@ -1042,10 +1053,42 @@ export async function convertOrderToSale(
         throw new Error("فشل تحويل الطلب إلى مبيعات");
       }
 
-      // 5.1. إدراج حركة الصندوق للمبلغ المتبقي فقط (التزاماً بـ §3)
-      const remainderCents = orderRow.totalPriceCents - orderRow.depositCents;
+      const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
+
+      // 6. TRANSFORM the existing active deposit cash_movement (if any) into a
+      //    sale cash_movement. Reclassify sourceType 'deposit' -> 'sale' and
+      //    rewrite sourceId from order.id to newSale.id. Amount/date/account/
+      //    direction are UNCHANGED — this is a reclassification, not a new cash
+      //    event. This is the core of the deposit-transform resolution.
+      const [existingDepositMov] = await tx
+        .select()
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, orderId),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+
+      if (existingDepositMov) {
+        await tx
+          .update(cashMovement)
+          .set({
+            sourceType: "sale",
+            sourceId: newSale.id,
+            description: `مبيعات الطلب #${orderId.slice(0, 8)} (محوَّل من عربون)`,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashMovement.id, existingDepositMov.id));
+      }
+
+      // 7. Insert the REMAINDER sale cash_movement, if remainder > 0.
+      //    remainder = realizedSaleCents - depositCents.
+      //    After this step, sum of sale cash_movements for this sale =
+      //    transformed_deposit_amount + remainder = realizedSaleCents.
+      const remainderCents = realizedSaleCents - orderRow.depositCents;
       if (remainderCents > 0) {
-        const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
         await tx.insert(cashMovement).values({
           date: saleDate,
           accountId: defaultAccountId,
@@ -1057,7 +1100,7 @@ export async function convertOrderToSale(
         });
       }
 
-      // 6. تحديث حالة الطلب إلى تم التوصيل (delivered)
+      // 8. Update order status to delivered.
       await tx
         .update(order)
         .set({

@@ -64,7 +64,7 @@ export async function computeCashBasisPnl(
         and(
           ...baseConds,
           eq(cashMovement.direction, "in"),
-          sql`${cashMovement.sourceType} in ('sale', 'deposit')`
+          eq(cashMovement.sourceType, "sale")
         )
       ),
     tx

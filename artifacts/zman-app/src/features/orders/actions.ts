@@ -301,9 +301,14 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
         };
       }
 
-      // 6.1. تحديث حركة صندوق العربون أو إدراجها/حذفها حسب التغيير (التزاماً بـ §3)
-      // إذا كان الطلب ملغياً، فلا يجب إنشاء أو تحديث أي حركة نقدية نشطة للعربون (P0-C)
-      if (existing.status !== "cancelled") {
+      // 6.1. تحديث حركة صندوق العربون أو إدراجها/حذفها حسب التغيير.
+      // حرج: لا نُنشئ أو نُحدّث حركة عربون للطلبات المُسلَّمة أو الملغاة.
+      //   - للملغى: لا يوجد عربون نشط أصلاً (تم حذفه عند الإلغاء).
+      //   - للمُسلَّم: العربون تحوّل إلى sale عند التحويل (convertOrderToSale)،
+      //     فلا توجد حركة deposit نشطة. لو أنشأنا واحدة جديدة، ستُعلَّق كمخالفة
+      //     IC-3 (عربون قديم على طلب مُسلَّم). تعديل العربون على طلب مُسلَّم
+      //     ممنوع — يجب عكس البيع أولاً.
+      if (existing.status !== "cancelled" && existing.status !== "delivered") {
         const [existingDepositMov] = await tx
           .select()
           .from(cashMovement)
@@ -349,59 +354,100 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
             })
             .where(eq(cashMovement.id, existingDepositMov.id));
         }
+      } else if (existing.status === "delivered") {
+        // منع تعديل العربون على طلب مُسلَّم — العربون تحوّل إلى sale ولا يمكن
+        // فصله دون عكس التحويل كاملاً.
+        if ((depositCents ?? 0) !== existing.depositCents) {
+          return {
+            status: "error",
+            message:
+              "لا يمكن تعديل العربون على طلب مُسلَّم. العربون تحوّل إلى إيراد مبيعات عند التسليم. لعكس ذلك، احذف المبيعة المرتبطة أولاً ثم أعد التحويل.",
+          };
+        }
       }
 
-      // 6.2. مزامنة حركة البيع إن كان الطلب محوّلاً لمبيعة نشطة (P0 — منع تباعد
-      // الدفتر عن السعر المعدّل). لو عُدّل سعر طلب مُسلَّم/مُحوّل، يجب أن يتبع
-      // المتبقي المُرحّل للصندوق السعر الجديد: sale_in = totalPrice − deposit.
+      // 6.2. مزامنة حركة البيع إن كان الطلب محوّلاً لمبيعة نشطة. حرج: بعد
+      // تحويل العربون إلى sale، يجب أن يبقى مجموع حركات sale المرتبطة بالمبيعة
+      // = totalPriceCents + additionalProfitCents (الإيراد المحقَّق الكامل).
+      //   - حركة "محوَّلة من عربون" قيمتها = depositCents (لا تُمَس).
+      //   - حركة "المتبقي" قيمتها = realizedSaleCents - depositCents.
+      // عند تعديل السعر أو الأرباح الإضافية، نُحدّث المتبقي فقط.
       const [linkedSale] = await tx
         .select({ id: sale.id })
         .from(sale)
         .where(and(eq(sale.orderId, id), isNull(sale.deletedAt)));
 
       if (linkedSale) {
-        // حدّث مبلغ المبيعة نفسها ليطابق سعر الطلب الجديد
+        const realizedSaleCents =
+          totalPriceCents + (additionalProfitCents ?? 0);
+
+        // حدّث مبلغ المبيعة نفسها ليطابق الإيراد المحقَّق الكامل
         await tx
           .update(sale)
-          .set({ amountCents: totalPriceCents, updatedAt: new Date() })
+          .set({ amountCents: realizedSaleCents, updatedAt: new Date() })
           .where(eq(sale.id, linkedSale.id));
 
-        const remainderCents = Math.max(0, totalPriceCents - (depositCents ?? 0));
-        const [existingSaleMov] = await tx
+        // ابحث عن حركة المتبقي فقط — ميزها عن حركة العربون المحوَّلة بوصفها
+        // لا تحتوي على "(محوَّل من عربون)" في الوصف.
+        const saleMovs = await tx
           .select()
           .from(cashMovement)
           .where(
             and(
               eq(cashMovement.sourceType, "sale"),
               eq(cashMovement.sourceId, linkedSale.id),
+              eq(cashMovement.direction, "in"),
               isNull(cashMovement.deletedAt),
             ),
           );
 
-        if (remainderCents > 0) {
+        const transformedMov = saleMovs.find((m) =>
+          (m.description ?? "").includes("محوَّل من عربون"),
+        );
+        const remainderMov = saleMovs.find(
+          (m) => !(m.description ?? "").includes("محوَّل من عربون"),
+        );
+
+        const newRemainderCents = Math.max(
+          0,
+          realizedSaleCents - (existing.depositCents ?? 0),
+        );
+
+        if (newRemainderCents > 0) {
           const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
-          if (existingSaleMov) {
+          if (remainderMov) {
             await tx
               .update(cashMovement)
-              .set({ amountCents: remainderCents, updatedAt: new Date() })
-              .where(eq(cashMovement.id, existingSaleMov.id));
+              .set({
+                amountCents: newRemainderCents,
+                accountId: defaultAccountId,
+                updatedAt: new Date(),
+              })
+              .where(eq(cashMovement.id, remainderMov.id));
           } else {
             await tx.insert(cashMovement).values({
               date: receivedDate || getAmmanDate(),
               accountId: defaultAccountId,
               direction: "in",
-              amountCents: remainderCents,
+              amountCents: newRemainderCents,
               sourceType: "sale",
               sourceId: linkedSale.id,
               description: `متبقي مبيعات الطلب #${id.slice(0, 8)}`,
             });
           }
-        } else if (existingSaleMov) {
+        } else if (remainderMov) {
           await tx
             .update(cashMovement)
             .set({ deletedAt: new Date(), updatedAt: new Date() })
-            .where(eq(cashMovement.id, existingSaleMov.id));
+            .where(eq(cashMovement.id, remainderMov.id));
         }
+        // transformedMov (العربون المحوَّل) لا يُمَس — قيمته = depositCents
+        // الثابتة عند التحويل، ولا تتغير إلا بعكس التحويل (حذف المبيعة).
+        // ملاحظة: لو حُذفت المبيعة عبر deleteSale، تُحذف حركة المتبقي معها،
+        // لكن حركة العربون المحوَّلة تبقى معلَّقة على sale_id قديم محذوف ناعماً.
+        // IC-2 لا يعتبرها يتيمة (sale row لا يزال موجوداً). مقبول مؤقتاً حتى
+        // يُضاف تدفق الإشعارات الائتمانية.
+        void transformedMov;
       }
 
       // 7. تحديث المكونات الفرعية: حذف القديم وإعادة إدخال الجديد داخل المعاملة
@@ -457,6 +503,18 @@ export async function deleteOrder(
 
       if (!existing) {
         return { status: "error", message: "الطلب غير موجود" };
+      }
+
+      // منع حذف الطلبات المُسلَّمة — لها أثر مالي محقَّق (مبيعة + حركات صندوق).
+      // حذفها يدمر السجل المالي. لعكس طلب مُسلَّم، استخدم تدفق الإشعارات
+      // الائتمانية (حذف المبيعة المرتبطة يحذف حركاتها النقدية، ثم يمكن إعادة
+      // التحويل إن لزم).
+      if (existing.status === "delivered") {
+        return {
+          status: "error",
+          message:
+            "لا يمكن حذف طلب مُسلَّم. له أثر مالي محقَّق. لعكسه، احذف المبيعة المرتبطة من صفحة المالية أولاً.",
+        };
       }
 
       // 3. فحص التزامن المتفائل
@@ -598,6 +656,17 @@ export async function updateOrderStatus(
         return {
           status: "error",
           message: "لا يمكن إعادة فتح طلب ملغى. أنشئ طلباً جديداً بدلاً من ذلك.",
+        };
+      }
+
+      // 4.6. منع إلغاء الطلبات المُسلَّمة — لها أثر مالي محقَّق (مبيعة محقَّقة).
+      // إلغاؤها يفترض استرداداً كاملاً من العميل ويدمر السجل. لعكس بيع مُسلَّم،
+      // استخدم تدفق الإشعارات الائتمانية (حذف المبيعة).
+      if (existing.status === "delivered" && newStatus === "cancelled") {
+        return {
+          status: "error",
+          message:
+            "لا يمكن إلغاء طلب مُسلَّم. البيع محقَّق ومُسجَّل في المالية. لعكسه، احذف المبيعة المرتبطة من صفحة المالية أولاً.",
         };
       }
 

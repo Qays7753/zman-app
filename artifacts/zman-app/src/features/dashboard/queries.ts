@@ -130,7 +130,9 @@ export async function getFinancialSummary(
   const sales = actualSales + deposits;
   const expenses = Number(expensesResult[0]?.total) || 0;
   const purchases = Number(purchasesResult[0]?.total) || 0;
-  const netProfit = sales - expenses - purchases;
+  // Profit EXCLUDES undelivered deposits (Rule 5). 'sales' here is the liquidity
+  // display number (actualSales + deposits); profit must use actualSales only.
+  const netProfit = actualSales - expenses - purchases;
   const ownerInject = Number(ownerInjectResult[0]?.total) || 0;
   const ownerDraw = Number(ownerDrawResult[0]?.total) || 0;
   const ownerNet = ownerInject - ownerDraw;
@@ -268,7 +270,7 @@ export async function getFinancialTrendData(
         and(
           isNull(cashMovement.deletedAt),
           eq(cashMovement.direction, "in"),
-          sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
+          eq(cashMovement.sourceType, "sale"),
           sql`${cashMovement.date} >= ${startDate}`,
           sql`${cashMovement.date} <= ${endDate}`,
         ),
@@ -490,7 +492,7 @@ export async function getCurrentMonthNet(): Promise<number> {
         and(
           ...baseConds,
           eq(cashMovement.direction, "in"),
-          sql`${cashMovement.sourceType} in ('sale', 'deposit')`
+          eq(cashMovement.sourceType, "sale")
         )
       ),
     db
