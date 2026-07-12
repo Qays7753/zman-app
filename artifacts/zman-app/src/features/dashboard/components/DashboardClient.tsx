@@ -60,12 +60,14 @@ function FinanceComparePanel({
   expenses,
   netProfit,
   ownerDraw,
+  expectedRemaining,
 }: {
   actualSales: number;
   purchases: number;
   expenses: number;
   netProfit: number;
   ownerDraw: number;
+  expectedRemaining: number;
 }) {
   const rows = [
     { label: "مبيعات", value: actualSales, barClass: "bg-info", textClass: "text-info", subtracted: false },
@@ -76,6 +78,10 @@ function FinanceComparePanel({
   const isProfit = netProfit >= 0;
   const afterDraw = netProfit - ownerDraw;
   const isAfterDrawPositive = afterDraw >= 0;
+  // الربح المستقبلي = الربح الحالي + ما سيُضاف عند تسليم الطلبات قيد التنفيذ
+  // (سعر الطلب + أرباح إضافية − عربون)، بافتراض أن موادها اشتُريت مسبقاً.
+  const futureProfit = netProfit + expectedRemaining;
+  const isFutureProfit = futureProfit >= 0;
 
   return (
     <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-3">
@@ -129,6 +135,19 @@ function FinanceComparePanel({
           </span>
           <span className={`text-sm font-bold font-mono whitespace-nowrap ${isAfterDrawPositive ? "text-info" : "text-alert"}`}>
             <AmountText amount={afterDraw} hideCurrency parenNegative />
+          </span>
+        </div>
+      )}
+
+      {/* الربح المتوقّع بعد تسليم الطلبات قيد التنفيذ */}
+      {expectedRemaining > 0 && (
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-dashed border-hairline">
+          <span className="text-xs font-semibold text-ink/60 flex items-center gap-1">
+            <TrendingUp className="h-3.5 w-3.5 text-info/50" />
+            الربح المتوقّع بعد تسليم طلباتك
+          </span>
+          <span className={`text-sm font-bold font-mono whitespace-nowrap ${isFutureProfit ? "text-info" : "text-alert"}`}>
+            <AmountText amount={futureProfit} hideCurrency parenNegative />
           </span>
         </div>
       )}
@@ -396,6 +415,7 @@ export function DashboardClient() {
                 expenses={summary.expenses ?? 0}
                 netProfit={summary.netProfit ?? 0}
                 ownerDraw={summary.ownerDraw ?? 0}
+                expectedRemaining={cashSummary?.expectedRemainingCents ?? 0}
               />
             )}
 

@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, Wallet, User, ShoppingCart, ArrowDownRight, ChevronDown, ChevronUp } from "lucide-react";
-import { AmountText } from "@/components/shared/AmountText";
-import { InfoTooltip } from "@/components/shared/InfoTooltip";
+import { TrendingUp, TrendingDown, Minus, ChevronDown } from "lucide-react";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 
 interface AdvisorData {
@@ -25,35 +23,32 @@ function fmt(amount: number): string {
   return (amount / 1000).toFixed(3);
 }
 
-/** health state descriptor */
+/** واصف الحالة المالية — وصفي بحت، لا نصيحة. */
 function getHealthState(d: AdvisorData): { label: string; color: string; icon: typeof TrendingUp } {
-  if (d.netProfit > 0 && d.realCash > 0) {
-    if (d.ownerDraw > d.netProfit) {
-      return { label: "🟠 تحتاج انتباه", color: "text-amber-600", icon: TrendingDown };
-    }
-    return { label: "🟢 وضع قوي", color: "text-info", icon: TrendingUp };
-  }
-  if (d.netProfit === 0 && d.realCash > 0) {
-    return { label: "🟡 مستقرة", color: "text-amber-600", icon: Minus };
+  if (d.netProfit > 0) {
+    return { label: "🟢 مربح", color: "text-info", icon: TrendingUp };
   }
   if (d.netProfit < 0) {
-    return { label: "🟠 تحتاج انتباه", color: "text-amber-600", icon: TrendingDown };
+    return { label: "🟠 خسارة الفترة", color: "text-amber-600", icon: TrendingDown };
   }
-  return { label: "🟡 بداية", color: "text-amber-600", icon: Minus };
+  return { label: "🟡 متعادل", color: "text-amber-600", icon: Minus };
 }
 
-/** rule-based advisor engine — handles every scenario */
+/**
+ * محرّك التحليل — قواعد على الأرقام الفعلية. وصفي بحت (يشرح، لا ينصح).
+ * الأرقام مطابقة تماماً لبطاقات الداشبورد. لا مبالغة في التنبؤ.
+ */
 function generateAdvice(d: AdvisorData): { summary: string; sections: { title: string; body: string[] }[] } {
-  // --- empty state ---
+  const unit = "د.أ";
+  // الحالة الفارغة (مشروع جديد)
   const isEmpty = d.realCash === 0 && d.netProfit === 0 && d.actualSales === 0 && d.depositsHeld === 0;
   if (isEmpty) {
     return {
-      summary: "بدايتك جديدة — لسه ما في أرقام كافية لتحليل دقيق.",
+      summary: "المشروع في بدايته — لا توجد بعد أرقام كافية لتحليل مالي دقيق.",
       sections: [{
-        title: "مرحباً بك في زمن",
+        title: "بداية المشروع",
         body: [
-          "هذا أول يوم لك في النظام. ابدأ بتسجيل رأس المال الافتتاحي، ثم أنشئ أول طلب أو سجّل أول عملية بيع.",
-          "بمجرد أن تبدأ الحركات المالية بالظهور، ستجد هنا تحليلاً مفصّلاً لوضعك المالي بلغة بسيطة وواضحة.",
+          "لم تُسجَّل حركات مالية كافية بعد. عند تسجيل الرصيد الافتتاحي وأول عمليات البيع والشراء، سيظهر هنا تحليل تفصيلي للوضع المالي.",
         ],
       }],
     };
@@ -61,133 +56,102 @@ function generateAdvice(d: AdvisorData): { summary: string; sections: { title: s
 
   const sections: { title: string; body: string[] }[] = [];
 
-  // --- Section 1: كم تملك فعلاً؟ ---
-  const cashParts: string[] = [];
-  if (d.opening > 0) {
-    cashParts.push(`رأس مالك الأول: ${fmt(d.opening)} د.أ — هذا المبلغ وضعته في بداية المشروع، وهو ليس ربحاً بل أصل.`);
-  }
-  if (d.ownerNet !== 0) {
-    if (d.ownerNet > 0) {
-      cashParts.push(`صافي ما أضفته للمشروع: ${fmt(d.ownerNet)} د.أ — أودعت أكثر مما سحبت.`);
-    } else {
-      cashParts.push(`صافي ما سحبته من المشروع: ${fmt(Math.abs(d.ownerNet))} د.أ — سحبت أكثر مما أودعت.`);
-    }
-  }
-  if (d.depositsHeld > 0) {
-    const depositShare = d.realCash > 0 ? (d.depositsHeld / d.realCash) * 100 : 0;
-    cashParts.push(`عربونات لسه ما سلّمتها: ${fmt(d.depositsHeld)} د.أ — هذا نقد تقدر تصرفه، لكنه التزام: لازم تسلّم الطلبات أو ترجع المبلغ.${depositShare > 40 ? ` وتمثّل ${depositShare.toFixed(0)}% من نقدك — نسبة كبيرة، تأكّد من قدرتك على التسليم.` : ""}`);
-  }
-  cashParts.push(`ربحك المحقَّق: ${fmt(d.netProfit)} د.أ — هذا ما ربحه عملك فعلاً.`);
+  // ① تركيبة النقد — يطابق بطاقة "الربح مقابل السيولة"
   const composed = d.opening + d.ownerNet + d.depositsHeld + d.netProfit;
   const residual = d.realCash - composed;
-
-  const s1Body: string[] = [];
-  s1Body.push(`نقدك المتاح الآن: ${fmt(d.realCash)} د.أ.`);
-  if (d.netProfit > 0 && d.realCash > d.netProfit) {
-    s1Body.push(`لاحظ أن نقدك أكبر من ربحك. هذا طبيعي وليس خطأ — نقدك ليس كله ربحاً.`);
-  } else if (d.realCash < d.netProfit && d.netProfit > 0) {
-    s1Body.push(`نقدك أقل من ربحك. هذا يعني أن جزءاً من ربحك خرج من الصندوق — غالباً سحوبات شخصية أو مشتريات مدفوعة.`);
-  } else if (Math.abs(d.realCash - d.netProfit) < 1) {
-    s1Body.push(`نقدك يساوي تقريباً ربحك — وضع بسيط ونظيف.`);
+  const s1: string[] = [];
+  s1.push(`النقد المتاح حالياً ${fmt(d.realCash)} ${unit}، وهو مزيج من عدّة مصادر لا يمثّل الربح وحده.`);
+  if (d.opening > 0) {
+    s1.push(`رأس المال الذي بدأ به المشروع: ${fmt(d.opening)} ${unit} — أصل، وليس ربحاً.`);
   }
-  s1Body.push(...cashParts);
-  if (Math.abs(residual) > 1) {
-    s1Body.push(`تسويات أخرى: ${fmt(residual)} د.أ.`);
+  if (d.ownerNet > 0) {
+    s1.push(`صافي إضافات المالك: ${fmt(d.ownerNet)} ${unit} — أُضيف للمشروع من المال الشخصي.`);
+  } else if (d.ownerNet < 0) {
+    s1.push(`صافي سحوبات المالك: (${fmt(Math.abs(d.ownerNet))}) ${unit} — المسحوب يفوق المُضاف.`);
   }
-  s1Body.push(`المجموع = ${fmt(composed + residual)} د.أ = نقدك الفعلي.`);
+  if (d.depositsHeld > 0) {
+    s1.push(`عربون مسلَّم مقدَّماً: ${fmt(d.depositsHeld)} ${unit} — نقد متاح للتصرّف، لكنه التزام مقابل طلبات لم تُسلَّم بعد.`);
+  }
+  s1.push(`الربح المحقَّق من العمل: ${fmt(d.netProfit)} ${unit}.`);
+  if (Math.abs(residual) >= 1) {
+    s1.push(`تسويات أخرى: ${fmt(residual)} ${unit}.`);
+  }
+  s1.push(`مجموع هذه المصادر يساوي النقد المتاح الفعلي: ${fmt(d.realCash)} ${unit}.`);
+  sections.push({ title: "تركيبة النقد", body: s1 });
 
-  sections.push({ title: "① كم تملك فعلاً؟", body: s1Body });
-
-  // --- Section 2: هل عملك مربح؟ ---
-  const s2Body: string[] = [];
+  // ② الربحية — يطابق بطاقة "صافي الربح"
+  const s2: string[] = [];
   if (d.actualSales === 0) {
-    s2Body.push("لا توجد مبيعات مسجَّلة بعد في هذه الفترة. الربح صفر لأنه لا يوجد إيراد.");
+    s2.push("لا توجد مبيعات مكتملة في هذه الفترة، فصافي الربح يساوي صفراً.");
   } else {
-    s2Body.push(`بعت بـ ${fmt(d.actualSales)} د.أ، واشتريت مواد بـ ${fmt(d.purchases)} د.أ، وصرفت ${fmt(d.expenses)} د.أ مصاريف تشغيلية.`);
+    s2.push(`بلغت المبيعات المكتملة ${fmt(d.actualSales)} ${unit}، مقابل مشتريات (${fmt(d.purchases)}) ${unit} ومصاريف تشغيلية (${fmt(d.expenses)}) ${unit}.`);
     if (d.netProfit > 0) {
-      s2Body.push(`صافي ربحك: ${fmt(d.netProfit)} د.أ — عملك يربح.`);
+      s2.push(`صافي الربح ${fmt(d.netProfit)} ${unit}.`);
     } else if (d.netProfit === 0) {
-      s2Body.push(`صافي ربحك: صفر — المبيعات تغطّي بالضبط ما صرفته. لا ربح ولا خسارة.`);
+      s2.push("صافي الربح صفر — المبيعات تعادل تماماً المشتريات والمصاريف.");
     } else {
-      s2Body.push(`صافي نتيجتك: خسارة ${fmt(Math.abs(d.netProfit))} د.أ.`);
-      s2Body.push("لا تقلق — في نظام الكاش، شهر تشتري فيه مواد كثيرة يظهر كخسارة، لكن المواد تبقى وتُباع لاحقاً. هذا طبيعي وليس فشلاً.");
+      s2.push(`صافي النتيجة خسارة (${fmt(Math.abs(d.netProfit))}) ${unit}. في النظام النقدي، فترة الشراء المكثّف تظهر كخسارة لأن تكلفة المواد تُخصم فور شرائها بينما تُباع تدريجياً لاحقاً.`);
     }
-    // margin
     const margin = (d.netProfit / d.actualSales) * 100;
-    if (margin > 0) {
-      s2Body.push(`هامش ربحك: ${margin.toFixed(0)}% — يعني من كل 100 دينار مبيعات، يتبقّى ${margin.toFixed(0)} دينار ربحاً.`);
-    } else if (margin < 0) {
-      s2Body.push(`هامشك سالب: ${margin.toFixed(0)}% — تصرف أكثر مما تبيع. إذا تكرّر هذا، راجع أسعارك أو مصاريفك.`);
+    if (d.netProfit > 0) {
+      s2.push(`هامش صافي الربح ${margin.toFixed(0)}% — أي أن كل 100 دينار مبيعات ينتج عنها ${margin.toFixed(0)} ديناراً ربحاً.`);
+    } else if (d.netProfit < 0) {
+      s2.push(`هامش صافي الربح ${margin.toFixed(0)}% — الإنفاق يتجاوز المبيعات في هذه الفترة.`);
     }
   }
+  sections.push({ title: "الربحية", body: s2 });
 
-  sections.push({ title: "② هل عملك مربح؟", body: s2Body });
-
-  // --- Section 3: ماذا عن راتبك الشخصي؟ ---
-  const s3Body: string[] = [];
+  // ③ سحوبات المالك — يطابق "صافي الربح بعد سحوبات المالك"
+  const s3: string[] = [];
   if (d.ownerDraw === 0 && d.ownerInject === 0) {
-    s3Body.push("لم تسحب أو تودع لنفسك في هذه الفترة — كل النقد في المشروع.");
+    s3.push("لم تُسجَّل سحوبات أو إيداعات شخصية في هذه الفترة.");
   } else {
+    if (d.ownerDraw > 0) s3.push(`بلغت السحوبات الشخصية ${fmt(d.ownerDraw)} ${unit} في هذه الفترة.`);
+    if (d.ownerInject > 0) s3.push(`بلغت الإيداعات الشخصية ${fmt(d.ownerInject)} ${unit}.`);
+    s3.push("السحوبات الشخصية لا تُخصم من صافي الربح لأنها ليست مصروفاً على العمل، لكنها تُنقص النقد المتاح.");
     if (d.ownerDraw > 0) {
-      s3Body.push(`سحبت ${fmt(d.ownerDraw)} د.أ لنفسك في هذه الفترة.`);
-    }
-    if (d.ownerInject > 0) {
-      s3Body.push(`أودعت ${fmt(d.ownerInject)} د.أ من مالك الشخصي في المشروع.`);
-    }
-    s3Body.push("سحوباتك الشخصية لا تُحتسب كمصروف — الربح يقيس أداء العمل، وليد ما تأخذه لنفسك. لو احتسبناها، شهر تسحب فيه يظهر كخسارة وهذا مضلّل.");
-    if (d.netProfit > 0 && d.ownerDraw > 0) {
-      const drawRatio = (d.ownerDraw / d.netProfit) * 100;
       const afterDraw = d.netProfit - d.ownerDraw;
-      if (d.ownerDraw > d.netProfit) {
-        s3Body.push(`تسحب أكثر مما يربحه المشروع حالياً (${drawRatio.toFixed(0)}% من الربح). المتبقّي بعد سحوباتك: ${fmt(afterDraw)} د.أ — هذا يعني أن النقد ينقص تدريجياً.`);
+      if (d.netProfit > 0) {
+        const ratio = (d.ownerDraw / d.netProfit) * 100;
+        s3.push(`تمثّل السحوبات ${ratio.toFixed(0)}% من صافي الربح. المتبقّي بعد السحوبات: ${afterDraw < 0 ? `(${fmt(Math.abs(afterDraw))})` : fmt(afterDraw)} ${unit}.`);
       } else {
-        s3Body.push(`تسحب ${drawRatio.toFixed(0)}% من ربحك. المتبقّي بعد سحوباتك: ${fmt(afterDraw)} د.أ.`);
+        s3.push(`المتبقّي بعد السحوبات: ${afterDraw < 0 ? `(${fmt(Math.abs(afterDraw))})` : fmt(afterDraw)} ${unit}.`);
       }
-    } else if (d.netProfit <= 0 && d.ownerDraw > 0) {
-      s3Body.push(`سحبت ${fmt(d.ownerDraw)} د.أ بينما المشروع لا يربح حالياً. هذا يقلّل النقد المتاح.`);
     }
   }
+  sections.push({ title: "السحوبات الشخصية", body: s3 });
 
-  sections.push({ title: "③ ماذا عن راتبك الشخصي؟", body: s3Body });
-
-  // --- Section 4: ماذا ينتظرك؟ ---
-  const s4Body: string[] = [];
-  if (d.expectedRemaining > 0 && d.avgMonthlySpend > 0) {
-    const forecast = d.expectedRemaining - d.avgMonthlySpend;
-    s4Body.push(`لديك طلبات قيد التنفيذ بقيمة متبقّية ${fmt(d.expectedRemaining)} د.أ ستُحصَّل عند تسليمها.`);
-    s4Body.push(`متوسط إنفاقك الشهري (مشتريات + مصاريف) في آخر 3 أشهر: ${fmt(d.avgMonthlySpend)} د.أ.`);
-    s4Body.push(`تقدير ربح الشهر القادم ≈ ${fmt(forecast)} د.أ — هذا تقدير تقريبي بناءً على طلباتك المسجَّلة ومتوسط إنفاقك السابق. قد يتغيّر.`);
-  } else if (d.expectedRemaining > 0 && d.avgMonthlySpend === 0) {
-    s4Body.push(`لديك طلبات قيد التنفيذ بقيمة متبقّية ${fmt(d.expectedRemaining)} د.أ ستُحصَّل عند تسليمها.`);
-    s4Body.push("لا يوجد سجل إنفاق كافٍ لتقدير متوسط مصاريفك الشهرية بعد — لسه بدري نقدّر ربح الشهر القادم.");
-  } else if (d.expectedRemaining === 0 && d.avgMonthlySpend > 0) {
-    s4Body.push("لا توجد طلبات قيد التنفيذ حالياً — لا يوجد إيراد متوقع من تسليمات قادمة.");
-    s4Body.push(`متوسط إنفاقك الشهري: ${fmt(d.avgMonthlySpend)} د.أ. ستحتاج لطلبات جديدة لتغطية هذا الإنفاق.`);
+  // ④ النظرة المستقبلية — يطابق "الربح المتوقّع بعد تسليم طلباتك"
+  // الربح المتوقّع = الربح الحالي + المتبقّي من الطلبات قيد التنفيذ (بلا مبالغة).
+  const s4: string[] = [];
+  if (d.expectedRemaining > 0) {
+    const futureProfit = d.netProfit + d.expectedRemaining;
+    s4.push(`لديك طلبات قيد التنفيذ يتبقّى تحصيله منها ${fmt(d.expectedRemaining)} ${unit} عند تسليمها (السعر ناقص العربون المحصَّل).`);
+    s4.push(`عند تسليم هذه الطلبات بالكامل — بافتراض أن موادها اشتُريت مسبقاً — يصبح صافي الربح المتوقّع نحو ${futureProfit < 0 ? `(${fmt(Math.abs(futureProfit))})` : fmt(futureProfit)} ${unit}.`);
+    s4.push("هذا تقدير مبني على الطلبات المسجَّلة حالياً، ويتحقّق تدريجياً مع كل تسليم.");
   } else {
-    s4Body.push("لا توجد طلبات قيد التنفيذ ولا سجل إنفاق كافٍ بعد — ابدأ بإنشاء طلبات وتسجيل عمليات ليظهر لك تقدير دقيق.");
+    s4.push("لا توجد طلبات قيد التنفيذ حالياً، فلا إيراد متوقّع من تسليمات قادمة.");
   }
+  sections.push({ title: "النظرة المستقبلية", body: s4 });
 
-  sections.push({ title: "④ ماذا ينتظرك؟", body: s4Body });
-
-  // summary line
+  // سطر الملخّص — وصفي، أرقام مطابقة
   const health = getHealthState(d);
-  let summary = health.label + " — ";
+  let summary = "";
   if (d.netProfit > 0) {
-    summary += `عملك يربح ${fmt(d.netProfit)} د.أ`;
-    if (d.ownerDraw > d.netProfit) summary += "، لكن تسحب أكثر من ربحك";
+    summary = `المشروع مربح بصافي ${fmt(d.netProfit)} ${unit} في هذه الفترة`;
   } else if (d.netProfit < 0) {
-    summary += `عملك يسجّل خسارة ${fmt(Math.abs(d.netProfit))} د.أ (طبيعي في شهر شراء كثيف)`;
+    summary = `يسجّل المشروع خسارة (${fmt(Math.abs(d.netProfit))}) ${unit} في هذه الفترة`;
   } else {
-    summary += "لا يوجد ربح أو خسارة بعد";
+    summary = "المشروع متعادل — لا ربح ولا خسارة في هذه الفترة";
   }
-  if (d.depositsHeld > 0) summary += `، وعندك ${fmt(d.depositsHeld)} د.أ عربونات في ذمتك`;
+  if (d.depositsHeld > 0) summary += `، مع ${fmt(d.depositsHeld)} ${unit} عربونات مستحقّة التسليم`;
+  summary += ".";
 
-  return { summary, sections };
+  return { summary: health.label + " — " + summary, sections };
 }
 
 export function FinancialAdvisor({ data }: { data: AdvisorData }) {
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const advice = generateAdvice(data);
   const health = getHealthState(data);
   const HealthIcon = health.icon;
@@ -210,7 +174,7 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
 
       <ResponsiveModal
         isOpen={open}
-        onClose={() => { setOpen(false); setExpanded(false); }}
+        onClose={() => setOpen(false)}
         title="تحليل وضعك المالي"
       >
         <div className="space-y-4 p-4">
