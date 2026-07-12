@@ -39,6 +39,7 @@ import {
 import { useOpeningBalance } from "@/features/finance/hooks";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/status-colors";
+import { LiquidityFlowPanel } from "./LiquidityFlowPanel";
 
 // أسماء الأشهر الميلادية بالعربي (ترتيب getMonth: 0=يناير).
 const AR_MONTHS = [
@@ -432,79 +433,87 @@ export function DashboardClient() {
               </div>
             )}
 
-            {/* ═══ القسم 1: ما تملكه نقداً الآن (السيولة) ═══ */}
+            {/* ═══ القسم 1: نظرة سريعة — ما تملكه نقداً الآن ═══ */}
             <div className="flex items-center gap-2 px-1">
               <Wallet className="h-5 w-5 text-info" />
-              <h2 className="text-sm font-black text-ink">ما تملكه نقداً الآن</h2>
-              <span className="text-[10px] text-ink/40">(سيولة — رصيد لحظي لا يتأثر بالفترة)</span>
+              <h2 className="text-sm font-black text-ink">نظرة سريعة على وضعك النقدي</h2>
+              <span className="text-[10px] text-ink/40">(رصيد لحظي — لا يتأثر بالفترة)</span>
               <div className="flex-1 border-t border-info/20 ml-2" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 1. الوضع النقدي الحالي (Current Cash Position Hero) */}
+            {/* بطاقات علوية مدمجة — نظرة سريعة */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {cashSummary && (
-                <div className="md:col-span-2 bg-gradient-to-r from-info-soft to-info/5 p-6 rounded-xl border border-info/20 shadow-sm flex flex-col justify-between gap-4">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="space-y-1">
-                      <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
-                        <Wallet className="h-4.5 w-4.5 text-info animate-pulse" />
-                        إجمالي النقد المتاح
-                      </span>
-                      <h2 className="text-2xl lg:text-3xl font-black text-info flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                        <AmountText amount={totalCashCents + totalBankCents} />
-                      </h2>
-                      <p className="text-[10px] text-ink/50 mt-0.5">
-                        = نقد الصندوق + البنك (كل ما تملكه نقدًا الآن)
-                      </p>
-                    </div>
-                    <div className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
-                      رصيد لحظي
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline-2">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] text-ink/40">صندوق (نقد متاح)</p>
-                      <p className="text-sm font-bold text-ink-3">
-                        <AmountText amount={totalCashCents} />
-                      </p>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] text-ink/40">حسابات البنك</p>
-                      <p className="text-sm font-bold text-ink-3">
-                        <AmountText amount={totalBankCents} />
-                      </p>
-                    </div>
-                  </div>
+                <div className="bg-gradient-to-r from-info-soft to-info/5 p-3 rounded-lg border border-info/20 shadow-sm">
+                  <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1">
+                    <Wallet className="h-3.5 w-3.5 text-info" />
+                    إجمالي النقد
+                  </span>
+                  <p className="text-lg font-black text-info mt-0.5">
+                    <AmountText amount={totalCashCents + totalBankCents} />
+                  </p>
+                  <p className="text-[9px] text-ink/40">صندوق + بنك</p>
                 </div>
               )}
-
-              {/* عربونات بحوزتك (التزام مالي) — ضمن قسم السيولة لأنها نقد متاح لكنه ملتزم */}
               {cashSummary && (
-                <div className="bg-warn-soft/30 p-6 rounded-xl border border-warn/15 shadow-sm flex flex-col justify-between gap-3">
-                  <div>
-                    <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
-                      <AlertCircle className="h-4.5 w-4.5 text-warn-deep" />
-                      عربونات بحوزتك
-                    </span>
-                    <h3 className="text-xl lg:text-2xl font-black text-warn-deep mt-1">
-                      <AmountText amount={cashSummary.depositsHeldCents} />
-                    </h3>
-                    <p className="text-[10px] text-ink/50 mt-0.5">
-                      نقد قبضته لكنه التزام — يجب تسليم الطلب أو إرجاعه
-                    </p>
-                  </div>
-                  <div className="pt-2 border-t border-warn/15">
-                    <p className="text-[10px] text-ink/50">متبقٍّ متوقع تحصيله</p>
-                    <p className="text-sm font-bold text-info">
-                      <AmountText amount={cashSummary.expectedRemainingCents} />
-                    </p>
-                  </div>
+                <div className="bg-warn-soft/30 p-3 rounded-lg border border-warn/15 shadow-sm">
+                  <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5 text-warn-deep" />
+                    عربونات بحوزتك
+                  </span>
+                  <p className="text-lg font-black text-warn-deep mt-0.5">
+                    <AmountText amount={cashSummary.depositsHeldCents} />
+                  </p>
+                  <p className="text-[9px] text-ink/40">التزام مالي</p>
+                </div>
+              )}
+              {cashSummary && (
+                <div className="bg-paper p-3 rounded-lg border border-hairline shadow-sm">
+                  <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1">
+                    <ShoppingBag className="h-3.5 w-3.5 text-info" />
+                    متبقٍّ متوقع تحصيله
+                  </span>
+                  <p className="text-lg font-black text-info mt-0.5">
+                    <AmountText amount={cashSummary.expectedRemainingCents} />
+                  </p>
+                  <p className="text-[9px] text-ink/40">عند تسليم الطلبات</p>
+                </div>
+              )}
+              {accountBalances && (
+                <div className="bg-paper p-3 rounded-lg border border-hairline shadow-sm">
+                  <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1">
+                    <Landmark className="h-3.5 w-3.5 text-ink-3" />
+                    نقد الصندوق
+                  </span>
+                  <p className="text-lg font-black text-ink-3 mt-0.5">
+                    <AmountText amount={totalCashCents} />
+                  </p>
+                  <p className="text-[9px] text-ink/40">+ بنك: <AmountText amount={totalBankCents} /></p>
                 </div>
               )}
             </div>
 
-            {/* ═══ القسم 2: ما ربحته من عملك (للفترة المختارة) ═══ */}
+            {/* ═══ القسم 1.5: تفصيل تدفق السيولة (للفترة المختارة) ═══ */}
+            <div className="flex items-center gap-2 px-1 pt-2">
+              <Wallet className="h-5 w-5 text-info" />
+              <h2 className="text-sm font-black text-ink">تدفق السيولة النقدية</h2>
+              <span className="text-[10px] text-ink/40">(كاش داخل/خارج — ليس ربحاً/خسارة)</span>
+              <div className="flex-1 border-t border-info/20 ml-2" />
+            </div>
+
+            {summary && (
+              <LiquidityFlowPanel
+                actualSales={summary.actualSales ?? 0}
+                deposits={summary.deposits ?? 0}
+                ownerInject={summary.ownerInject ?? 0}
+                purchases={summary.purchases ?? 0}
+                expenses={summary.expenses ?? 0}
+                ownerDraw={summary.ownerDraw ?? 0}
+                openingBalanceCents={(openingBal?.cashCents ?? 0) + (openingBal?.bankCents ?? 0)}
+              />
+            )}
+
+            {/* ═══ القسم 2: أداء عملك للفترة المختارة (الربح) ═══ */}
             <div className="flex items-center gap-2 px-1 pt-4">
               <TrendingUp className="h-5 w-5 text-info" />
               <h2 className="text-sm font-black text-ink">أداء عملك للفترة المختارة</h2>
@@ -522,138 +531,7 @@ export function DashboardClient() {
               />
             )}
 
-            {/* تفاصيل مكمّلة: حركة المالك + الإيرادات النقدية + المشتريات + المصاريف */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* صافي حركة المالك (سحب/حقن) للفترة المختارة */}
-              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1">
-                    <User className={`h-4 w-4 ${ownerNet >= 0 ? "text-info" : "text-alert"}`} />
-                    حركة المالك (سحب/حقن)
-                  </span>
-                  <span className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
-                    للفترة المختارة
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-col min-w-0">
-                  <span
-                    className={`text-lg lg:text-xl font-bold flex items-baseline gap-1 ${ownerNet >= 0 ? "text-info" : "text-alert"} whitespace-nowrap min-w-0`}
-                  >
-                    <span className="font-mono text-base shrink-0">{ownerNet >= 0 ? "+" : "−"}</span>
-                    <AmountText amount={Math.abs(ownerNet)} />
-                  </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    صافي حقن − صافي سحب (ليست ربحاً/خسارة)
-                  </span>
-                </div>
-                <p className="text-[9px] text-ink/50 leading-snug mt-2 pt-2 border-t border-hairline">
-                  سحوبات المالك تُخصم من النقد لكنها ليست مصروف تشغيل
-                </p>
-              </div>
-
-              {/* الإيرادات النقدية (بيع + عربون) — نقد داخل من الزبائن خلال الفترة */}
-              <Link
-                href="/finance?tab=sales"
-                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-info/40 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1 truncate">
-                    <ShoppingBag className="h-4 w-4 text-info" />
-                    إيرادات نقدية (بيع + عربون)
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
-                      للفترة المختارة
-                    </span>
-                    <ArrowLeft className="h-4 w-4 text-info/0 group-hover:text-info transition-all transform group-hover:-translate-x-1" />
-                  </div>
-                </div>
-                <div className="mt-2 space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5">
-                    <span className="text-[10px] text-ink/50">مبيعات فعلية:</span>
-                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono whitespace-nowrap">
-                      <span>+</span>
-                      <AmountText amount={summary?.actualSales ?? 0} />
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 border-t border-dashed border-hairline pt-1.5">
-                    <span className="text-[10px] text-ink/50">عربونات محصّلة:</span>
-                    <span className="text-sm font-bold text-info flex items-baseline gap-0.5 font-mono whitespace-nowrap">
-                      <span>+</span>
-                      <AmountText amount={summary?.deposits ?? 0} />
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 border-t border-hairline pt-1.5 font-bold">
-                    <span className="text-[10px] text-ink">الإجمالي:</span>
-                    <span className="text-sm font-black text-info flex items-baseline gap-0.5 font-mono whitespace-nowrap">
-                      <span>+</span>
-                      <AmountText amount={summary?.sales ?? 0} />
-                    </span>
-                  </div>
-                  <p className="text-[9px] text-ink/45 leading-snug mt-1 font-sans">
-                    العربون نقد متاح تصرفه، لكنه يبقى التزامًا حتى تسليم الطلب.
-                  </p>
-                </div>
-              </Link>
-
-              {/* المشتريات المدفوعة */}
-              <Link
-                href="/finance?tab=purchases"
-                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-alert/40 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1 truncate">
-                    <ShoppingCart className="h-4 w-4 text-alert" />
-                    المشتريات المدفوعة
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
-                      للفترة المختارة
-                    </span>
-                    <ArrowLeft className="h-4 w-4 text-alert/0 group-hover:text-alert transition-all transform group-hover:-translate-x-1" />
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                    <span className="font-mono text-base shrink-0">−</span>
-                    <AmountText amount={summary?.purchases ?? 0} />
-                  </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    تكلفة الخامات والمواد
-                  </span>
-                </div>
-              </Link>
-
-              {/* المصاريف المدفوعة */}
-              <Link
-                href="/finance?tab=expenses"
-                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between hover:border-alert/40 hover:shadow-md transition-all group"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1 truncate">
-                    <ArrowDownRight className="h-4 w-4 text-alert" />
-                    المصاريف المدفوعة
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
-                      للفترة المختارة
-                    </span>
-                    <ArrowLeft className="h-4 w-4 text-alert/0 group-hover:text-alert transition-all transform group-hover:-translate-x-1" />
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-alert flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                    <span className="font-mono text-base shrink-0">−</span>
-                    <AmountText amount={summary?.expenses ?? 0} />
-                  </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    المصاريف التشغيلية والرواتب
-                  </span>
-                </div>
-              </Link>
-            </div>
-
-            {/* 3. أبرز فئات المصاريف للفترة المختارة */}
+            {/* أبرز فئات المصاريف للفترة المختارة */}
             {stats && stats.topExpenses && stats.topExpenses.length > 0 && (
               <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm space-y-3">
                 <h3 className="text-xs font-bold text-ink/65 flex items-center justify-between gap-1.5 w-full">

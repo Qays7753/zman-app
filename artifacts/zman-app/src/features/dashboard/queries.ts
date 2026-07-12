@@ -13,6 +13,8 @@ export interface FinancialSummary {
   purchases: number;
   netProfit: number;
   ownerNet: number;
+  ownerInject: number;
+  ownerDraw: number;
 }
 
 export interface ActivityItem {
@@ -149,7 +151,7 @@ export async function getFinancialSummary(
   const ownerDraw = Number(ownerDrawResult[0]?.total) || 0;
   const ownerNet = ownerInject - ownerDraw;
 
-  return { sales, actualSales, deposits, expenses, purchases, netProfit, ownerNet };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit, ownerNet, ownerInject, ownerDraw };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)
