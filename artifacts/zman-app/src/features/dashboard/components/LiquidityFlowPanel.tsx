@@ -1,13 +1,13 @@
 "use client";
 
-import { TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { Wallet } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
 
 /**
- * لوحة تدفق السيولة — تقرأ كدفتر واحد من الأعلى للأسفل:
- * رأس المال → وارد → منصرف → صافي الحركة → النقد المتاح الآن.
- * مرآة لـ FinanceComparePanel لكن للسيولة (كاش داخل/خارج).
+ * حركة الكاش — تقرأ كدفتر واحد من الأعلى للأسفل:
+ * رأس المال → مال داخل → مال خارج → النقد المتاح الآن.
+ * لا يوجد "صافي الحركة" مجرد — القصة تنتهي بالرصيد الفعلي.
  */
 function FlowRow({
   label,
@@ -28,7 +28,7 @@ function FlowRow({
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs font-semibold text-ink-2 truncate">{label}</span>
+        <span className="text-xs font-semibold text-ink-2 whitespace-nowrap">{label}</span>
         <span className={`text-sm font-black font-mono whitespace-nowrap flex items-baseline gap-0.5 ${textClass}`}>
           {sign && <span>{sign}</span>}
           <AmountText amount={value} />
@@ -63,13 +63,7 @@ export function LiquidityFlowPanel({
   openingBalanceCents: number;
   actualBalanceCents: number;
 }) {
-  const totalInflows = actualSales + deposits + ownerInject;
-  const totalOutflows = purchases + expenses + ownerDraw;
-  const netCashFlow = totalInflows - totalOutflows;
   const maxValue = Math.max(actualSales, deposits, ownerInject, purchases, expenses, ownerDraw, openingBalanceCents, 1);
-  const isPositive = netCashFlow >= 0;
-  // النقد المتاح الآن = الرصيد الفعلي من getAccountBalances (لا يتأثر بالفترة)
-  const availableNow = actualBalanceCents;
 
   return (
     <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-3">
@@ -96,11 +90,8 @@ export function LiquidityFlowPanel({
 
       {/* ── مال داخل ── */}
       <div className="pt-1">
-        <span className="text-[10px] font-bold text-info uppercase tracking-wide">
+        <span className="text-[10px] font-bold text-info uppercase tracking-wide whitespace-nowrap">
           مال داخل
-        </span>
-        <span className="text-[10px] font-bold text-info font-mono mr-2">
-          +<AmountText amount={totalInflows} />
         </span>
       </div>
       <FlowRow
@@ -112,7 +103,7 @@ export function LiquidityFlowPanel({
         maxValue={maxValue}
       />
       <FlowRow
-        label="عربونات محصّلة"
+        label="عربونات مستلمة (الفترة)"
         value={deposits}
         barClass="bg-info/70"
         textClass="text-info"
@@ -130,11 +121,8 @@ export function LiquidityFlowPanel({
 
       {/* ── مال خارج ── */}
       <div className="pt-1">
-        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">
+        <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wide whitespace-nowrap">
           مال خارج
-        </span>
-        <span className="text-[10px] font-bold text-amber-600 font-mono mr-2">
-          −<AmountText amount={totalOutflows} />
         </span>
       </div>
       <FlowRow
@@ -162,31 +150,19 @@ export function LiquidityFlowPanel({
         maxValue={maxValue}
       />
 
-      {/* صافي الحركة النقدية للفترة */}
-      <div className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${isPositive ? "border-info/30" : "border-alert/30"}`}>
-        <span className="text-sm font-bold text-ink flex items-center gap-1.5">
-          {isPositive ? <TrendingUp className="h-4.5 w-4.5 text-info" /> : <TrendingDown className="h-4.5 w-4.5 text-alert" />}
-          الفرق بين الداخل والخارج
-        </span>
-        <span className={`text-lg font-black font-mono whitespace-nowrap flex items-baseline gap-0.5 ${isPositive ? "text-info" : "text-alert"}`}>
-          <span className="text-base">{isPositive ? "+" : "−"}</span>
-          <AmountText amount={Math.abs(netCashFlow)} />
-        </span>
-      </div>
-
-      {/* = النقد المتاح الآن — الرصيد الفعلي */}
-      <div className="flex items-center justify-between gap-2 pt-2 border-t border-hairline">
+      {/* = النقد المتاح الآن — الرقم النهائي المميّز = الرصيد الفعلي */}
+      <div className="flex items-center justify-between gap-2 pt-3 border-t-2 border-info/30">
         <span className="text-sm font-black text-ink flex items-center gap-1.5">
-          <Wallet className="h-4 w-4 text-info" />
+          <Wallet className="h-4.5 w-4.5 text-info" />
           النقد المتاح الآن
         </span>
         <span className="text-xl font-black text-info font-mono whitespace-nowrap">
-          <AmountText amount={availableNow} />
+          <AmountText amount={actualBalanceCents} />
         </span>
       </div>
 
       <p className="text-[10px] text-ink/40 leading-snug">
-        هذا رصيدك الفعلي الآن. الكاش داخل/خارج — ليس ربحاً.
+        هذا رصيدك الفعلي الآن من الصندوق والبنك. الكاش داخل/خارج — ليس ربحاً.
       </p>
     </div>
   );

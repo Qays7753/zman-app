@@ -664,13 +664,40 @@ export async function updateOrderStatus(
 
       // 4.6. منع إلغاء الطلبات المُسلَّمة — لها أثر مالي محقَّق (مبيعة محقَّقة).
       // إلغاؤها يفترض استرداداً كاملاً من العميل ويدمر السجل. لعكس بيع مُسلَّم،
-      // استخدم تدفق الإشعارات الائتمانية (حذف المبيعة).
+      // استخدم reverseSale (عكس البيع).
       if (existing.status === "delivered" && newStatus === "cancelled") {
         return {
           status: "error",
           message:
-            "لا يمكن إلغاء طلب مُسلَّم. البيع محقَّق ومُسجَّل في المالية. لعكسه، احذف المبيعة المرتبطة من صفحة المالية أولاً.",
+            "لا يمكن إلغاء طلب مُسلَّم. استخدم «عكس البيع» لإرجاعه لتحت التنفيذ.",
         };
+      }
+
+      // Task 5: منع مغادرة حالة "delivered" عبر updateOrderStatus الخام.
+      // يجب استخدام reverseSale لعكس البيع بشكل مالي صحيح.
+      if (existing.status === "delivered" && newStatus !== "delivered") {
+        return {
+          status: "error",
+          message:
+            "لا يمكن تغيير حالة طلب مُسلَّم مباشرةً. استخدم «عكس البيع» لإرجاعه لتحت التنفيذ أولاً.",
+        };
+      }
+
+      // Task 5: Self-heal — إذا كان status ≠ 'delivered' لكن توجد مبيعة نشطة مرتبطة،
+      // ارفض التغيير لمنع الطلب من أن يصبح "مؤكد" بينما بيعه لا يزال نشطاً.
+      if (newStatus !== "delivered" && existing.status !== "delivered") {
+        const [activeSale] = await tx
+          .select({ id: sale.id })
+          .from(sale)
+          .where(and(eq(sale.orderId, id), isNull(sale.deletedAt)))
+          .limit(1);
+        if (activeSale) {
+          return {
+            status: "error",
+            message:
+              "هذا الطلب لديه مبيعة نشطة مسجَّلة. استخدم «عكس البيع» من صفحة الطلب أولاً.",
+          };
+        }
       }
 
       // 5. تحديث الحالة

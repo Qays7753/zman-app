@@ -40,6 +40,7 @@ import { useOpeningBalance } from "@/features/finance/hooks";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/status-colors";
 import { LiquidityFlowPanel } from "./LiquidityFlowPanel";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 
 // أسماء الأشهر الميلادية بالعربي (ترتيب getMonth: 0=يناير).
 const AR_MONTHS = [
@@ -57,20 +58,23 @@ function FinanceComparePanel({
   purchases,
   expenses,
   netProfit,
+  ownerDraw,
 }: {
   actualSales: number;
   purchases: number;
   expenses: number;
   netProfit: number;
+  ownerDraw: number;
 }) {
   const rows = [
     { label: "مبيعات", value: actualSales, barClass: "bg-info", textClass: "text-info", sign: "+" },
     { label: "مشتريات", value: purchases, barClass: "bg-amber-500", textClass: "text-amber-600", sign: "−" },
     { label: "مصاريف", value: expenses, barClass: "bg-orange-400", textClass: "text-amber-600", sign: "−" },
   ];
-  // أطول شريط يُحسب نسبةً لأكبر قيمة موجبة (نتجنب القسمة على صفر).
   const maxValue = Math.max(actualSales, purchases, expenses, 1);
   const isProfit = netProfit >= 0;
+  const afterDraw = netProfit - ownerDraw;
+  const isAfterDrawPositive = afterDraw >= 0;
 
   return (
     <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-4">
@@ -88,7 +92,7 @@ function FinanceComparePanel({
           return (
             <div key={row.label} className="space-y-1">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-xs font-semibold text-ink-2 truncate">{row.label}</span>
+                <span className="text-xs font-semibold text-ink-2 whitespace-nowrap">{row.label}</span>
                 <span className={`text-sm font-black font-mono whitespace-nowrap flex items-baseline gap-0.5 ${row.textClass}`}>
                   <span>{row.sign}</span>
                   <AmountText amount={row.value} />
@@ -105,7 +109,7 @@ function FinanceComparePanel({
         })}
       </div>
 
-      {/* سطر صافي الربح المميّز */}
+      {/* صافي الربح — الرقم الأساسي */}
       <div className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${isProfit ? "border-info/30" : "border-alert/30"}`}>
         <span className="text-sm font-bold text-ink flex items-center gap-1.5">
           {isProfit ? <TrendingUp className="h-4.5 w-4.5 text-info" /> : <TrendingDown className="h-4.5 w-4.5 text-alert" />}
@@ -116,8 +120,23 @@ function FinanceComparePanel({
           <AmountText amount={Math.abs(netProfit)} />
         </span>
       </div>
+
+      {/* المتبقّي بعد سحوباتك — مؤشر ثانوي */}
+      {ownerDraw > 0 && (
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-dashed border-hairline">
+          <span className="text-xs font-semibold text-ink/60 flex items-center gap-1">
+            <User className="h-3.5 w-3.5 text-ink/40" />
+            ربحك بعد ما تأخذ سحوباتك
+          </span>
+          <span className={`text-sm font-bold font-mono whitespace-nowrap ${isAfterDrawPositive ? "text-info" : "text-alert"}`}>
+            {isAfterDrawPositive ? "+" : "−"}
+            <AmountText amount={Math.abs(afterDraw)} />
+          </span>
+        </div>
+      )}
+
       <p className="text-[10px] text-ink/45 leading-snug -mt-2">
-        الربح = المبيعات − المشتريات − المصاريف. العربون ليس ربحاً قبل التسليم.
+        الربح = المبيعات − المشتريات − المصاريف. سحوباتك لا تقلل الربح — تقلل ما تبقّى في جيبك.
       </p>
     </div>
   );
@@ -452,7 +471,7 @@ export function DashboardClient() {
                 <div className="bg-warn-soft/30 p-3 rounded-lg border border-warn/15 shadow-sm">
                   <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1 whitespace-nowrap">
                     <AlertCircle className="h-3.5 w-3.5 text-warn-deep shrink-0" />
-                    عربونات في ذمتك
+                    عربونات عند الناس (إجمالي)
                   </span>
                   <p className="text-lg font-black text-warn-deep mt-0.5 leading-tight whitespace-nowrap">
                     <AmountText amount={cashSummary.depositsHeldCents} />
@@ -461,6 +480,61 @@ export function DashboardClient() {
                 </div>
               )}
             </div>
+
+            {/* ═══ لماذا نقدي أكبر من ربحي؟ — تركيبة النقد ═══ */}
+            {summary && cashSummary && accountBalances && (() => {
+              const realCash = totalCashCents + totalBankCents;
+              const opening = (openingBal?.cashCents ?? 0) + (openingBal?.bankCents ?? 0);
+              const ownerNet = (summary.ownerInject ?? 0) - (summary.ownerDraw ?? 0);
+              const depositsHeld = cashSummary.depositsHeldCents;
+              const profit = summary.netProfit ?? 0;
+              const composed = opening + ownerNet + depositsHeld + profit;
+              const residual = realCash - composed;
+              return (
+                <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Wallet className="h-4 w-4 text-info" />
+                    <h3 className="text-xs font-bold text-ink">لماذا نقدي أكبر من ربحي؟</h3>
+                    <InfoTooltip text="نقدك في الصندوق لا يساوي ربحك. النقد يشمل: رأس مالك الأول + سحوبات/إيداعات المالك + عربونات لسه ما سلّمتها (نقد حر لكنها ليست ربحاً) + ربحك الفعلي. العربونات تقدر تصرفها لكنها التزام حتى تسلّم الطلب." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-ink/60 whitespace-nowrap">رأس مالك الأول</span>
+                      <span className="font-mono font-bold text-ink-3 whitespace-nowrap"><AmountText amount={opening} /></span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-ink/60 whitespace-nowrap">صافي حركة المالك (إيداع − سحب)</span>
+                      <span className={`font-mono font-bold whitespace-nowrap ${ownerNet >= 0 ? "text-info" : "text-amber-600"}`}>
+                        {ownerNet >= 0 ? "+" : "−"}<AmountText amount={Math.abs(ownerNet)} />
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-ink/60 whitespace-nowrap">عربونات لسه ما سلّمت (نقد حرّ)</span>
+                      <span className="font-mono font-bold text-warn-deep whitespace-nowrap"><AmountText amount={depositsHeld} /></span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-ink/60 whitespace-nowrap">ربحك الفعلي</span>
+                      <span className={`font-mono font-bold whitespace-nowrap ${profit >= 0 ? "text-info" : "text-alert"}`}>
+                        {profit >= 0 ? "+" : "−"}<AmountText amount={Math.abs(profit)} />
+                      </span>
+                    </div>
+                    {Math.abs(residual) > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink/40 whitespace-nowrap">تسويات / أخرى</span>
+                        <span className="font-mono font-bold text-ink/40 whitespace-nowrap"><AmountText amount={residual} /></span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-hairline">
+                    <span className="text-sm font-black text-info whitespace-nowrap">= النقد المتاح الآن</span>
+                    <span className="text-lg font-black text-info font-mono whitespace-nowrap"><AmountText amount={realCash} /></span>
+                  </div>
+                  <p className="text-[10px] text-ink/40 leading-snug">
+                    العربونات نقد تقدر تصرفها — لكنها ليست ربحاً حتى تسلّم الطلب.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* ═══ حركة الكاش — من أين جاء وأين ذهب ═══ */}
             {summary && (
@@ -483,6 +557,7 @@ export function DashboardClient() {
                 purchases={summary.purchases ?? 0}
                 expenses={summary.expenses ?? 0}
                 netProfit={summary.netProfit ?? 0}
+                ownerDraw={summary.ownerDraw ?? 0}
               />
             )}
 
