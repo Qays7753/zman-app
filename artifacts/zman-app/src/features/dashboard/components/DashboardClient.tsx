@@ -231,7 +231,11 @@ export function DashboardClient() {
     }
   };
 
-  if (isErrorSummary || isErrorCash) {
+  // نعرض شاشة الخطأ فقط عند فشل الجلب مع عدم وجود بيانات مخزّنة (persist).
+  // لو استُعيدت بيانات من الكاش المحلي، نعرضها فوراً ونحدّث في الخلفية بصمت —
+  // فلا تظهر شاشة "خطأ في الشبكة" على cold-start ما دام عندنا آخر بيانات.
+  const hasNoData = !summary && !cashSummary;
+  if ((isErrorSummary || isErrorCash) && hasNoData) {
     return (
       <>
         <AppShellHeader title="لوحة القيادة" />

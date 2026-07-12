@@ -16,7 +16,9 @@ export default function QueryProvider({
         defaultOptions: {
           queries: {
             staleTime: 30 * 1000, // 30 seconds
-            gcTime: 5 * 60 * 1000, // 5 minutes
+            // gcTime يجب أن يكون ≥ maxAge للـ persist، وإلا يُهمَل الكاش المحفوظ
+            // ولا يُستعاد عند الفتح (فتظهر شاشة الخطأ بدل البيانات المخزّنة).
+            gcTime: 24 * 60 * 60 * 1000, // 24 hours — matches persist maxAge
             retry: 3, // retry 3 times on cold-start timeout
             retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 10000),
             refetchOnWindowFocus: true,
