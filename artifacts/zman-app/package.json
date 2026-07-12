@@ -11,6 +11,7 @@
   "dependencies": {
     "@hookform/resolvers": "catalog:",
     "@t3-oss/env-nextjs": "catalog:",
+    "@tanstack/query-core": "catalog:",
     "@tanstack/query-sync-storage-persister": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-query-persist-client": "catalog:",

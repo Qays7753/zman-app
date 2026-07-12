@@ -488,3 +488,33 @@ export async function getCashSummary(): Promise<CashSummary> {
     expectedRemainingCents: Number(result?.expectedRemainingCents) || 0,
   };
 }
+
+/**
+ * متوسط الإنفاق الشهري (مشتريات + مصاريف) على آخر N أشهر.
+ * استعلام للقراءة فقط — لا يغيّر أي منطق مالي.
+ */
+export async function getAverageMonthlySpend(months: number = 3): Promise<number> {
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setMonth(startDate.getMonth() - months);
+
+  const [result] = await db
+    .select({
+      total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint`,
+    })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+        eq(cashMovement.direction, "out"),
+        sql`${cashMovement.sourceType} in ('purchase', 'expense')`,
+        sql`${cashMovement.date} >= ${startDate.toLocaleDateString("en-CA")}`,
+        sql`${cashMovement.date} <= ${endDate.toLocaleDateString("en-CA")}`,
+      ),
+    );
+
+  const totalSpend = Number(result?.total) || 0;
+  return Math.round(totalSpend / months);
+}

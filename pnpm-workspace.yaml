@@ -51,6 +51,7 @@ catalog:
   '@tanstack/react-query': ^5.90.21
   '@tanstack/react-query-persist-client': ^5.90.21
   '@tanstack/query-sync-storage-persister': ^5.90.21
+  '@tanstack/query-core': ^5.90.21
   '@types/node': ^25.3.3
   '@types/react': ^19.2.0
   '@types/react-dom': ^19.2.0
@@ -172,3 +173,8 @@ overrides:
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.7"
   postcss: "^8.4.32"
+  "@tanstack/query-core": "5.101.2"
+  "@tanstack/react-query": "5.101.2"
+  "@tanstack/react-query-persist-client": "5.101.2"
+  "@tanstack/query-sync-storage-persister": "5.101.2"
+  "@tanstack/query-persist-client-core": "5.101.2"

@@ -7,6 +7,7 @@ import {
   getRecentActivities,
   getDashboardStats,
   getCashSummary,
+  getAverageMonthlySpend,
 } from "./queries";
 
 import { getAccountBalances } from "@/features/finance/actions";
@@ -22,6 +23,7 @@ export const dashboardKeys = {
     [...dashboardKeys.all, "stats", startDate, endDate] as const,
   cash: () => [...dashboardKeys.all, "cash"] as const,
   balances: () => [...dashboardKeys.all, "balances"] as const,
+  avgSpend: () => [...dashboardKeys.all, "avgSpend"] as const,
 };
 
 export function useFinancialSummary(startDate: string, endDate: string) {
@@ -70,5 +72,12 @@ export function useAccountBalances() {
       if (res.status === "error") throw new Error(res.message);
       return res.data || [];
     },
+  });
+}
+
+export function useAverageMonthlySpend(months: number = 3) {
+  return useQuery({
+    queryKey: dashboardKeys.avgSpend(),
+    queryFn: () => getAverageMonthlySpend(months),
   });
 }

@@ -175,6 +175,18 @@ export default function OrdersClient() {
         }
         menuItems={[
           {
+            key: "upcoming",
+            label: "طلبات قرب تسليمها (7 أيام)",
+            icon: <CalendarDays className="w-5 h-5 text-info" />,
+            onClick: () => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("sort", "delivery");
+              params.set("status", "all");
+              params.delete("cursor");
+              router.replace(`${pathname}?${params.toString()}`);
+            },
+          },
+          {
             key: "template",
             label: "قالب رسالة واتساب",
             icon: <MessageSquare className="w-5 h-5 text-info" />,

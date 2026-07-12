@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ClipboardList, Home, MessageSquare, Wallet, Landmark, Settings, Boxes } from "lucide-react";
+import { BarChart3, BookOpen, ClipboardList, Home, MessageSquare, Wallet, Landmark, Settings, Boxes, Clock } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -46,6 +46,11 @@ export const mainNavItems: NavItem[] = [
 /** العناصر الإضافية التي تظهر في sheet "المزيد" */
 export const moreNavItems: NavItem[] = [
   navItems[3], // الملاحظات
+  {
+    label: "كل الحركات المالية",
+    href: "/activities",
+    icon: Clock,
+  },
   {
     label: "الحسابات",
     href: "/finance?tab=accounts",

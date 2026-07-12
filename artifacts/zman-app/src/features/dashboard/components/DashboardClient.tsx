@@ -31,16 +31,17 @@ import { FilterChip } from "@/components/shared/FilterChip";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import {
   useFinancialSummary,
-  useRecentActivities,
   useDashboardStats,
   useCashSummary,
   useAccountBalances,
+  useAverageMonthlySpend,
 } from "../hooks";
 import { useOpeningBalance } from "@/features/finance/hooks";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/status-colors";
 import { LiquidityFlowPanel } from "./LiquidityFlowPanel";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
+import { FinancialAdvisor } from "./FinancialAdvisor";
 
 // أسماء الأشهر الميلادية بالعربي (ترتيب getMonth: 0=يناير).
 const AR_MONTHS = [
@@ -145,29 +146,6 @@ function FinanceComparePanel({
 export function DashboardClient() {
   const [_isPending, _startTransition] = useTransition();
 
-  // أشكال التوهّج العشر — أسماء كلاسات صريحة (مكتوبة حرفياً) ليولّدها Tailwind v4.
-  // بناء الاسم ديناميكياً (`animate-delivery-glow-${n}`) لا يُولَّد لأن Tailwind
-  // لا يرى الأسماء المركّبة أثناء البناء.
-  const glowClasses = [
-    "animate-delivery-glow-1",
-    "animate-delivery-glow-2",
-    "animate-delivery-glow-3",
-    "animate-delivery-glow-4",
-    "animate-delivery-glow-5",
-    "animate-delivery-glow-6",
-    "animate-delivery-glow-7",
-    "animate-delivery-glow-8",
-    "animate-delivery-glow-9",
-    "animate-delivery-glow-10",
-  ];
-  // نبدأ بقيمة ثابتة (0) لتفادي اختلاف SSR، ثم نختار عشوائياً بعد الـ mount.
-  const [glowIndex, setGlowIndex] = useState(0);
-  useEffect(() => {
-    setGlowIndex(Math.floor(Math.random() * glowClasses.length));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const glowClass = glowClasses[glowIndex];
-
   // فترات التاريخ المتاحة.
   // "الكل" هو الافتراضي (يغطي كامل تاريخ المشروع). نستخدم بداية ثابتة بعيدة
   // (2020-01-01) لضمان شمول كل العمليات المسجّلة. تليه اختصارات أشهر أخيرة
@@ -210,12 +188,6 @@ export function DashboardClient() {
     refetch: refetchSummary,
   } = useFinancialSummary(startDateStr, endDateStr);
   const {
-    data: activities,
-    isLoading: isLoadingActivities,
-    isError: isErrorActivities,
-    refetch: refetchActivities,
-  } = useRecentActivities(startDateStr, endDateStr);
-  const {
     data: stats,
     refetch: refetchStats,
   } = useDashboardStats(startDateStr, endDateStr);
@@ -230,16 +202,10 @@ export function DashboardClient() {
     refetch: refetchBalances,
   } = useAccountBalances();
   const { data: openingBal } = useOpeningBalance();
-
-  const [isDeliveriesExpanded, setIsDeliveriesExpanded] = useState(false);
-  const handleToggleDeliveries = () => {
-    setIsDeliveriesExpanded(!isDeliveriesExpanded);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const { data: avgMonthlySpend } = useAverageMonthlySpend(3);
 
   const handleRetryAll = () => {
     refetchSummary();
-    refetchActivities();
     refetchStats();
     refetchCash();
     refetchBalances();
@@ -265,7 +231,7 @@ export function DashboardClient() {
     }
   };
 
-  if (isErrorSummary || isErrorActivities || isErrorCash) {
+  if (isErrorSummary || isErrorCash) {
     return (
       <>
         <AppShellHeader title="لوحة القيادة" />
@@ -378,75 +344,6 @@ export function DashboardClient() {
                 </div>
                 <Settings className="h-5 w-5 text-warn-deep shrink-0" />
               </Link>
-            )}
-
-            {/* 5. طلبات للتسليم (طلبات يستحق تسليمها) — منقولة لأعلى الصفحة وقابلة للطي */}
-            {stats && (
-              <div className="bg-paper rounded-lg border border-hairline shadow-sm overflow-hidden">
-                <button
-                  type="button"
-                  onClick={handleToggleDeliveries}
-                  className={`w-full flex items-center justify-between p-4 transition-colors text-right font-bold ${
-                    stats.upcomingOrders.length > 0
-                      ? `text-white ${glowClass}`
-                      : "bg-canvas/30 hover:bg-canvas/50 text-ink"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Calendar className={`h-5 w-5 shrink-0 ${stats.upcomingOrders.length > 0 ? "text-white" : "text-info"}`} />
-                    <span className="text-sm md:text-base">
-                      طلبات قرب تسليمها ({stats.upcomingOrders.length})
-                    </span>
-                  </div>
-                  <span className={`text-xs transition-transform ${isDeliveriesExpanded ? "rotate-180" : ""}`}>
-                    {isDeliveriesExpanded ? "▲" : "▼"}
-                  </span>
-                </button>
-
-                {isDeliveriesExpanded && (
-                  <div className="p-6 border-t border-hairline space-y-4">
-                    {stats.upcomingOrders.length === 0 ? (
-                      <p className="text-sm text-ink/45 text-center py-6 bg-canvas rounded-lg border border-hairline">
-                        لا توجد طلبات يستحق تسليمها هذا الأسبوع
-                      </p>
-                    ) : (
-                      <div className="divide-y divide-hairline">
-                        {stats.upcomingOrders.map((o) => (
-                          <Link
-                            key={o.id}
-                            href={`/orders?view=${o.id}`}
-                            className="flex items-center justify-between gap-3 py-3 hover:bg-canvas px-2 -mx-2 rounded transition-colors"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-bold text-ink text-sm truncate">{o.customerName}</p>
-                              <p className="text-xs text-ink/50 mt-0.5 truncate">{o.productName}</p>
-                            </div>
-                            <div className="text-end shrink-0">
-                              <p className="text-xs text-ink/45 whitespace-nowrap">
-                                {o.deliveryDate
-                                  ? new Date(o.deliveryDate).toLocaleDateString("ar-JO", {
-                                      year: "numeric",
-                                      month: "short",
-                                      day: "numeric",
-                                    })
-                                  : "تاريخ غير محدد"}
-                              </p>
-                              <p className="text-xs text-ink-2 mt-1 whitespace-nowrap flex flex-col items-end gap-0.5">
-                                <span>قيمة الطلب: <AmountText amount={o.totalPriceCents} /></span>
-                                {o.depositCents > 0 && (
-                                  <span className="text-[10px] text-info font-bold">
-                                    العربون المُحصَّل: +<AmountText amount={o.depositCents} />
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
             )}
 
             {/* ═══ نظرة سريعة — بطاقتان نظيفتان فقط ═══ */}
@@ -609,126 +506,39 @@ export function DashboardClient() {
 
 
 
-        {/* آخر النشاطات والعمليات المدمجة */}
-        <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-hairline pb-3">
-            <h3 className="text-base font-bold text-ink flex items-center gap-1.5">
-              <Clock className="h-4.5 w-4.5 text-info" />
-              آخر النشاطات والحركات المالية
-            </h3>
-            <span className="text-xs text-ink/45">محدث لحظياً</span>
+        {/* رابط لصفحة كل الحركات المالية */}
+        <Link
+          href="/activities"
+          className="bg-paper p-4 rounded-lg border border-hairline shadow-sm flex items-center justify-between gap-3 hover:border-info/40 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-info" />
+            <span className="text-sm font-bold text-ink">عرض كل الحركات المالية</span>
           </div>
+          <ArrowLeft className="h-4 w-4 text-info/0 group-hover:text-info transition-all transform group-hover:-translate-x-1" />
+        </Link>
 
-          {isLoadingActivities ? (
-            <SkeletonList count={3} />
-          ) : !activities || activities.length === 0 ? (
-            <div className="text-center py-8 px-4 border-2 border-dashed border-hairline rounded-lg flex flex-col items-center justify-center gap-4 bg-canvas">
-              <div className="p-3 bg-info-soft rounded-full">
-                <Clock className="h-6 w-6 text-info" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-ink">
-                  مرحباً بك في نظام Zman!
-                </p>
-                <p className="text-xs text-ink/60 max-w-sm mx-auto leading-relaxed">
-                  لم يتم تسجيل أي عمليات أو نشاطات بعد. ابدأ الآن بإضافة طلب
-                  جديد أو مبيعات ومشتريات للورشة.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 justify-center">
-                <Link
-                  href="/orders?new=true"
-                  className="min-h-[44px] px-4 py-2 bg-ink text-paper rounded-md text-xs font-bold shadow-sm hover:bg-ink/90 flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>طلب جديد</span>
-                </Link>
-                <Link
-                  href="/finance?tab=sales&newSale=true"
-                  className="min-h-[44px] px-4 py-2 bg-info text-paper rounded-md text-xs font-bold shadow-sm hover:bg-info/90 flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>عملية بيع</span>
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="divide-y divide-hairline">
-              {activities.map((act) => {
-                // إعداد الروابط وتوجيهها لتكون تفاعلية
-                const linkHref =
-                  act.type === "order"
-                    ? `/orders?view=${act.id}`
-                    : act.type === "sale"
-                      ? `/finance?tab=sales&editSale=${act.id}`
-                      : act.type === "expense"
-                        ? `/finance?tab=expenses&editExpense=${act.id}`
-                        : `/finance?tab=purchases&editPurchase=${act.id}`;
-
-                const typeLabels = {
-                  order: {
-                    label: "طلب معتمد",
-                    color: "text-info bg-info-soft",
-                  },
-                  sale: {
-                    label: "إيراد مبيعات",
-                    color: "text-info bg-info-soft",
-                  },
-                  expense: {
-                    label: "مصروف عام",
-                    color: "text-alert bg-alert-soft",
-                  },
-                  purchase: {
-                    label: "مشتريات مواد",
-                    color: "text-alert bg-alert-soft",
-                  },
-                };
-
-                const details = typeLabels[act.type];
-
-                return (
-                  <Link
-                    key={act.id}
-                    href={linkHref}
-                    className="py-3.5 flex items-center justify-between hover:bg-canvas px-2 -mx-2 rounded transition-colors min-w-0 gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span
-                        className={`px-2.5 py-1 rounded text-[10px] font-bold shrink-0 ${details.color}`}
-                      >
-                        {details.label}
-                      </span>
-                      <span className="text-sm font-semibold text-ink/85 truncate flex-1 min-w-0">
-                        {act.title}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {(() => {
-                        const isRealizedSale = act.type === "sale";
-                        const isCashOut = act.type === "expense" || act.type === "purchase";
-                        const isOrderWithDeposit = act.type === "order" && !!act.hasCashImpact;
-                        const sign = (isRealizedSale || isOrderWithDeposit) ? "+" : isCashOut ? "−" : "";
-                        const colorClass = (isRealizedSale || isOrderWithDeposit)
-                          ? "text-info"
-                          : isCashOut ? "text-alert" : "text-ink/45";
-                        return (
-                          <span className={`text-sm font-bold ${colorClass}`}>
-                            {sign}
-                            {act.amount > 0 || isRealizedSale || isCashOut
-                              ? <AmountText amount={act.amount} />
-                              : <span className="text-xs font-normal">بدون أثر نقدي</span>}
-                          </span>
-                        );
-                      })()}
-                      <ArrowLeft className="h-4 w-4 text-ink/30 shrink-0" />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
+
+      {/* ═══ المستشار المالي ═══ */}
+      {summary && cashSummary && accountBalances && (
+        <FinancialAdvisor
+          data={{
+            realCash: totalCashCents + totalBankCents,
+            opening: (openingBal?.cashCents ?? 0) + (openingBal?.bankCents ?? 0),
+            ownerNet: (summary.ownerInject ?? 0) - (summary.ownerDraw ?? 0),
+            ownerInject: summary.ownerInject ?? 0,
+            ownerDraw: summary.ownerDraw ?? 0,
+            depositsHeld: cashSummary.depositsHeldCents,
+            expectedRemaining: cashSummary.expectedRemainingCents,
+            netProfit: summary.netProfit ?? 0,
+            actualSales: summary.actualSales ?? 0,
+            purchases: summary.purchases ?? 0,
+            expenses: summary.expenses ?? 0,
+            avgMonthlySpend: avgMonthlySpend ?? 0,
+          }}
+        />
+      )}
 
       {/* منتقي التواريخ المتجاوب (Mobile Bottom Sheet / Desktop Dialog) */}
       <ResponsiveModal
