@@ -432,6 +432,14 @@ export function DashboardClient() {
               </div>
             )}
 
+            {/* ═══ القسم 1: ما تملكه نقداً الآن (السيولة) ═══ */}
+            <div className="flex items-center gap-2 px-1">
+              <Wallet className="h-5 w-5 text-info" />
+              <h2 className="text-sm font-black text-ink">ما تملكه نقداً الآن</h2>
+              <span className="text-[10px] text-ink/40">(سيولة — رصيد لحظي لا يتأثر بالفترة)</span>
+              <div className="flex-1 border-t border-info/20 ml-2" />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* 1. الوضع النقدي الحالي (Current Cash Position Hero) */}
               {cashSummary && (
@@ -446,7 +454,7 @@ export function DashboardClient() {
                         <AmountText amount={totalCashCents + totalBankCents} />
                       </h2>
                       <p className="text-[10px] text-ink/50 mt-0.5">
-                        = نقد الصندوق + البنك (كل ما تملكه نقدًا)
+                        = نقد الصندوق + البنك (كل ما تملكه نقدًا الآن)
                       </p>
                     </div>
                     <div className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
@@ -470,11 +478,41 @@ export function DashboardClient() {
                   </div>
                 </div>
               )}
+
+              {/* عربونات بحوزتك (التزام مالي) — ضمن قسم السيولة لأنها نقد متاح لكنه ملتزم */}
+              {cashSummary && (
+                <div className="bg-warn-soft/30 p-6 rounded-xl border border-warn/15 shadow-sm flex flex-col justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
+                      <AlertCircle className="h-4.5 w-4.5 text-warn-deep" />
+                      عربونات بحوزتك
+                    </span>
+                    <h3 className="text-xl lg:text-2xl font-black text-warn-deep mt-1">
+                      <AmountText amount={cashSummary.depositsHeldCents} />
+                    </h3>
+                    <p className="text-[10px] text-ink/50 mt-0.5">
+                      نقد قبضته لكنه التزام — يجب تسليم الطلب أو إرجاعه
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-warn/15">
+                    <p className="text-[10px] text-ink/50">متبقٍّ متوقع تحصيله</p>
+                    <p className="text-sm font-bold text-info">
+                      <AmountText amount={cashSummary.expectedRemainingCents} />
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* 2. لوحة المقارنة المالية الموحّدة — مبيعات · مشتريات · مصاريف · صافي ربح
-                 مجمّعة في مكان واحد ليقرأ المالك الوضع بلمحة (محسّنة للموبايل).
-                 كل الأرقام تتبع الفترة المختارة (افتراضي: الكل). */}
+            {/* ═══ القسم 2: ما ربحته من عملك (للفترة المختارة) ═══ */}
+            <div className="flex items-center gap-2 px-1 pt-4">
+              <TrendingUp className="h-5 w-5 text-info" />
+              <h2 className="text-sm font-black text-ink">أداء عملك للفترة المختارة</h2>
+              <span className="text-[10px] text-ink/40">(ربح/خسارة — ليس نقداً في جيبك)</span>
+              <div className="flex-1 border-t border-info/20 ml-2" />
+            </div>
+
+            {/* لوحة المقارنة المالية الموحّدة — مبيعات · مشتريات · مصاريف · صافي ربح */}
             {summary && (
               <FinanceComparePanel
                 actualSales={summary.actualSales ?? 0}
@@ -484,9 +522,7 @@ export function DashboardClient() {
               />
             )}
 
-            {/* 3. ملخص الفترة (Period Summary Cards) — تفاصيل مكمّلة أسفل المقارنة.
-                 صافي الربح معروض فوقه في FinanceComparePanel، فلا نكرّره هنا.
-                 نعرض: حركة المالك + الإيرادات النقدية + المشتريات + المصاريف. */}
+            {/* تفاصيل مكمّلة: حركة المالك + الإيرادات النقدية + المشتريات + المصاريف */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* صافي حركة المالك (سحب/حقن) للفترة المختارة */}
               <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
@@ -644,51 +680,6 @@ export function DashboardClient() {
                 </div>
               </div>
             )}
-
-            {/* 4. الالتزامات والعربونات (Obligations & Deposits Held 2-card Grid) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* عربونات بحوزتك (التزام مالي) */}
-              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5 truncate">
-                    <Landmark className="h-4.5 w-4.5 text-ink-3" />
-                    عربونات بحوزتك (التزام مالي)
-                  </span>
-                  <span className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
-                    رصيد لحظي
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-ink flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                    <AmountText amount={cashSummary?.depositsHeldCents ?? 0} />
-                  </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    عربونات محتجَزة لطلبات قيد التنفيذ
-                  </span>
-                </div>
-              </div>
-
-              {/* مبالغ متوقعة (متبقي الطلبات) */}
-              <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-xs font-bold text-ink/65 flex items-center gap-1.5 truncate">
-                    <Calendar className="h-4.5 w-4.5 text-ink-3" />
-                    مبالغ متوقعة (متبقي الطلبات)
-                  </span>
-                  <span className="px-2 py-0.5 bg-ink/10 text-ink-2 text-[9px] font-extrabold rounded">
-                    رصيد لحظي
-                  </span>
-                </div>
-                <div className="mt-2 flex flex-col min-w-0">
-                  <span className="text-lg lg:text-xl font-bold text-ink-2 flex items-baseline gap-1 whitespace-nowrap min-w-0">
-                    <AmountText amount={cashSummary?.expectedRemainingCents ?? 0} />
-                  </span>
-                  <span className="text-[10px] text-ink/40 mt-1 truncate">
-                    مبالغ متبقية تُحصَّل عند تسليم الطلبات
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
