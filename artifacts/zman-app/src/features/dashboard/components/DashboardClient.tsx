@@ -46,12 +46,6 @@ import { MonthlyProfitPanel } from "./MonthlyProfitPanel";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { FinancialAdvisor } from "./FinancialAdvisor";
 
-// أسماء الأشهر الميلادية بالعربي (ترتيب getMonth: 0=يناير).
-const AR_MONTHS = [
-  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
-] as const;
-
 /**
  * لوحة المقارنة المالية الموحّدة (مبيعات · مشتريات · مصاريف · صافي الربح).
  * محسّنة للموبايل: أشرطة أفقية نسبية بطول متناسب مع أكبر قيمة، ليقرأ المالك
@@ -173,9 +167,8 @@ export function DashboardClient() {
     ...[0, 1, 2].map((monthsAgo) => {
       const d = subMonths(new Date(), monthsAgo);
       return {
-        // اسم الشهر الميلادي بالعربي (مثلاً "يوليو") — أوضح من "الشهر الحالي"
-        // ومقروء على الموبايل. نستخدم مصفوفة يدوية لضمان أسماء الأشهر الميلادية.
-        label: AR_MONTHS[d.getMonth()]!,
+        // رقم الشهر/السنة (مثلاً "07/2026") بدل الاسم — أوضح وأخصر على الموبايل.
+        label: format(d, "MM/yyyy"),
         getValue: () => ({ start: startOfMonth(d), end: endOfMonth(d) }),
       };
     }),
