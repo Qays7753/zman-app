@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 :root {
+  /* ارتفاع منطقة العرض الفعلية — يُحدَّث من JS عبر window.innerHeight.
+     نعتمد عليه بدل h-dvh لأن dvh يُرجع في تطبيق PWA المثبّت (standalone) على iOS/Android
+     ارتفاعاً أكبر قليلاً من المساحة المرئية، فيُدفَع شريط التبويب السفلي تحت حافة الشاشة
+     ويبقى مخفياً. القيمة الابتدائية 100dvh كاحتياط قبل تشغيل JS. */
+  --app-height: 100dvh;
+
   /* Surfaces */
   --color-canvas: #f6f4ee; /* خلفية الصفحة */
   --color-paper: #ffffff; /* خلفية البطاقات */

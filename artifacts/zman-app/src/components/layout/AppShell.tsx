@@ -81,6 +81,30 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
     };
   }, []);
 
+  // ارتفاع القشرة من window.innerHeight بدل h-dvh:
+  // في التطبيق المثبّت (standalone) على iOS/Android يُرجع dvh ارتفاعاً أكبر قليلاً من
+  // المساحة المرئية، فيُدفَع شريط التبويب السفلي تحت الحافة ويبقى مخفياً عند التنقل.
+  // window.innerHeight يعطي الارتفاع المرئي الحقيقي؛ نُحدّثه عند الدوران/تغيّر الحجم/العودة للتطبيق.
+  useEffect(() => {
+    const setAppHeight = () => {
+      document.documentElement.style.setProperty(
+        "--app-height",
+        `${window.innerHeight}px`,
+      );
+    };
+    setAppHeight();
+    window.addEventListener("resize", setAppHeight);
+    window.addEventListener("orientationchange", setAppHeight);
+    window.addEventListener("pageshow", setAppHeight);
+    window.visualViewport?.addEventListener("resize", setAppHeight);
+    return () => {
+      window.removeEventListener("resize", setAppHeight);
+      window.removeEventListener("orientationchange", setAppHeight);
+      window.removeEventListener("pageshow", setAppHeight);
+      window.visualViewport?.removeEventListener("resize", setAppHeight);
+    };
+  }, []);
+
   const isMoreActive = moreNavItems.some(
     (item) =>
       !item.href.includes("?") &&
@@ -89,7 +113,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
   );
 
   return (
-    <div className="h-dvh flex flex-col bg-canvas text-ink font-sans overflow-hidden">
+    <div className="h-[var(--app-height)] flex flex-col bg-canvas text-ink font-sans overflow-hidden">
       {/* شريط تنبيه انقطاع الشبكة */}
       {!isOnline && (
         <div className="flex-shrink-0 w-full h-8 bg-warn-soft text-warn-deep text-xs font-semibold flex items-center justify-center gap-2 z-sticky border-b border-warn/10 select-none">
