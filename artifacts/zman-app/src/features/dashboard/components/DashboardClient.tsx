@@ -87,6 +87,7 @@ function FinanceComparePanel({
           <BarChart3 className="h-4.5 w-4.5 text-info" />
           صافي الربح
         </h3>
+        <span className="text-[10px] text-ink/40 whitespace-nowrap">الإجمالي لكل الفترات</span>
       </div>
 
       {/* الأشرطة النسبية — تباعد موحّد */}
@@ -216,6 +217,11 @@ export function DashboardClient() {
   const { data: position } = useFinancialPosition(endDateStr);
   // ربح كل شهر — مستقل عن الفلتر.
   const { data: monthlyProfit } = useMonthlyProfit(6);
+  // ملخّص «هل أربح؟» = صورة إجمالية لكل الفترات مجمّعة (مستقلة عن الفلتر).
+  const { data: summaryAllTime } = useFinancialSummary(
+    "2020-01-01",
+    format(new Date(), "yyyy-MM-dd"),
+  );
 
   const handleRetryAll = () => {
     refetchSummary();
@@ -406,20 +412,17 @@ export function DashboardClient() {
                 purchases={summary.purchases ?? 0}
                 expenses={summary.expenses ?? 0}
                 ownerDraw={summary.ownerDraw ?? 0}
-                carriedBalanceCents={summary.carriedBalanceCents ?? 0}
-                openingInPeriodCents={summary.openingCents ?? 0}
-                endBalanceCents={summary.endBalanceCents ?? 0}
               />
             )}
 
-            {/* ═══ هل أربح؟ — مقارنة الربح ═══ */}
-            {summary && (
+            {/* ═══ هل أربح؟ — صورة إجمالية لكل الفترات (مستقلة عن الفلتر) ═══ */}
+            {summaryAllTime && (
               <FinanceComparePanel
-                actualSales={summary.actualSales ?? 0}
-                purchases={summary.purchases ?? 0}
-                expenses={summary.expenses ?? 0}
-                netProfit={summary.netProfit ?? 0}
-                ownerDraw={summary.ownerDraw ?? 0}
+                actualSales={summaryAllTime.actualSales ?? 0}
+                purchases={summaryAllTime.purchases ?? 0}
+                expenses={summaryAllTime.expenses ?? 0}
+                netProfit={summaryAllTime.netProfit ?? 0}
+                ownerDraw={summaryAllTime.ownerDraw ?? 0}
                 expectedRemaining={cashSummary?.expectedRemainingCents ?? 0}
               />
             )}

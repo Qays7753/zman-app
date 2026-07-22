@@ -5,9 +5,9 @@ import { AmountText } from "@/components/shared/AmountText";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
 
 /**
- * حركة الكاش — تقرأ كدفتر واحد من الأعلى للأسفل:
- * رأس المال → مال داخل → مال خارج → النقد المتاح الآن.
- * لا يوجد "صافي الحركة" مجرد — القصة تنتهي بالرصيد الفعلي.
+ * حركة الكاش — ما دخل وما خرج من الصندوق خلال الفترة المختارة، وينتهي بصافي
+ * حركة الفترة (الداخل − الخارج). لا يُعرَض هنا الرصيد الافتتاحي/المُرحَّل —
+ * الرصيد الفعلي معروض في بطاقة «النقد المتاح» بالأعلى، وتفكيكه في «تركيبة الكاش».
  */
 function FlowRow({
   label,
@@ -50,9 +50,6 @@ export function LiquidityFlowPanel({
   purchases,
   expenses,
   ownerDraw,
-  carriedBalanceCents,
-  openingInPeriodCents,
-  endBalanceCents,
 }: {
   actualSales: number;
   deposits: number;
@@ -60,11 +57,10 @@ export function LiquidityFlowPanel({
   purchases: number;
   expenses: number;
   ownerDraw: number;
-  carriedBalanceCents: number;
-  openingInPeriodCents: number;
-  endBalanceCents: number;
 }) {
-  const maxValue = Math.max(actualSales, deposits, ownerInject, purchases, expenses, ownerDraw, carriedBalanceCents, endBalanceCents, 1);
+  const maxValue = Math.max(actualSales, deposits, ownerInject, purchases, expenses, ownerDraw, 1);
+  const netFlow = actualSales + deposits + ownerInject - purchases - expenses - ownerDraw;
+  const isPositive = netFlow >= 0;
 
   return (
     <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-3">
@@ -77,24 +73,8 @@ export function LiquidityFlowPanel({
         <span className="text-[10px] text-ink/40 whitespace-nowrap">كاش — ليس ربحاً</span>
       </div>
 
-      {/* تسلسل الحركة — يُقفل رياضياً: رصيد بداية الفترة + (داخل − خارج) = رصيد نهايتها */}
+      {/* ما دخل وما خرج خلال الفترة */}
       <div className="space-y-2.5">
-        <FlowRow
-          label="رصيد بداية الفترة"
-          value={carriedBalanceCents}
-          barClass="bg-ink/20"
-          textClass="text-ink-3"
-          maxValue={maxValue}
-        />
-        {openingInPeriodCents > 0 && (
-          <FlowRow
-            label="رصيد افتتاحي (بالفترة)"
-            value={openingInPeriodCents}
-            barClass="bg-ink/20"
-            textClass="text-ink-3"
-            maxValue={maxValue}
-          />
-        )}
         <FlowRow
           label="مبيعات مكتملة"
           value={actualSales}
@@ -142,14 +122,14 @@ export function LiquidityFlowPanel({
         />
       </div>
 
-      {/* = رصيد نهاية الفترة — يساوي بالضبط: بداية الفترة + الداخل − الخارج */}
-      <div className="flex items-center justify-between gap-2 pt-3 border-t-2 border-info/30">
+      {/* = صافي حركة الفترة — الداخل ناقص الخارج */}
+      <div className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${isPositive ? "border-info/30" : "border-alert/30"}`}>
         <span className="text-sm font-black text-ink flex items-center gap-1.5">
           <Wallet className="h-4.5 w-4.5 text-info" />
-          رصيد نهاية الفترة
+          صافي حركة الفترة
         </span>
-        <span className="text-xl font-black text-info font-mono whitespace-nowrap">
-          <AmountText amount={endBalanceCents} hideCurrency />
+        <span className={`text-xl font-black font-mono whitespace-nowrap ${isPositive ? "text-info" : "text-alert"}`}>
+          <AmountText amount={netFlow} hideCurrency parenNegative />
         </span>
       </div>
     </div>

@@ -15,12 +15,6 @@ export interface FinancialSummary {
   ownerNet: number;
   ownerInject: number;
   ownerDraw: number;
-  // إطار حركة الكاش المتوازن: رصيد بداية الفترة (مُرحَّل قبل startDate) +
-  // (داخل − خارج) خلال الفترة = رصيد نهاية الفترة (حتى endDate). يضمن أن
-  // «حركة الكاش» تُقفل رياضياً لأي فترة دون بند «تسويات أخرى».
-  carriedBalanceCents: number;
-  openingCents: number;
-  endBalanceCents: number;
 }
 
 export interface ActivityItem {
@@ -129,55 +123,6 @@ export async function getFinancialSummary(
       ),
     );
 
-  // رصيد الصندوق+البنك المُرحَّل قبل بداية الفترة — نقطة انطلاق «حركة الكاش».
-  const carriedPromise = db
-    .select({
-      total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
-    })
-    .from(cashMovement)
-    .innerJoin(account, eq(cashMovement.accountId, account.id))
-    .where(
-      and(
-        isNull(cashMovement.deletedAt),
-        isNull(account.deletedAt),
-        sql`${account.type} in ('cash', 'bank')`,
-        sql`${cashMovement.date} < ${startDate}`,
-      ),
-    );
-
-  // رصيد الصندوق+البنك حتى نهاية الفترة — نقطة النهاية (الرصيد الفعلي as-of).
-  const endBalancePromise = db
-    .select({
-      total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
-    })
-    .from(cashMovement)
-    .innerJoin(account, eq(cashMovement.accountId, account.id))
-    .where(
-      and(
-        isNull(cashMovement.deletedAt),
-        isNull(account.deletedAt),
-        sql`${account.type} in ('cash', 'bank')`,
-        sql`${cashMovement.date} <= ${endDate}`,
-      ),
-    );
-
-  // أرصدة افتتاحية واقعة داخل الفترة (تظهر كصف داخل «حركة الكاش» عند لزومه —
-  // مثلاً على فلتر «الكل» حيث تاريخ بدء التشغيل ضمن النافذة).
-  const openingPromise = db
-    .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
-    .from(cashMovement)
-    .innerJoin(account, eq(cashMovement.accountId, account.id))
-    .where(
-      and(
-        isNull(cashMovement.deletedAt),
-        isNull(account.deletedAt),
-        eq(cashMovement.direction, "in"),
-        eq(cashMovement.sourceType, "opening"),
-        sql`${cashMovement.date} >= ${startDate}`,
-        sql`${cashMovement.date} <= ${endDate}`,
-      ),
-    );
-
   const [
     actualSalesResult,
     depositsResult,
@@ -185,9 +130,6 @@ export async function getFinancialSummary(
     purchasesResult,
     ownerInjectResult,
     ownerDrawResult,
-    carriedResult,
-    endBalanceResult,
-    openingResult,
   ] = await Promise.all([
     actualSalesPromise,
     depositsPromise,
@@ -195,9 +137,6 @@ export async function getFinancialSummary(
     purchasesPromise,
     ownerInjectPromise,
     ownerDrawPromise,
-    carriedPromise,
-    endBalancePromise,
-    openingPromise,
   ]);
 
   const actualSales = Number(actualSalesResult[0]?.total) || 0;
@@ -211,24 +150,8 @@ export async function getFinancialSummary(
   const ownerInject = Number(ownerInjectResult[0]?.total) || 0;
   const ownerDraw = Number(ownerDrawResult[0]?.total) || 0;
   const ownerNet = ownerInject - ownerDraw;
-  const carriedBalanceCents = Number(carriedResult[0]?.total) || 0;
-  const endBalanceCents = Number(endBalanceResult[0]?.total) || 0;
-  const openingCents = Number(openingResult[0]?.total) || 0;
 
-  return {
-    sales,
-    actualSales,
-    deposits,
-    expenses,
-    purchases,
-    netProfit,
-    ownerNet,
-    ownerInject,
-    ownerDraw,
-    carriedBalanceCents,
-    openingCents,
-    endBalanceCents,
-  };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit, ownerNet, ownerInject, ownerDraw };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)
