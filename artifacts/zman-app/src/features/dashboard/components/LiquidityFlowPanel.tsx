@@ -50,8 +50,9 @@ export function LiquidityFlowPanel({
   purchases,
   expenses,
   ownerDraw,
-  openingBalanceCents,
-  actualBalanceCents,
+  carriedBalanceCents,
+  openingInPeriodCents,
+  endBalanceCents,
 }: {
   actualSales: number;
   deposits: number;
@@ -59,10 +60,11 @@ export function LiquidityFlowPanel({
   purchases: number;
   expenses: number;
   ownerDraw: number;
-  openingBalanceCents: number;
-  actualBalanceCents: number;
+  carriedBalanceCents: number;
+  openingInPeriodCents: number;
+  endBalanceCents: number;
 }) {
-  const maxValue = Math.max(actualSales, deposits, ownerInject, purchases, expenses, ownerDraw, openingBalanceCents, 1);
+  const maxValue = Math.max(actualSales, deposits, ownerInject, purchases, expenses, ownerDraw, carriedBalanceCents, endBalanceCents, 1);
 
   return (
     <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-3">
@@ -75,12 +77,19 @@ export function LiquidityFlowPanel({
         <span className="text-[10px] text-ink/40 whitespace-nowrap">كاش — ليس ربحاً</span>
       </div>
 
-      {/* تسلسل الحركة — تباعد موحّد بين كل الصفوف */}
+      {/* تسلسل الحركة — يُقفل رياضياً: رصيد بداية الفترة + (داخل − خارج) = رصيد نهايتها */}
       <div className="space-y-2.5">
-        {openingBalanceCents > 0 && (
+        <FlowRow
+          label="رصيد بداية الفترة"
+          value={carriedBalanceCents}
+          barClass="bg-ink/20"
+          textClass="text-ink-3"
+          maxValue={maxValue}
+        />
+        {openingInPeriodCents > 0 && (
           <FlowRow
-            label="رأس المال / رصيد البداية"
-            value={openingBalanceCents}
+            label="رصيد افتتاحي (بالفترة)"
+            value={openingInPeriodCents}
             barClass="bg-ink/20"
             textClass="text-ink-3"
             maxValue={maxValue}
@@ -133,14 +142,14 @@ export function LiquidityFlowPanel({
         />
       </div>
 
-      {/* = النقد المتاح الآن — الرقم النهائي المميّز = الرصيد الفعلي */}
+      {/* = رصيد نهاية الفترة — يساوي بالضبط: بداية الفترة + الداخل − الخارج */}
       <div className="flex items-center justify-between gap-2 pt-3 border-t-2 border-info/30">
         <span className="text-sm font-black text-ink flex items-center gap-1.5">
           <Wallet className="h-4.5 w-4.5 text-info" />
-          النقد المتاح الآن
+          رصيد نهاية الفترة
         </span>
         <span className="text-xl font-black text-info font-mono whitespace-nowrap">
-          <AmountText amount={actualBalanceCents} hideCurrency />
+          <AmountText amount={endBalanceCents} hideCurrency />
         </span>
       </div>
     </div>

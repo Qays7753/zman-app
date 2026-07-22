@@ -15,6 +15,12 @@ export interface FinancialSummary {
   ownerNet: number;
   ownerInject: number;
   ownerDraw: number;
+  // إطار حركة الكاش المتوازن: رصيد بداية الفترة (مُرحَّل قبل startDate) +
+  // (داخل − خارج) خلال الفترة = رصيد نهاية الفترة (حتى endDate). يضمن أن
+  // «حركة الكاش» تُقفل رياضياً لأي فترة دون بند «تسويات أخرى».
+  carriedBalanceCents: number;
+  openingCents: number;
+  endBalanceCents: number;
 }
 
 export interface ActivityItem {
@@ -123,6 +129,55 @@ export async function getFinancialSummary(
       ),
     );
 
+  // رصيد الصندوق+البنك المُرحَّل قبل بداية الفترة — نقطة انطلاق «حركة الكاش».
+  const carriedPromise = db
+    .select({
+      total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
+    })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+        sql`${account.type} in ('cash', 'bank')`,
+        sql`${cashMovement.date} < ${startDate}`,
+      ),
+    );
+
+  // رصيد الصندوق+البنك حتى نهاية الفترة — نقطة النهاية (الرصيد الفعلي as-of).
+  const endBalancePromise = db
+    .select({
+      total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
+    })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+        sql`${account.type} in ('cash', 'bank')`,
+        sql`${cashMovement.date} <= ${endDate}`,
+      ),
+    );
+
+  // أرصدة افتتاحية واقعة داخل الفترة (تظهر كصف داخل «حركة الكاش» عند لزومه —
+  // مثلاً على فلتر «الكل» حيث تاريخ بدء التشغيل ضمن النافذة).
+  const openingPromise = db
+    .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+        eq(cashMovement.direction, "in"),
+        eq(cashMovement.sourceType, "opening"),
+        sql`${cashMovement.date} >= ${startDate}`,
+        sql`${cashMovement.date} <= ${endDate}`,
+      ),
+    );
+
   const [
     actualSalesResult,
     depositsResult,
@@ -130,6 +185,9 @@ export async function getFinancialSummary(
     purchasesResult,
     ownerInjectResult,
     ownerDrawResult,
+    carriedResult,
+    endBalanceResult,
+    openingResult,
   ] = await Promise.all([
     actualSalesPromise,
     depositsPromise,
@@ -137,6 +195,9 @@ export async function getFinancialSummary(
     purchasesPromise,
     ownerInjectPromise,
     ownerDrawPromise,
+    carriedPromise,
+    endBalancePromise,
+    openingPromise,
   ]);
 
   const actualSales = Number(actualSalesResult[0]?.total) || 0;
@@ -150,8 +211,24 @@ export async function getFinancialSummary(
   const ownerInject = Number(ownerInjectResult[0]?.total) || 0;
   const ownerDraw = Number(ownerDrawResult[0]?.total) || 0;
   const ownerNet = ownerInject - ownerDraw;
+  const carriedBalanceCents = Number(carriedResult[0]?.total) || 0;
+  const endBalanceCents = Number(endBalanceResult[0]?.total) || 0;
+  const openingCents = Number(openingResult[0]?.total) || 0;
 
-  return { sales, actualSales, deposits, expenses, purchases, netProfit, ownerNet, ownerInject, ownerDraw };
+  return {
+    sales,
+    actualSales,
+    deposits,
+    expenses,
+    purchases,
+    netProfit,
+    ownerNet,
+    ownerInject,
+    ownerDraw,
+    carriedBalanceCents,
+    openingCents,
+    endBalanceCents,
+  };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)
@@ -517,4 +594,64 @@ export async function getAverageMonthlySpend(months: number = 3): Promise<number
 
   const totalSpend = Number(result?.total) || 0;
   return Math.round(totalSpend / months);
+}
+
+export interface MonthlyProfit {
+  month: string; // 'YYYY-MM'
+  label: string; // 'يوليو 2026'
+  netProfitCents: number;
+}
+
+const AR_MONTHS_SHORT = [
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+] as const;
+
+/**
+ * ربح كل شهر (أساس نقدي) لآخر N أشهر — بطاقة مستقلة لا يمسّها الفلتر الزمني.
+ * netProfit للشهر = مبيعات مكتملة ('sale') − مشتريات − مصاريف، من دفتر الصندوق.
+ * ملاحظة: العربون مستثنى (ليس ربحاً حتى التسليم). شهر الشراء قد يظهر خسارة —
+ * وهذا صحيح: الربح تراكمي ويظهر بأشهر البيع (§ النموذج المالي).
+ */
+export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfit[]> {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+  const startStr = start.toLocaleDateString("en-CA");
+
+  const rows = await db
+    .select({
+      month: sql<string>`to_char(${cashMovement.date}, 'YYYY-MM')`,
+      sales: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' and ${cashMovement.sourceType} = 'sale' then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
+      purchases: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'out' and ${cashMovement.sourceType} = 'purchase' then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
+      expenses: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'out' and ${cashMovement.sourceType} = 'expense' then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
+    })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+        sql`${cashMovement.date} >= ${startStr}`,
+      ),
+    )
+    .groupBy(sql`to_char(${cashMovement.date}, 'YYYY-MM')`);
+
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const net = (Number(r.sales) || 0) - (Number(r.purchases) || 0) - (Number(r.expenses) || 0);
+    map.set(r.month, net);
+  }
+
+  // آخر N أشهر، الأحدث أولاً — نملأ الأشهر بلا حركة بصفر لاستمرارية العرض.
+  const result: MonthlyProfit[] = [];
+  for (let i = 0; i < months; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    result.push({
+      month: key,
+      label: `${AR_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
+      netProfitCents: map.get(key) || 0,
+    });
+  }
+  return result;
 }

@@ -35,11 +35,14 @@ import {
   useCashSummary,
   useAccountBalances,
   useAverageMonthlySpend,
+  useMonthlyProfit,
+  useFinancialPosition,
 } from "../hooks";
 import { useOpeningBalance } from "@/features/finance/hooks";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/status-colors";
 import { LiquidityFlowPanel } from "./LiquidityFlowPanel";
+import { MonthlyProfitPanel } from "./MonthlyProfitPanel";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { FinancialAdvisor } from "./FinancialAdvisor";
 
@@ -215,6 +218,11 @@ export function DashboardClient() {
   } = useAccountBalances();
   const { data: openingBal } = useOpeningBalance();
   const { data: avgMonthlySpend } = useAverageMonthlySpend(3);
+  // الوضع المالي as-of نهاية الفترة المختارة — يقود بطاقات الرصيد/التركيبة
+  // (يتوازن رياضياً فيختفي بند «تسويات أخرى» لأي فترة).
+  const { data: position } = useFinancialPosition(endDateStr);
+  // ربح كل شهر — مستقل عن الفلتر.
+  const { data: monthlyProfit } = useMonthlyProfit(6);
 
   const handleRetryAll = () => {
     refetchSummary();
@@ -269,6 +277,13 @@ export function DashboardClient() {
   const totalBankCents = accountBalances
     ? accountBalances.filter((a) => a.type === "bank").reduce((acc, accAccount) => acc + accAccount.balanceCents, 0)
     : 0;
+
+  // قيم النقد as-of نهاية الفترة المختارة (من الوضع المالي المتوازن)، مع
+  // fallback لأرصدة كل التاريخ ريثما يُحمَّل. على فلتر «الكل» = الرصيد الحالي.
+  const asOfCashCents = position?.assets.cashCents ?? totalCashCents;
+  const asOfBankCents = position?.assets.bankCents ?? totalBankCents;
+  const asOfRealCashCents = position?.assets.totalCents ?? (totalCashCents + totalBankCents);
+  const asOfDepositsHeldCents = position?.liabilities.depositsCents ?? (cashSummary?.depositsHeldCents ?? 0);
 
   // معالجة صافي حركة المالك لتحديد اللون والإشارة.
   const ownerNet = summary?.ownerNet ?? 0;
@@ -364,36 +379,32 @@ export function DashboardClient() {
 
             {/* ═══ نظرة سريعة — بطاقتان نظيفتان فقط ═══ */}
             <div className="grid grid-cols-2 gap-3">
-              {/* إجمالي النقدية — مدموجة (صندوق + بنك) */}
-              {accountBalances && (
-                <div className="bg-gradient-to-r from-info-soft to-info/5 p-3 rounded-lg border border-info/20 shadow-sm">
-                  <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1 whitespace-nowrap">
-                    <Wallet className="h-3.5 w-3.5 text-info shrink-0" />
-                    النقد المتاح الآن
-                  </span>
-                  <p className="text-lg font-black text-info mt-0.5 leading-tight whitespace-nowrap">
-                    <AmountText amount={totalCashCents + totalBankCents} hideCurrency />
-                  </p>
-                  <p className="text-[9px] text-ink/40 leading-tight whitespace-nowrap">
-                    صندوق: <AmountText amount={totalCashCents} hideCurrency /> · بنك: <AmountText amount={totalBankCents} hideCurrency />
-                  </p>
-                </div>
-              )}
-              {/* عربونات في ذمتك — التزام تراكمي */}
-              {cashSummary && (
-                <div className="bg-warn-soft/30 p-3 rounded-lg border border-warn/15 shadow-sm">
-                  <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1 whitespace-nowrap">
-                    <AlertCircle className="h-3.5 w-3.5 text-warn-deep shrink-0" />
-                    مجموع العربون لكل الطلبات
-                  </span>
-                  <p className="text-lg font-black text-warn-deep mt-0.5 leading-tight whitespace-nowrap">
-                    <AmountText amount={cashSummary.depositsHeldCents} hideCurrency />
-                  </p>
-                </div>
-              )}
+              {/* إجمالي النقدية — مدموجة (صندوق + بنك) حتى نهاية الفترة */}
+              <div className="bg-gradient-to-r from-info-soft to-info/5 p-3 rounded-lg border border-info/20 shadow-sm">
+                <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1 whitespace-nowrap">
+                  <Wallet className="h-3.5 w-3.5 text-info shrink-0" />
+                  النقد المتاح
+                </span>
+                <p className="text-lg font-black text-info mt-0.5 leading-tight whitespace-nowrap">
+                  <AmountText amount={asOfRealCashCents} hideCurrency />
+                </p>
+                <p className="text-[9px] text-ink/40 leading-tight whitespace-nowrap">
+                  صندوق: <AmountText amount={asOfCashCents} hideCurrency /> · بنك: <AmountText amount={asOfBankCents} hideCurrency />
+                </p>
+              </div>
+              {/* عربونات في ذمتك — التزام (حتى نهاية الفترة) */}
+              <div className="bg-warn-soft/30 p-3 rounded-lg border border-warn/15 shadow-sm">
+                <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1 whitespace-nowrap">
+                  <AlertCircle className="h-3.5 w-3.5 text-warn-deep shrink-0" />
+                  مجموع العربون لكل الطلبات
+                </span>
+                <p className="text-lg font-black text-warn-deep mt-0.5 leading-tight whitespace-nowrap">
+                  <AmountText amount={asOfDepositsHeldCents} hideCurrency />
+                </p>
+              </div>
             </div>
 
-            {/* ═══ حركة الكاش — من أين جاء وأين ذهب ═══ */}
+            {/* ═══ حركة الكاش — إطار متوازن: بداية الفترة + داخل − خارج = نهايتها ═══ */}
             {summary && (
               <LiquidityFlowPanel
                 actualSales={summary.actualSales ?? 0}
@@ -402,8 +413,9 @@ export function DashboardClient() {
                 purchases={summary.purchases ?? 0}
                 expenses={summary.expenses ?? 0}
                 ownerDraw={summary.ownerDraw ?? 0}
-                openingBalanceCents={(openingBal?.cashCents ?? 0) + (openingBal?.bankCents ?? 0)}
-                actualBalanceCents={totalCashCents + totalBankCents}
+                carriedBalanceCents={summary.carriedBalanceCents ?? 0}
+                openingInPeriodCents={summary.openingCents ?? 0}
+                endBalanceCents={summary.endBalanceCents ?? 0}
               />
             )}
 
@@ -419,13 +431,15 @@ export function DashboardClient() {
               />
             )}
 
-            {/* ═══ الربح مقابل السيولة — تركيبة النقد (بعد بطاقة «هل أربح؟») ═══ */}
-            {summary && cashSummary && accountBalances && (() => {
-              const realCash = totalCashCents + totalBankCents;
-              const opening = (openingBal?.cashCents ?? 0) + (openingBal?.bankCents ?? 0);
-              const ownerNet = (summary.ownerInject ?? 0) - (summary.ownerDraw ?? 0);
-              const depositsHeld = cashSummary.depositsHeldCents;
-              const profit = summary.netProfit ?? 0;
+            {/* ═══ الربح مقابل السيولة — تركيبة النقد as-of نهاية الفترة ═══ */}
+            {/* تُحسب من الوضع المالي المتوازن، فالمجموع = النقد المتاح دائماً
+                وبند «تسويات أخرى» يبقى صفراً لأي فترة تختارها. */}
+            {position && (() => {
+              const realCash = position.assets.totalCents;
+              const opening = position.equity.openingCashInEquityCents;
+              const ownerNet = position.equity.injectionsCents - position.equity.drawingsCents;
+              const depositsHeld = position.liabilities.depositsCents;
+              const profit = position.equity.retainedProfitCents;
               const composed = opening + ownerNet + depositsHeld + profit;
               const residual = realCash - composed;
               return (
@@ -470,6 +484,11 @@ export function DashboardClient() {
                 </div>
               );
             })()}
+
+            {/* ═══ ربح كل شهر — مستقل عن الفلتر ═══ */}
+            {monthlyProfit && monthlyProfit.length > 0 && (
+              <MonthlyProfitPanel data={monthlyProfit} />
+            )}
 
             {/* أبرز المصاريف */}
             {stats && stats.topExpenses && stats.topExpenses.length > 0 && (
@@ -526,12 +545,12 @@ export function DashboardClient() {
         <div className="px-0 pb-28">
           <FinancialAdvisor
             data={{
-              realCash: totalCashCents + totalBankCents,
+              realCash: asOfRealCashCents,
               opening: (openingBal?.cashCents ?? 0) + (openingBal?.bankCents ?? 0),
               ownerNet: (summary.ownerInject ?? 0) - (summary.ownerDraw ?? 0),
               ownerInject: summary.ownerInject ?? 0,
               ownerDraw: summary.ownerDraw ?? 0,
-              depositsHeld: cashSummary.depositsHeldCents,
+              depositsHeld: asOfDepositsHeldCents,
               expectedRemaining: cashSummary.expectedRemainingCents,
               netProfit: summary.netProfit ?? 0,
               actualSales: summary.actualSales ?? 0,
