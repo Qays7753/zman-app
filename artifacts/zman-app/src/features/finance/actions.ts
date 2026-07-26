@@ -26,6 +26,16 @@ import {
   type OwnerTransaction,
   type OpeningBalance,
 } from "./db";
+// Phase 3 — value import من catalog/db لجلب الصنف المرتبط في createPurchase.
+import { catalogComponent } from "../catalog/db";
+// Phase 3 — catalogMovement للحذف الناعم في deletePurchase.
+import { catalogMovement } from "../inventory/db";
+// Phase 3 — inventory: deductForDelivery داخل convertOrderToSale، restoreForReverse
+// داخل reverseSale. استيراد دوال فقط (لا DB type) — لا دورة استيراد لأن
+// inventory/actions.ts يستورد من finance/db.ts و orders/db.ts (value imports)،
+// وfinance/actions.ts يستورد من inventory/actions.ts (functions). لا import type
+// من finance/actions.ts في inventory/actions.ts. سلسلة آمنة.
+import { deductForDelivery, restoreForReverse, addCatalogMovement } from "../inventory/actions";
 import {
   expenseInputSchema,
   purchaseInputSchema,
@@ -169,6 +179,8 @@ export async function createPurchase(
           costNature: parsed.data.isCapitalAsset
             ? null
             : (parsed.data.costNature ?? null),
+          // Phase 3 — ربط اختياري بصنف الكتالوج (card 3.F). undefined → null للـ DB.
+          linkedCatalogComponentId: parsed.data.linkedCatalogComponentId ?? null,
         })
         .returning();
 
@@ -186,6 +198,41 @@ export async function createPurchase(
           sourceType: "purchase",
           sourceId: newPurchase.id,
           description: newPurchase.notes || `شراء مواد: ${newPurchase.item} (الكمية: ${newPurchase.quantity})`,
+        });
+      }
+
+      // Phase 3 — إضافة حركة مخزون `in` إن كان الصنف مرتبطاً ومتتبَّعاً (card 3.F).
+      // متطلب spec: إن كان الصنف غير متتبَّع، ارفض بخطأ واضح "الصنف غير متتبَّع أو
+      // غير موجود". هذا يحمي من ربط فاتورة بصنف غير مُفعَّل للتتبّع — المستخدم يجب
+      // أن يُفعّل التتبّع من صفحة المكوّنات أولاً أو يُلغي الربط.
+      if (parsed.data.linkedCatalogComponentId) {
+        const [linkedComp] = await tx
+          .select({ id: catalogComponent.id, tracked: catalogComponent.tracked })
+          .from(catalogComponent)
+          .where(
+            and(
+              eq(catalogComponent.id, parsed.data.linkedCatalogComponentId),
+              isNull(catalogComponent.deletedAt),
+            ),
+          )
+          .for("update");
+
+        if (!linkedComp || !linkedComp.tracked) {
+          // بطاقة 3.F: خطأ واضح لرفض الربط بصنف غير متتبَّع. transaction ترجع كاملة.
+          throw new Error("الصنف غير متتبَّع أو غير موجود");
+        }
+
+        await addCatalogMovement({
+          tx,
+          catalogComponentId: linkedComp.id,
+          direction: "in",
+          quantity: parsed.data.quantity,
+          sourceType: "purchase",
+          sourceId: newPurchase.id,
+          notes: `إضافة من فاتورة شراء: ${newPurchase.item} (الكمية: ${newPurchase.quantity})`,
+          date: newPurchase.date,
+          // requestId لا يُمرَّر: المفتاح مُستخدَم بالفعل من create_purchase.
+          // convertOrderToSale يضمن idempotency على مستوى transaction كاملاً.
         });
       }
 
@@ -272,6 +319,8 @@ export async function updatePurchase(
           costNature: parsed.data.isCapitalAsset
             ? null
             : (parsed.data.costNature ?? null),
+          // Phase 3 — ربط بصنف الكتالوج (card 3.F). undefined → null للـ DB.
+          linkedCatalogComponentId: parsed.data.linkedCatalogComponentId ?? null,
           updatedAt: new Date(),
         })
         .where(
@@ -329,6 +378,50 @@ export async function updatePurchase(
               isNull(cashMovement.deletedAt)
             )
           );
+      }
+
+      // Phase 3 — مزامنة حركة المخزون المرتبطة (card 3.F).
+      // أبسط نهج (per spec): أعد الاشتقاق دائماً — احذف ناعماً أي حركة نشطة
+      // مرتبطة بهذه الفاتورة، ثم أدرج جديدة إن كان الصنف الجديد مرتبطاً ومتتبَّعاً.
+      // هذا أنظف من محاولة تحديث الكمية لأن التغيير قد يشمل الربط نفسه (صنف مختلف).
+      await tx
+        .update(catalogMovement)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(catalogMovement.sourceType, "purchase"),
+            eq(catalogMovement.sourceId, id),
+            isNull(catalogMovement.deletedAt)
+          )
+        );
+
+      if (parsed.data.linkedCatalogComponentId) {
+        const [linkedComp] = await tx
+          .select({ id: catalogComponent.id, tracked: catalogComponent.tracked })
+          .from(catalogComponent)
+          .where(
+            and(
+              eq(catalogComponent.id, parsed.data.linkedCatalogComponentId),
+              isNull(catalogComponent.deletedAt),
+            ),
+          )
+          .for("update");
+
+        if (!linkedComp || !linkedComp.tracked) {
+          // نفس خطأ createPurchase — الفاتورة لا يمكن ربطها بصنف غير متتبَّع.
+          throw new Error("الصنف غير متتبَّع أو غير موجود");
+        }
+
+        await addCatalogMovement({
+          tx,
+          catalogComponentId: linkedComp.id,
+          direction: "in",
+          quantity: parsed.data.quantity,
+          sourceType: "purchase",
+          sourceId: updatedPurchase.id,
+          notes: `إضافة من فاتورة شراء: ${updatedPurchase.item} (الكمية: ${updatedPurchase.quantity})`,
+          date: updatedPurchase.date,
+        });
       }
 
       revalidatePath("/finance");
@@ -403,6 +496,20 @@ export async function deletePurchase(
             eq(cashMovement.sourceType, "purchase"),
             eq(cashMovement.sourceId, id),
             isNull(cashMovement.deletedAt)
+          )
+        );
+
+      // Phase 3 — حذف ناعم لحركة المخزون المرتبطة (إن وُجدت) للحفاظ على اتساق
+      // دفتر catalog_movement. حذف الفاتورة بدون هذا يترك حركة `in` يتيمة تُضخّم
+      // الرصيد. الـ soft-delete يحافِظ على الأثر التاريخي.
+      await tx
+        .update(catalogMovement)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(catalogMovement.sourceType, "purchase"),
+            eq(catalogMovement.sourceId, id),
+            isNull(catalogMovement.deletedAt)
           )
         );
 
@@ -1162,6 +1269,18 @@ export async function convertOrderToSale(
         });
       }
 
+      // 7.5. Phase 3 — خصم المخزون داخل نفس الـ transaction (card 3.D).
+      //      إن فشل (مثلاً FK failure لصنف محذوف)، الـ transaction كله يرجع،
+      //      بما فيه إدراج المبيعة وحركات الصندوق. هذا هو atomicity المطلوب.
+      //      insertion point: قبل تحديث status (SA1 §3.D note) كي لا يصبح الطلب
+      //      «مُسلَّم» فجأة وحركات المخزون فشلت. الأصناف غير المتتبَّعة تُتخطّى
+      //      صامتةً (white-list). السالب لا يُمنع — يُسجَّل في notes (§6 سيناريو 1).
+      await deductForDelivery({
+        tx,
+        orderId,
+        saleId: newSale.id,
+      });
+
       // 8. Update order status to delivered.
       await tx
         .update(order)
@@ -1270,6 +1389,12 @@ export async function reverseSale(
             .where(eq(cashMovement.id, mov.id));
         }
       }
+
+      // 4.5. Phase 3 — استرجاع حركات المخزون قبل حذف المبيعة (card 3.E).
+      //      soft-delete كل catalog_movement بـ source_type='order_delivery'
+      //      و source_id=linkedSale.id. يُستدعى داخل نفس الـ transaction، فأي
+      //      فشل = rollback كامل. الترتيب: استرجاع المخزون أولاً، ثم حذف المبيعة.
+      await restoreForReverse({ tx, saleId: linkedSale.id });
 
       // 5. احذف ناعماً صف المبيعة
       await tx

@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { List, Trash2, Boxes } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { List, Trash2, Boxes, PackageCheck } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AmountText } from "@/components/shared/AmountText";
@@ -13,6 +13,9 @@ import { TextArea } from "@/components/shared/TextArea";
 import { purchaseInputSchema } from "../schema";
 import type { NewPurchase, Purchase } from "../types";
 import { usePurchaseItemCatalog } from "../hooks";
+// Phase 3 — ربط بصنف الكتالوج المتتبَّع.
+import { useCatalogComponents } from "@/features/catalog/hooks";
+import { useComponentStock } from "@/features/inventory/hooks";
 
 interface PurchaseFormProps {
   initialData?: Purchase | null;
@@ -44,6 +47,14 @@ export function PurchaseForm({
 
   // جلب العناصر الشائعة للمشتريات
   const { data: catalogItems = [] } = usePurchaseItemCatalog();
+  // Phase 3 — جلب أصناف الكتالوج (للربط بالصنف المتتبَّع). نفلتر محلياً للأصناف
+  // المتتبَّعة فقط — الـ UI يمنع المستخدم من ربط فاتورة بصنف غير متتبَّع، لكن
+  // الخادم يتحقق أيضاً ويرمي خطأً صريحاً إن تُخطِّي.
+  const { data: trackedCatalogItems = [] } = useCatalogComponents();
+  const trackedItems = useMemo(
+    () => trackedCatalogItems.filter((c) => c.tracked),
+    [trackedCatalogItems],
+  );
 
   const defaultValues = {
     date: initialData
@@ -61,6 +72,8 @@ export function PurchaseForm({
     // Phase 2 — التصنيف بُعدين: افتراضي false/'variable'.
     isCapitalAsset: initialData?.isCapitalAsset ?? false,
     costNature: initialData?.costNature ?? "variable",
+    // Phase 3 — الربط بصنف الكتالوج (nullable).
+    linkedCatalogComponentId: initialData?.linkedCatalogComponentId ?? null,
   };
 
   const {
@@ -78,9 +91,21 @@ export function PurchaseForm({
   // Phase 2 — نراقب isCapitalAsset لإظهار/إخفاء حقل طبيعة التكلفة.
   const isCapital = watch("isCapitalAsset");
 
+  // Phase 3 — نراقب linkedCatalogComponentId لعرض تأثير الربط على المخزون.
+  const watchedLinkedCatalogComponentId = watch("linkedCatalogComponentId");
   const watchQty = watch("quantity") || 0;
   const watchUnitCost = watch("unitCostCents") || 0;
   const watchTotal = watch("totalCents") || 0;
+
+  // اجلب رصيد الصنف المرتبط حالياً لعرضه أسفل الحقل.
+  const { data: linkedStock } = useComponentStock(
+    watchedLinkedCatalogComponentId ?? undefined,
+  );
+
+  const linkedItem = useMemo(
+    () => trackedItems.find((i) => i.id === watchedLinkedCatalogComponentId),
+    [trackedItems, watchedLinkedCatalogComponentId],
+  );
 
   // يحسب سعر الوحدة عالي الدقّة (ميلي-fils) من الإجمالي والكمية بلا فقدان كسر.
   const microFromTotal = (totalFils: number, qty: number) =>
@@ -144,6 +169,7 @@ export function PurchaseForm({
       setValue("notes", initialData.notes || "");
       setValue("isCapitalAsset", initialData.isCapitalAsset ?? false);
       setValue("costNature", initialData.costNature ?? "variable");
+      setValue("linkedCatalogComponentId", initialData.linkedCatalogComponentId ?? null);
       setIsCustomItem(!catalogItems.some((c) => c.name === initialData.item));
     }
   }, [initialData, setValue, catalogItems]);
@@ -278,9 +304,7 @@ export function PurchaseForm({
         </div>
 
         {/* Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر).
-            ملاحظة: حقل «صنف الكتالوج المرتبط» يُؤجَّل للمرحلة 3 (بطاقة 3.A
-            migration 0021 تُضيف linked_catalog_component_id؛ بطاقة 2.J تختار
-            المنهج البديل الأنظف: فقط التصنيف في Phase 2). */}
+            Phase 3 — أُضيف حقل «صنف الكتالوج المرتبط» (كان مؤجَّلاً من 2.J). */}
         <div className="space-y-3 p-3.5 bg-canvas/30 rounded-lg border border-hairline">
           {/* بُعد 1: رأسمالي؟ */}
           <div className="flex items-center gap-3">
@@ -315,6 +339,58 @@ export function PurchaseForm({
                 <option value="variable">متغيّرة (خامات، تغليف، وقود)</option>
                 <option value="fixed">ثابتة (إيجار، اشتراك، رواتب)</option>
               </select>
+            </div>
+          )}
+        </div>
+
+        {/* Phase 3 — ربط اختياري بصنف كتالوج متتبَّع (card 3.J).
+            عند اختيار صنف متتبَّع، تُنشئ createPurchase حركة `in` في catalog_movement
+            تُضيف الكمية المشتراة للرصيد. الفاتورة تظل تدخل P&L كالمعتاد (cash basis)
+            لكنها تُضيف للرصيد التشغيلي أيضاً. الأصناف غير المتتبَّعة لا تظهر في القائمة. */}
+        <div className="space-y-2 flex flex-col">
+          <label
+            htmlFor={`${formId}-linked-catalog`}
+            className="text-sm font-bold text-ink/75 flex items-center gap-1.5"
+          >
+            <PackageCheck className="w-4 h-4 text-info" />
+            ربط بصنف كتالوج متتبَّع (اختياري — يزيد رصيد المخزون)
+          </label>
+          <Controller
+            control={control}
+            name="linkedCatalogComponentId"
+            render={({ field }) => (
+              <select
+                id={`${formId}-linked-catalog`}
+                value={field.value ?? ""}
+                onChange={(e) =>
+                  field.onChange(e.target.value === "" ? null : e.target.value)
+                }
+                className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink text-start focus:outline-none focus:ring-2 focus:ring-ink"
+              >
+                <option value="">— لا ربط (نص حر فقط) —</option>
+                {trackedItems.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.unit})
+                  </option>
+                ))}
+              </select>
+            )}
+          />
+          {trackedItems.length === 0 && (
+            <p className="text-[11px] text-ink-3">
+              لا توجد أصناف متتبَّعة. فعِّل التتبّع على صنف من صفحة المكوّنات أولاً.
+            </p>
+          )}
+          {/* معاينة تأثير الربط على المخزون */}
+          {linkedItem && (
+            <div className="p-2.5 rounded-md bg-info-soft text-info-deep text-xs flex items-center justify-between gap-2">
+              <span>
+                سيُضاف <strong className="font-bold">{watchQty || 0}</strong>{" "}
+                {linkedItem.unit} للمخزون عند الحفظ.
+              </span>
+              <span className="opacity-70">
+                الرصيد الحالي: <strong className="font-bold">{linkedStock ?? 0}</strong>
+              </span>
             </div>
           )}
         </div>

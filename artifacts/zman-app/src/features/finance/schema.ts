@@ -35,6 +35,11 @@ export const purchaseInputSchema = z.object({
   // عند isCapitalAsset=false يُفضَّل تحديده (defaultValues في الـ form تضع 'variable').
   isCapitalAsset: z.boolean().default(false),
   costNature: z.enum(["fixed", "variable"]).optional(),
+  // Phase 3 — ربط اختياري بصنف الكتالوج المتتبَّع (card 3.A/3.H/3.J).
+  // nullable + optional: undefined (لم يُحدَّد) → null في الـ DB. null (صريح) → لا ربط.
+  // createPurchase/updatePurchase تتحقق من tracked=true قبل إدراج حركة المخزون؛
+  // فإن كان غير متتبَّع، ترمي transaction بخطأ "الصنف غير متتبَّع أو غير موجود".
+  linkedCatalogComponentId: z.string().uuid().optional().nullable(),
 });
 
 // 2. مخطط التحقق للمصاريف

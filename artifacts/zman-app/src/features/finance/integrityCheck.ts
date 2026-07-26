@@ -12,6 +12,9 @@ import {
   openingBalance,
 } from "./db";
 import { order } from "../orders/db";
+// Phase 3 — IC-12 يجمع رصيد catalog_movement مع defaultCostCents من catalog_component.
+import { catalogComponent } from "../catalog/db";
+import { catalogMovement } from "../inventory/db";
 // Phase 2 — IC-13 يستدعي نقاط الدخول العامة الثلاث للربح التشغيلي ويتحقّق من
 // تطابقها. أي تعديل مستقبلي يحاول الالتفاف على computeOperatingPnl الموحَّدة
 // سيُكشَف هنا. لا دورة استيراد وقت التشغيل: تقارير/إجراءات تستعمل import type
@@ -55,7 +58,7 @@ export async function runFinancialIntegrityCheck(
 ): Promise<IntegrityReport> {
   const effectiveDate = asOfDate ?? new Date().toLocaleDateString("en-CA");
 
-  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic13] =
+  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13] =
     await Promise.all([
       checkIC1EquityDrift(effectiveDate),
       checkIC2OrphanMovements(),
@@ -68,11 +71,13 @@ export async function runFinancialIntegrityCheck(
       checkIC9SaleAmountMatchesOrderRevenue(),
       checkIC10OwnerTxAmountMatchesCashMovement(),
       checkIC11OpeningBalanceMatchesCashMovements(),
+      // Phase 3 — IC-12: دفتر المخزون (catalog_movement). WARN فقط، لا FAIL.
+      checkIC12CatalogLedgerConsistency(effectiveDate),
       // Phase 2 — IC-13: LOCKED-6 (تطابق الربح بين المصادر الثلاثة).
       checkIC13PnlSourcesConsistency(effectiveDate),
     ]);
 
-  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic13];
+  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13];
 
   const overallStatus: IntegrityCheckStatus = results.some(
     (r) => r.status === "FAIL",
@@ -892,6 +897,81 @@ async function checkIC11OpeningBalanceMatchesCashMovements(): Promise<IntegrityC
       drift !== 0
         ? `الانحراف ${(drift / 1000).toFixed(3)} د.أ. تحقّق من حذف حساب يحمل رصيداً افتتاحياً، أو من تعديل يدوي لـ opening_balance دون إنشاء حركة صندوق مقابلة.`
         : undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-12 — دفتر المخزون (catalog_movement) — Phase 3 — WARN فقط
+// ─────────────────────────────────────────────────────────────────────────
+//
+// الهدف: عرض معلومات تشغيلية عن دفتر المخزون (لا فحص سلامة مالي فعلي).
+// المخزون لا يدخل P&L ولا الميزانية ولا حقوق الملكية (INV-19a). هذا الفحص
+// يعرض فقط: عدد الأصناف المتتبَّعة، مجموع الحركات، القيمة التقديرية للرصيد
+// (defaultCostCents × balance).
+//
+// status = WARN دائماً (معلومة، لا خطأ). لن يُصبح FAIL أبداً — هذا التصميم
+// مقصود: المخزون ليس قيد سلامة مالية.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC12CatalogLedgerConsistency(
+  asOfDate: string,
+): Promise<IntegrityCheckResult> {
+  // رصيد كل صنف متتبَّع = Σ(in) − Σ(out) حتى asOfDate.
+  // JOIN مع catalog_component لجلب defaultCostCents والفلترة على tracked=true.
+  // LEFT JOIN كي يشمل الأصناف المتتبَّعة بلا حركات (balance=0).
+  const rows = await db
+    .select({
+      catalogComponentId: catalogComponent.id,
+      name: catalogComponent.name,
+      defaultCostCents: catalogComponent.defaultCostCents,
+      balance: sql<number>`coalesce(sum(
+        case when ${catalogMovement.direction} = 'in' then ${catalogMovement.quantity}
+             else -${catalogMovement.quantity} end
+      ), 0)::bigint`,
+    })
+    .from(catalogComponent)
+    .leftJoin(
+      catalogMovement,
+      and(
+        eq(catalogMovement.catalogComponentId, catalogComponent.id),
+        isNull(catalogMovement.deletedAt),
+        sql`${catalogMovement.date} <= ${asOfDate}`,
+      ),
+    )
+    .where(
+      and(
+        eq(catalogComponent.tracked, true),
+        isNull(catalogComponent.deletedAt),
+      ),
+    )
+    .groupBy(
+      catalogComponent.id,
+      catalogComponent.name,
+      catalogComponent.defaultCostCents,
+    );
+
+  const totalCatalogs = rows.length;
+  const totalMovements = rows.reduce((sum, r) => sum + Math.abs(r.balance), 0);
+  const totalEstimatedValueCents = rows.reduce(
+    (sum, r) => sum + r.balance * r.defaultCostCents,
+    0,
+  );
+
+  const formattedValue = (totalEstimatedValueCents / 1000).toFixed(3);
+
+  return {
+    id: "IC-12",
+    invariantId: "INV-20",
+    status: "WARN",
+    titleAr: "دفتر المخزون (معلومة تشغيلية)",
+    descriptionAr:
+      `عدد الأصناف المتتبَّعة: ${totalCatalogs}. ` +
+      `مجموع الحركات (|in|+|out| بتراكم الرصيد): ${totalMovements}. ` +
+      `القيمة التقديرية للرصيد (defaultCostCents × balance): ${formattedValue} د.أ. ` +
+      `المخزون لا يدخل P&L ولا الميزانية — معلومة تشغيلية فقط.`,
+    count: totalCatalogs,
+    driftCents: totalEstimatedValueCents,
+    suggestedFixAr: undefined,
   };
 }
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, TrendingDown, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Loader2, TrendingDown, TrendingUp, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
@@ -14,6 +14,9 @@ import { createOrderSchema, updateOrderSchema } from "../schema";
 import type { OrderWithComponents } from "../types";
 import { ComponentsEditor } from "./ComponentsEditor";
 import { useCreateOrder, useUpdateOrder } from "../hooks";
+// Phase 3 — جلب رصيد الأصناف المتتبَّعة في المكوّنات لعرض تحذير شامل.
+import { useCatalogComponents } from "@/features/catalog/hooks";
+import { useComponentStock } from "@/features/inventory/hooks";
 
 interface OrderFormProps {
   initialData?: OrderWithComponents | null;
@@ -283,6 +286,11 @@ export function OrderForm({
 
       {/* محرّر المكونات */}
       <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm">
+        {/* Phase 3 (card 3.L) — شريط تحذير شامل للرصيد المتاح مقابل المطلوب. */}
+        <TrackedStockBanner
+          components={watchedComponents}
+          orderQuantity={watchedQuantity}
+        />
         <ComponentsEditor
           control={control}
           register={register}
@@ -551,4 +559,147 @@ export function OrderForm({
       </div>
     </form>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 3 (card 3.L) — شريط تحذير شامل للرصيد المتاح مقابل المطلوب.
+//
+// نأخذ لقطة المكوّنات المُراقَبة + كمية المنتج، نُحدِّد المكوّنات المرتبطة
+// بأصناف كتالوج، نستعلم عن رصيد كل صنف، ونجمع:
+//   - totalAvailable = Σ stock per unique tracked catalogComponentId
+//   - totalRequired = Σ (component.quantity × orderQuantity) for tracked components
+//
+// إن totalRequired > totalAvailable: اعرض تحذيراً برتقالالياً. لا منع — مجرد
+// توعية قبل التسليم (§6 سيناريو 1: لا منع للسالب).
+//
+// ملاحظة: totalAvailable يجمع الرصيد عبر الأصناف الفريدة فقط (لا يُضاعف إن تكرر
+// نفس الصنف في مكوّنين). هذا عمداً — الرصيد ملك للصنف لا للمكوّن.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface ComponentLike {
+  catalogComponentId?: string | null;
+  quantity?: number;
+  name?: string;
+  unit?: string;
+}
+
+function TrackedStockBanner({
+  components,
+  orderQuantity,
+}: {
+  components: ComponentLike[];
+  orderQuantity: number;
+}) {
+  // اجلب أصناف الكتالوج لمعرفة أيها متتبَّع. (نعم، هذا fetch إضافي — نعذره لأن
+  // البيانات صغيرة ومُخزَّنة مؤقتاً.)
+  const { data: catalogItems = [] } = useCatalogComponents();
+  const trackedMap = useMemo(() => {
+    const m = new Map<string, boolean>();
+    for (const c of catalogItems) m.set(c.id, c.tracked);
+    return m;
+  }, [catalogItems]);
+
+  // اجمع معرّفات الأصناف المتتبَّعة المُستخدَمة في المكوّنات (فريدة).
+  const trackedCatalogIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of components) {
+      if (c.catalogComponentId && trackedMap.get(c.catalogComponentId)) {
+        ids.add(c.catalogComponentId);
+      }
+    }
+    return Array.from(ids);
+  }, [components, trackedMap]);
+
+  // اطلب رصيد كل صنف متتبَّع عبر مكوّن فرعي (React Query hook per id).
+  // useComponentStock متاح في inventory/hooks. نُلوّن المكوّنات الفرعية لتُبلغ
+  // الأب عبر callback. أبسط نهج: كل Child يُعيد رصيده، والأب يجمع.
+  // نستخدم state محلياً للأب لتجميع الأرصدة عبر effect.
+  const [stocks, setStocks] = useState<Record<string, number>>({});
+
+  // إن لم تكن هناك أصناف متتبَّعة، لا تعرض شيئاً.
+  if (trackedCatalogIds.length === 0) return null;
+
+  // احسب المطلوب: Σ (component.quantity × orderQuantity) لكل مكوّن متتبَّع.
+  const totalRequired = components.reduce((sum, c) => {
+    if (c.catalogComponentId && trackedMap.get(c.catalogComponentId)) {
+      const q = Number(c.quantity) || 0;
+      return sum + q * (orderQuantity || 0);
+    }
+    return sum;
+  }, 0);
+
+  const totalAvailable = trackedCatalogIds.reduce(
+    (sum, id) => sum + (stocks[id] ?? 0),
+    0,
+  );
+
+  const isShort = totalRequired > totalAvailable;
+
+  return (
+    <div className="mb-4">
+      {/* أبناء مخفيون لجلب الرصيد لكل صنف وتحديث state الأب. */}
+      <div className="hidden">
+        {trackedCatalogIds.map((id) => (
+          <StockFetcher
+            key={id}
+            catalogComponentId={id}
+            onStock={(s) => {
+              if (stocks[id] !== s) {
+                setStocks((prev) => ({ ...prev, [id]: s }));
+              }
+            }}
+          />
+        ))}
+      </div>
+
+      <div
+        className={`p-3 rounded-md border text-xs flex items-start gap-2 ${
+          isShort
+            ? "border-warn/40 bg-warn-soft text-warn-deep"
+            : "border-info/30 bg-info-soft text-info-deep"
+        }`}
+      >
+        <AlertTriangle
+          className={`w-4 h-4 shrink-0 mt-0.5 ${isShort ? "text-warn-deep" : "text-info"}`}
+        />
+        <div className="leading-relaxed">
+          <span className="font-bold">
+            الرصيد الإجمالي للكونات المتتبَّعة: {totalAvailable}
+          </span>
+          <span className="opacity-70"> · </span>
+          <span className="font-bold">
+            المطلوب: {totalRequired}
+          </span>
+          {isShort && (
+            <span className="block mt-1">
+              ⚠️ المطلوب يتجاوز المتاح بـ {totalRequired - totalAvailable}. يمكنك
+              المتابعة لكن سيُخصم رصيد سالب (مسموح). يُنصح بشراء كمية إضافية أو
+              تعديل المكوّنات.
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * مكوّن فرعي مخفي يطلب رصيد صنف واحد ويُبلغ الأب عبر callback. ضروري لأن
+ * React لا يسمح باستدعاء hooks داخل حلقة — يجب أن يكون لكل استدعاء hook
+ * مكوّن مستقل.
+ */
+function StockFetcher({
+  catalogComponentId,
+  onStock,
+}: {
+  catalogComponentId: string;
+  onStock: (stock: number) => void;
+}) {
+  const { data: stock = 0 } = useComponentStock(catalogComponentId);
+
+  useEffect(() => {
+    onStock(stock);
+  }, [stock, onStock]);
+
+  return null;
 }

@@ -286,6 +286,49 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
         };
       }
 
+      // Phase 3 (card 3.G) — منع تعديل المكوّنات على طلب مُسلَّم. الخصم في
+      // convertOrderToSale يعتمد على لقطة المكوّنات وقت التسليم. تعديلها بعد
+      // التسليم يُكسر اتساق catalog_movement (الكميات المُخصومة لا تتطابق مع
+      // المكوّنات الحالية). الحل: عكس البيع → تعديل المكوّنات → إعادة التحويل.
+      // لا حاجة لمنع تعديل الحقول الأخرى (الاسم/الهاتف/الملاحظات) على المُسلَّم —
+      // فقط المكوّنات. نقارن لقطة موجزة عبر JSON.stringify.
+      if (existing.status === "delivered") {
+        const existingComponents = await tx
+          .select({
+            catalogComponentId: orderComponent.catalogComponentId,
+            name: orderComponent.name,
+            costCents: orderComponent.costCents,
+            quantity: orderComponent.quantity,
+          })
+          .from(orderComponent)
+          .where(eq(orderComponent.orderId, id));
+
+        const existingKey = JSON.stringify(
+          existingComponents.map((c) => ({
+            catalogComponentId: c.catalogComponentId ?? null,
+            name: c.name,
+            costCents: c.costCents,
+            quantity: c.quantity,
+          })),
+        );
+        const newKey = JSON.stringify(
+          (components ?? []).map((c) => ({
+            catalogComponentId: c.catalogComponentId ?? null,
+            name: c.name,
+            costCents: c.costCents,
+            quantity: c.quantity,
+          })),
+        );
+
+        if (existingKey !== newKey) {
+          return {
+            status: "error",
+            message:
+              "لتعديل مكوّنات طلب مُسلَّم، استخدم reverseSale أولاً ثم عدّل ثم أعد التحويل.",
+          };
+        }
+      }
+
       // 6. تحديث الطلب مع شروط الأمان والتزامن المتفائل
       const [updatedOrder] = await tx
         .update(order)
@@ -720,6 +763,12 @@ export async function updateOrderStatus(
       }
 
       if (newStatus === "cancelled") {
+        // Phase 3 (card 3.G) — ملاحظة: لا تأثير على المخزون عند إلغاء طلب في
+        // حالة draft/sent/confirmed. المخزون لم يُخصم لهذه الحالات (الخصم يحدث
+        // فقط في convertOrderToSale التي تنقل الطلب إلى 'delivered'). طلبات
+        // 'delivered' لا يمكن إلغاؤها أصلاً (محجوز أعلاه — يجب reverseSale أولاً).
+        // الأثر المالي هنا يقتصر على soft-delete المبيعة (إن وُجدت — لا توجد عادةً
+        // في draft/sent/confirmed) وحركة عربون الطلب.
         const linkedSales = await tx
           .select({ id: sale.id })
           .from(sale)

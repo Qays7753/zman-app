@@ -150,15 +150,35 @@ ZMAN ورشة صغيرة. صاحبها يريد أن يعرف «كم نقدًا 
 
 ---
 
-## 9. دفتر المخزون (placeholder — المرحلة 3)
+## 9. دفتر المخزون (المرحلة 3 — تشغيلي، لا مالي)
 
-> هذه الفقرة placeholder. سيُملأها SUB-AGENT 3 (Selective Inventory) في بطاقة 3.O
-> بعد إكمال Phase 3 (migrations 0019/0020/0021 + inventory module + IC-12).
-> القواعد المتوقَّعة:
-> - INV-20: `catalog_movement` هو الدفتر المستقل للحركة المادية للمخزون (منفصل عن `cash_movement`).
-> - INV-21: خصم المخزون يحدث فقط داخل `convertOrderToSale` (transaction واحدة مع sale insert).
-> - INV-22: استرجاع المخزون يحدث فقط داخل `reverseSale` (soft-delete للحركات الأصلية).
-> - IC-12: قيد سلامة دفتر المخزون — WARN فقط (معلومي)، لا FAIL.
+> **`catalog_movement` هو دفتر مستقل لتسجيل الحركة الفيزيائية للمخزون.**
+> منفصل تماماً عن `cash_movement`. لا يدخل P&L، لا الميزانية، لا حقوق الملكية.
+> معلومة تشغيلية تساعد صاحب العمل على معرفة «كم عندي من كل صنف متتبَّع» قبل
+> البيع، ولا تُغيّر أي رقم مالي.
+
+| # | القاعدة | يفرضها الفحص |
+|---|---|---|
+| INV-19 | دفتر المخزون (`catalog_movement`) منفصل عن الدفتر النقدي (`cash_movement`). لا يدخل P&L، الميزانية، أو الـ equity. معلومة تشغيلية فقط. الأصناف غير المتتبَّعة (`tracked=false`) لا تُنشئ حركة مخزون إطلاقاً. | مراجعة يدوية + IC-12 (WARN) |
+| INV-20 | خصم المخزون يحدث **فقط** في `convertOrderToSale` (لحظة التحويل، داخل نفس transaction إدراج المبيعة وحركات الصندوق). يُسترجَع في `reverseSale` (soft-delete للحركات الأصلية). كلاهما محميّ بـ `idempotencyKey` على مستوى الـ transaction. الـ atomicity مضمونة: فشل الخصم = rollback كامل (لا مبيعة، لا حركة نقدية، لا تغيير حالة). السالب مسموح (§6 سيناريو 1) — يُسجَّل في `notes` لكن لا يُمنع. | مراجعة يدوية + IC-12 (WARN) |
+| IC-12 | **WATCH فقط، لا FAIL.** يعرض إجمالي حركات المخزون (`totalMovements` = Σ\|balance\|) والقيمة التقديرية للرصيد (`totalEstimatedValueCents` = Σ balance × defaultCostCents) للأصناف المتتبَّعة. القيمة تقديرية (defaultCostCents من الكتالوج، وليس سعر الشراء الفعلي). المخزون ليس قيد سلامة مالية — هذا الفحص معلومي بحت. | IC-12 |
+
+**قواعد إضافية للتعديلات المستقبلية في هذه المرحلة:**
+
+**افعل:**
+- قبل تعديل `convertOrderToSale` أو `reverseSale`، اقرأ INV-20. أي خصم/استرجاع مخزون يجب أن يبقى داخل نفس الـ transaction، وأن يُستدعى قبل تحديث `order.status`.
+- عند تعديل `createPurchase`/`updatePurchase`، احرص على مزامنة `catalog_movement` (`source_type='purchase'`) داخل نفس الـ transaction. `updatePurchase` يحذف ناعماً الحركة القديمة قبل إدراج الجديدة (نمط re-derive).
+- عند تعديل `updateOrder` للطلبات المُسلَّمة، امنع تعديل المكوّنات (لأن الكميات المُخصومة في `catalog_movement` تعتمد على لقطة المكوّنات وقت التسليم). الرسالة: «استخدم reverseSale أولاً ثم عدّل ثم أعد التحويل».
+- عند إضافة `source_type` جديد على `catalog_movement`، حدّث CHECK constraint في `db.ts` و migration + Zod + IC-12 معاً.
+- جميع حركات المخزون تُسجّل بـ `quantity > 0` (CHECK constraint). السالب يُمثَّل بـ `direction='out'`، لا بكمية سالبة.
+
+**لا تفعل أبداً:**
+- لا تُضمِّن قيمة `catalog_movement.balance` في أي حساب مالي: لا `retainedProfitCents`، لا `totalAssets`، لا `totalEquity`، لا `computeOperatingPnl`. المخزون تشغيلي بحت.
+- لا تُنشئ حركة `cash_movement` مرتبطة بحركة `catalog_movement`. الدفتران منفصلان تماماً (INV-19). الشراء يُدرج حركة صندوق `out` (مالية) + حركة مخزون `in` (تشغيلية) — كلٌّ في دفتره.
+- لا تمنع السالب في `deductForDelivery` (§6 سيناريو 1). التحويل يكتمل، يُخصم الرصيد، ويُسجَّل التحذير في `notes`. الـ transaction لا تفشل بسبب السالب.
+- لا تُعدّل `linked_catalog_component_id` على `purchase` دون مزامنة `catalog_movement`. الحركة القديمة تُحذف ناعماً والجديدة تُدرج في نفس الـ transaction.
+- لا تُفعِّل `tracked=true` على صنف له رصيد > 0 دون تأكيد المستخدم صراحةً (§6 سيناريو 4 / SA1 NOTE-3). UI يجب أن يُظهر تحذيراً قبل الإلغاء.
+- لا تُسقط الـ trigger `set_updated_at` على `catalog_movement` (مُرفَق في migration 0020). الحفاظ على `updated_at` تلقائياً يتسق مع باقي الجداول.
 
 ---
 

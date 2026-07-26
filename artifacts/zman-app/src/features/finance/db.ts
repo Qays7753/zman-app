@@ -13,6 +13,10 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import { order } from "../orders/db";
+// Phase 3 — value import من catalog/db (leaf module، لا دورة استيراد). يتيح
+// إضافة linkedCatalogComponentId على purchase ( FK ON DELETE RESTRICT). نفس
+// النمط المُتَّبع في orders/db.ts للـ catalogComponentId على order_component.
+import { catalogComponent } from "../catalog/db";
 
 // 1. Purchase Table
 export const purchase = pgTable(
@@ -43,6 +47,14 @@ export const purchase = pgTable(
     // المُصنَّفة صراحةً. CHECK في migration 0018 يفرض المنطق.
     isCapitalAsset: boolean("is_capital_asset").notNull().default(false),
     costNature: text("cost_nature"),
+    // Phase 3 — ربط اختياري بصنف الكتالوج (card 3.A/3.B). إن كان الصنف متتبَّعاً
+    // (tracked=true)، تُنشئ createPurchase/updatePurchase حركة `in` في
+    // catalog_movement. العمود nullable — الفواتير القديمة بلا ربط تبقى صالحة.
+    // ON DELETE RESTRICT يُحافِظ على الأثر التاريخي (نمط order_component).
+    linkedCatalogComponentId: uuid("linked_catalog_component_id").references(
+      () => catalogComponent.id,
+      { onDelete: "restrict" },
+    ),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -76,6 +88,10 @@ export const purchase = pgTable(
       index("purchase_capital_idx")
         .on(table.isCapitalAsset)
         .where(sql`deleted_at is null`),
+      // Phase 3 — فهرس جزئي على linked_catalog_component_id للفواتير المرتبطة فقط.
+      index("purchase_linked_catalog_idx")
+        .on(table.linkedCatalogComponentId)
+        .where(sql`linked_catalog_component_id IS NOT NULL AND deleted_at IS NULL`),
     ];
   },
 );

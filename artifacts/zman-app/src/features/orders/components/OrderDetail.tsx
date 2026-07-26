@@ -9,6 +9,7 @@ import {
   MessageSquare,
   ShoppingCart,
   Trash2,
+  PackageMinus,
 } from "lucide-react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,9 @@ import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
 import { useConvertOrderToSale, useReverseSale } from "../../finance/hooks";
 import { useDeleteOrder, useOrder, useUpdateOrderStatus, useMessageTemplate } from "../hooks";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+// Phase 3 — استعلام حركات المخزون المُستهلكة عند التسليم (card 3.M).
+import { getCatalogMovementsForOrder } from "@/features/inventory/queries";
+import { useQuery } from "@tanstack/react-query";
 
 interface OrderDetailProps {
   orderId: string;
@@ -45,6 +49,17 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   const updateStatusMutation = useUpdateOrderStatus();
   const convertOrderToSaleMutation = useConvertOrderToSale();
   const reverseSaleMutation = useReverseSale();
+
+  // Phase 3 — حركات المخزون المُستهلكة (card 3.M). تُجلب دائماً، لكن تُعرض فقط
+  // إن كان الطلب مُسلَّماً. يُعاد جلبها تلقائياً عند تغيّر حالة الطلب.
+  const { data: consumedMovements = [] } = useQuery({
+    queryKey: ["inventory", "consumed-for-order", orderId],
+    queryFn: () => getCatalogMovementsForOrder(orderId),
+    enabled: !!orderId,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
   const [isConverting, setIsConverting] = useState(false);
   const [isReversing, setIsReversing] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -331,6 +346,42 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           </div>
         )}
       </div>
+
+      {/* Phase 3 (card 3.M) — المواد المستهلكة من المخزون. تُعرض فقط للطلبات
+          المُسلَّمة (status='delivered'). تسرد كل صنف متتبَّع اُستهلك في التسليم
+          مع الكمية والتاريخ. إن لم تكن هناك حركات، لا تُعرض البطاقة. */}
+      {orderData.status === "delivered" && consumedMovements.length > 0 && (
+        <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-3">
+          <h4 className="text-base font-bold text-ink border-b border-hairline pb-2 flex items-center gap-1.5">
+            <PackageMinus className="w-4 h-4 text-info" />
+            المواد المستهلكة من المخزون
+          </h4>
+          <ul className="divide-y divide-hairline">
+            {consumedMovements.map((m) => (
+              <li
+                key={m.movementId}
+                className="py-2.5 flex items-center justify-between gap-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-ink">{m.catalogName}</span>
+                    <span className="text-[10px] text-ink-3">
+                      ({m.componentName})
+                    </span>
+                  </div>
+                  <div className="text-xs text-ink-3 mt-0.5">
+                    <DateText date={m.movementDate} />
+                    {m.notes ? ` · ${m.notes}` : ""}
+                  </div>
+                </div>
+                <span className="font-bold text-alert shrink-0">
+                  −{m.quantity} {m.catalogUnit}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* ملخص التسعير والأرباح */}
       <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">

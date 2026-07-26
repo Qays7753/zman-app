@@ -12,8 +12,11 @@ export const orderComponentInputSchema = z.object({
     .positive("التكرار في الوحدة يجب أن يكون أكبر من صفر"),
   // الربط المفقود (المرحلة 1): معرّف صنف الكتالوج إن اختير من الـ picker.
   // اختياري لأن الإضافة اليدوية لا تحمل id (نص حر). يُمرَّر null للـ DB
-  // في orders/actions.ts إن لم يُحدَّد. Phase 3 ستستخدمه لخصم المخزون.
+  // في orders/actions.ts إن لم يُحدَّد. Phase 3 تستخدمه لخصم المخزون.
   catalogComponentId: z.string().uuid().optional(),
+  // Phase 3 (card 3.K) — snapshot الوحدة من الكتالوج وقت الاختيار. للأرشفة
+  // والعرض في بطاقة المكوّن. لا يُستخدم في الخصم — الخصم يستخدم catalogComponentId.
+  unit: z.string().max(32).optional(),
 });
 
 export const createOrderSchema = z.object({

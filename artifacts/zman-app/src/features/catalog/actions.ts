@@ -7,6 +7,10 @@ import { db } from "@/lib/db/client";
 import { mapDbError } from "@/lib/db/errors";
 import { ratelimit } from "@/lib/ratelimit";
 import { catalogComponent } from "./db";
+// Phase 3 — استدعاء addCatalogMovement داخل tx عند تفعيل التتبّع لأول مرة مع
+// رصيد افتتاحي. أعد الاشتقاق أيضاً عند إلغاء التتبّع (حذف ناعم للحركات القديمة).
+import { addCatalogMovement } from "../inventory/actions";
+import { catalogMovement } from "../inventory/db";
 import { z } from "zod";
 
 type ActionResponse<T = unknown> =
@@ -18,6 +22,12 @@ const catalogInputSchema = z.object({
   defaultCostCents: z.number().int().nonnegative(),
   unit: z.string().min(1).max(32).default("قطعة"),
   notes: z.string().max(1000).default(""),
+  // Phase 3 — علم التتبّع (card 3.H). الافتراضي false. عند تفعيله لأول مرة،
+  // يُدخل المستخدم رصيداً افتتاحياً عبر addCatalogMovement(sourceType='opening').
+  tracked: z.boolean().default(false),
+  // Phase 3 — الرصيد الافتتاحي عند تفعيل التتبّع لأول مرة (card 3.I).
+  // يُستخدم فقط إن كان tracked=true. يُطبَّق داخل نفس tx عبر addCatalogMovement.
+  openingStock: z.number().int().nonnegative().optional().default(0),
 });
 
 async function checkRL() {
@@ -32,9 +42,30 @@ export async function createCatalogComponent(rawInput: unknown): Promise<ActionR
   const parsed = catalogInputSchema.safeParse(rawInput);
   if (!parsed.success) return { status: "error", message: "بيانات غير صالحة" };
 
+  // فصل openingStock عن باقي الحقول (لا تنتمي لجدول catalog_component).
+  const { openingStock, ...catalogFields } = parsed.data;
+
   try {
     const [created] = await db.transaction(async (tx) => {
-      return tx.insert(catalogComponent).values(parsed.data).returning();
+      const [row] = await tx
+        .insert(catalogComponent)
+        .values(catalogFields)
+        .returning();
+
+      // Phase 3 — عند تفعيل التتبّع لأول مرة مع رصيد افتتاحي > 0، ادرج حركة
+      // `in` من sourceType='opening' داخل نفس tx (atomic).
+      if (catalogFields.tracked && openingStock > 0) {
+        await addCatalogMovement({
+          tx,
+          catalogComponentId: row.id,
+          direction: "in",
+          quantity: openingStock,
+          sourceType: "opening",
+          notes: `رصيد افتتاحي عند تفعيل التتبّع: ${catalogFields.name}`,
+        });
+      }
+
+      return [row];
     });
     revalidatePath("/catalog");
     return { status: "ok", data: created };
@@ -56,7 +87,7 @@ export async function updateCatalogComponent(rawInput: unknown): Promise<ActionR
   const parsed = schema.safeParse(rawInput);
   if (!parsed.success) return { status: "error", message: "بيانات غير صالحة" };
 
-  const { id, updatedAt, ...fields } = parsed.data;
+  const { id, updatedAt, openingStock, ...fields } = parsed.data;
 
   try {
     return await db.transaction(async (tx) => {
@@ -79,6 +110,39 @@ export async function updateCatalogComponent(rawInput: unknown): Promise<ActionR
         .returning();
 
       if (!updated) return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
+
+      // Phase 3 — معالجة التتبّع:
+      //   (أ) إذا تفعّل التتبّع لأول مرة (existing.tracked=false → updated.tracked=true):
+      //       ادرج حركة `in` من sourceType='opening' إن كان openingStock > 0.
+      //   (ب) إذا أُلغي التتبّع (existing.tracked=true → updated.tracked=false):
+      //       احذف ناعماً كل الحركات النشطة. الرصيد «يُعامَل كصفر» للطلبات الجديدة،
+      //       لكن السجل التاريخي يُحافَظ عليه (INV-5: لا حذف صلب).
+      //       UI يُظهر تحذيراً قبل هذا (§6 سيناريو 4 / SA1 NOTE-3).
+      if (!existing.tracked && updated.tracked) {
+        // (أ) — تفعيل لأول مرة.
+        if (openingStock > 0) {
+          await addCatalogMovement({
+            tx,
+            catalogComponentId: id,
+            direction: "in",
+            quantity: openingStock,
+            sourceType: "opening",
+            notes: `رصيد افتتاحي عند تفعيل التتبّع: ${updated.name}`,
+          });
+        }
+      } else if (existing.tracked && !updated.tracked) {
+        // (ب) — إلغاء التتبّع: احذف ناعماً كل الحركات النشطة.
+        await tx
+          .update(catalogMovement)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(
+              eq(catalogMovement.catalogComponentId, id),
+              isNull(catalogMovement.deletedAt),
+            ),
+          );
+      }
+      // (ج) — tracker بقي true مع تعديل الاسم/التكلفة/الوحدة: لا حركة جديدة.
 
       revalidatePath("/catalog");
       return { status: "ok", data: updated };

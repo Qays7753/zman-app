@@ -119,13 +119,28 @@ export function IntegrityCheckReportPanel() {
 
                 {r.driftCents !== undefined && r.driftCents !== 0 && (
                   <p className="text-xs font-mono">
-                    الفارق: <AmountText amount={Math.abs(r.driftCents)} />{" "}
-                    {r.driftCents < 0 ? "(سالب)" : "(موجب)"}
+                    {r.id === "IC-12" ? (
+                      // IC-12 يستعمل driftCents كحقل «القيمة التقديرية للمخزون» (موجبة
+                      // دائماً). الـ label يختلف عن باقي الفحوصات التي تعرض الانحراف.
+                      <>
+                        القيمة التقديرية للمخزون:{" "}
+                        <AmountText amount={Math.abs(r.driftCents)} />
+                      </>
+                    ) : (
+                      <>
+                        الفارق: <AmountText amount={Math.abs(r.driftCents)} />{" "}
+                        {r.driftCents < 0 ? "(سالب)" : "(موجب)"}
+                      </>
+                    )}
                   </p>
                 )}
 
                 {r.count !== undefined && r.count > 0 && (
-                  <p className="text-xs">عدد المخالفات: {r.count}</p>
+                  <p className="text-xs">
+                    {r.id === "IC-12"
+                      ? `عدد الأصناف المتتبَّعة: ${r.count}`
+                      : `عدد المخالفات: ${r.count}`}
+                  </p>
                 )}
 
                 {r.offendingIds && r.offendingIds.length > 0 && (

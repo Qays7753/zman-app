@@ -1,13 +1,15 @@
 "use client";
 
-import { Boxes, Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { Boxes, Loader2, Plus, Search, Trash2, PackageCheck, AlertTriangle } from "lucide-react";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray } from "react-hook-form";
 import { toast } from "sonner";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { useCatalogComponents } from "@/features/catalog/hooks";
 import type { CatalogComponent } from "@/features/catalog/db";
+// Phase 3 — عرض الرصيد لكل صنف في الـ picker.
+import { useComponentStock } from "@/features/inventory/hooks";
 
 interface ComponentsEditorProps {
   // biome-ignore lint/suspicious/noExplicitAny: react-hook-form control binding
@@ -61,12 +63,13 @@ export function ComponentsEditor({
     // Phase 1: سجّل معرّف صنف الكتالوج مع snapshot الاسم/التكلفة. المعرّف
     // هو «الرابط المفقود» الذي سيُتيح خصم المخزون في convertOrderToSale
     // (المرحلة 3).snapshot الاسم/التكلفة يبقى للأرشيف حتى لو حُذف الصنف.
-    // unit يُؤجَّل إلى Phase 3 (لتمييز المتتبَّع) وفقاً لبطاقة 3.K.
+    // Phase 3 (card 3.K): snapshot الوحدة أيضاً للعرض في بطاقة المكوّن.
     append({
       name: item.name,
       costCents: item.defaultCostCents,
       quantity: 1,
       catalogComponentId: item.id,
+      unit: item.unit,
     });
     toast.success(`تمت إضافة "${item.name}" من المكوّنات`);
   };
@@ -109,6 +112,7 @@ export function ComponentsEditor({
             const nameError = errors?.components?.[index]?.name?.message;
             const costError = errors?.components?.[index]?.costCents?.message;
             const qtyError = errors?.components?.[index]?.quantity?.message;
+            const componentUnit = getValues(`components.${index}.unit`) as string | undefined;
 
             return (
               <div
@@ -131,6 +135,12 @@ export function ComponentsEditor({
                       ) : (
                         <span className="text-[10px] text-ink-3 ms-2">
                           نص حر
+                        </span>
+                      )}
+                      {/* Phase 3 — عرض الوحدة المُلتقطة عند الاختيار. */}
+                      {componentUnit && (
+                        <span className="text-[10px] text-ink-3 ms-1">
+                          · × 1 {componentUnit}
                         </span>
                       )}
                     </div>
@@ -253,31 +263,11 @@ export function ComponentsEditor({
             ) : (
               <div className="divide-y divide-hairline">
                 {catalogItems.map((item) => (
-                  <button
+                  <CatalogPickerItem
                     key={item.id}
-                    type="button"
-                    onClick={() => handleSelectCatalogItem(item)}
-                    className="w-full flex items-center gap-4 py-3.5 hover:bg-info-soft transition-colors text-start group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-ink group-hover:text-info truncate">
-                        {item.name}
-                      </p>
-                      <p className="text-xs text-ink/45 mt-0.5">
-                        {item.unit}
-                        {item.notes ? ` — ${item.notes}` : ""}
-                      </p>
-                    </div>
-                    <div className="text-end flex-shrink-0">
-                      <p className="text-sm font-bold text-info">
-                        {(item.defaultCostCents / 1000).toLocaleString("en-JO", {
-                          minimumFractionDigits: 3,
-                          maximumFractionDigits: 3,
-                        })}
-                      </p>
-                      <p className="text-[10px] text-ink/40">د.أ</p>
-                    </div>
-                  </button>
+                    item={item}
+                    onSelect={handleSelectCatalogItem}
+                  />
                 ))}
               </div>
             )}
@@ -292,5 +282,78 @@ export function ComponentsEditor({
         </div>
       </ResponsiveModal>
     </div>
+  );
+}
+
+/**
+ * Phase 3 (card 3.K) — عنصر منتقي الكتالوج. يعرض badge «متتبَّع» + الرصيد
+ * الحالي للأصناف المتتبَّعة. الأصناف برصيد 0 تُظهر tooltip تحذيري. لا منع —
+ * المستخدم حرّ في إضافة أي صنف.
+ */
+function CatalogPickerItem({
+  item,
+  onSelect,
+}: {
+  item: CatalogComponent;
+  onSelect: (item: CatalogComponent) => void;
+}) {
+  // اطلب الرصيد فقط إن كان الصنف متتبَّعاً (تحسين الأداء).
+  const { data: stock } = useComponentStock(item.tracked ? item.id : undefined);
+  const stockNum = stock ?? 0;
+  const isZeroStockTracked = item.tracked && stockNum === 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item)}
+      className="w-full flex items-center gap-4 py-3.5 hover:bg-info-soft transition-colors text-start group"
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <p className="text-sm font-semibold text-ink group-hover:text-info truncate">
+            {item.name}
+          </p>
+          {item.tracked && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info-soft text-info border border-info/30 flex items-center gap-1 shrink-0">
+              <PackageCheck className="w-3 h-3" />
+              متتبَّع
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-ink/45 mt-0.5 flex items-center gap-1.5 flex-wrap">
+          <span>{item.unit}</span>
+          {item.notes ? <span>— {item.notes}</span> : null}
+          {item.tracked && (
+            <span
+              className={`text-[10px] font-medium ${
+                isZeroStockTracked ? "text-warn-deep" : "text-info"
+              } flex items-center gap-0.5`}
+              title={
+                isZeroStockTracked
+                  ? "الرصيد صفر — قد تحذير عند التوصيل"
+                  : `الرصيد الحالي: ${stockNum}`
+              }
+            >
+              {isZeroStockTracked && <AlertTriangle className="w-3 h-3" />}
+              {stockNum} متاح
+            </span>
+          )}
+        </p>
+        {isZeroStockTracked && (
+          <p className="text-[10px] text-warn-deep mt-0.5">
+            الرصيد صفر — قد تحذير عند التوصيل
+          </p>
+        )}
+      </div>
+      <div className="text-end flex-shrink-0">
+        <p className="text-sm font-bold text-info">
+          {(item.defaultCostCents / 1000).toLocaleString("en-JO", {
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3,
+          })}
+        </p>
+        <p className="text-[10px] text-ink/40">د.أ</p>
+      </div>
+    </button>
   );
 }

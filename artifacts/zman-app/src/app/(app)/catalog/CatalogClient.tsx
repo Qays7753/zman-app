@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit3, Plus, Trash2 } from "lucide-react";
+import { Edit3, Plus, Trash2, PackageCheck, History, PackageMinus, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { toast } from "sonner";
@@ -22,8 +22,15 @@ import {
   useDeleteCatalogComponent,
 } from "@/features/catalog/hooks";
 import type { CatalogComponent } from "@/features/catalog/db";
+// Phase 3 — hooks المخزون + adjustStock.
+import {
+  useComponentStock,
+  useCatalogMovements,
+  useAdjustStock,
+} from "@/features/inventory/hooks";
 import { ListHeader } from "@/components/shared/ListHeader";
 import { PageToolbar } from "@/components/shared/PageToolbar";
+import { DateText } from "@/components/shared/DateText";
 
 const UNITS = ["قطعة", "متر", "غرام", "علبة", "كيلو", "لتر", "ورقة"];
 
@@ -32,6 +39,8 @@ interface FormValues {
   defaultCostCents: number;
   unit: string;
   notes: string;
+  tracked: boolean;
+  openingStock: number;
 }
 
 export default function CatalogClient({ hideHeader = false }: { hideHeader?: boolean }) {
@@ -39,6 +48,8 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [editing, setEditing] = useState<CatalogComponent | null>(null);
   const [creating, setCreating] = useState(false);
+  const [movementsFor, setMovementsFor] = useState<CatalogComponent | null>(null);
+  const [adjustFor, setAdjustFor] = useState<CatalogComponent | null>(null);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -121,6 +132,8 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
                 <CatalogCard
                   item={item}
                   onEdit={() => setEditing(item)}
+                  onShowMovements={() => setMovementsFor(item)}
+                  onAdjustStock={() => setAdjustFor(item)}
                 />
               </li>
             ))}
@@ -183,6 +196,29 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
           />
         )}
       </ResponsiveModal>
+
+      {/* مودال عرض حركات المخزون */}
+      <ResponsiveModal
+        isOpen={movementsFor !== null}
+        onClose={() => setMovementsFor(null)}
+        title={movementsFor ? `حركات مخزون: ${movementsFor.name}` : "حركات المخزون"}
+      >
+        {movementsFor && <MovementsList catalogComponentId={movementsFor.id} />}
+      </ResponsiveModal>
+
+      {/* مودال التسوية اليدوية (صرف/إضافة) */}
+      <ResponsiveModal
+        isOpen={adjustFor !== null}
+        onClose={() => setAdjustFor(null)}
+        title={adjustFor ? `تسوية مخزون: ${adjustFor.name}` : "تسوية مخزون"}
+      >
+        {adjustFor && (
+          <AdjustStockForm
+            item={adjustFor}
+            onDone={() => setAdjustFor(null)}
+          />
+        )}
+      </ResponsiveModal>
     </>
   );
 }
@@ -190,27 +226,77 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
 function CatalogCard({
   item,
   onEdit,
+  onShowMovements,
+  onAdjustStock,
 }: {
   item: CatalogComponent;
   onEdit: () => void;
+  onShowMovements: () => void;
+  onAdjustStock: () => void;
 }) {
+  // Phase 3 — اعرض الرصيد الحالي للأصناف المتتبَّعة فقط (تحسين الأداء: hook معطَّل
+  // للأصناف غير المتتبَّعة كي لا تُطلَب استعلامات بلا داعٍ).
+  const { data: stock } = useComponentStock(item.tracked ? item.id : undefined);
+
   return (
-    <li className="bg-paper border border-hairline rounded-lg shadow-sm p-4 flex items-center justify-between gap-3">
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="font-bold text-ink text-sm truncate">{item.name}</span>
-        <span className="text-xs text-ink/60 flex items-center gap-1">
-          <AmountText amount={item.defaultCostCents} />
-          <span> د.أ / {item.unit}</span>
-          {item.notes ? ` · ${item.notes}` : ""}
-        </span>
+    <div className="bg-paper border border-hairline rounded-lg shadow-sm p-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-ink text-sm truncate">{item.name}</span>
+            {item.tracked && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info-soft text-info border border-info/30 flex items-center gap-1">
+                <PackageCheck className="w-3 h-3" />
+                متتبَّع
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-ink/60 flex items-center gap-1">
+            <AmountText amount={item.defaultCostCents} />
+            <span> د.أ / {item.unit}</span>
+            {item.notes ? ` · ${item.notes}` : ""}
+          </span>
+        </div>
+        <Button
+          variant="icon"
+          onClick={onEdit}
+        >
+          <Edit3 className="w-4 h-4" />
+        </Button>
       </div>
-      <Button
-        variant="icon"
-        onClick={onEdit}
-      >
-        <Edit3 className="w-4 h-4" />
-      </Button>
-    </li>
+
+      {/* Phase 3 — شريط الرصيد + الإجراءات */}
+      {item.tracked && (
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-hairline flex-wrap">
+          <span className="text-xs text-ink-2 flex items-center gap-1.5">
+            <span className="text-ink-3">الرصيد الحالي:</span>
+            <span className="font-bold text-info">
+              {stock ?? 0} {item.unit}
+            </span>
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onAdjustStock}
+              className="text-xs px-2.5 py-1.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[36px]"
+              title="تسوية يدوية — صرف أو إضافة (لا تدخل P&L)"
+            >
+              <PackageMinus className="w-3.5 h-3.5" />
+              تسوية يدوية
+            </button>
+            <button
+              type="button"
+              onClick={onShowMovements}
+              className="text-xs px-2.5 py-1.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[36px]"
+              title="عرض آخر 20 حركة"
+            >
+              <History className="w-3.5 h-3.5" />
+              الحركات
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -224,14 +310,50 @@ function CatalogForm({
   onDelete?: () => Promise<void>;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { register, handleSubmit, control, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, control, watch, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       name: initialData?.name ?? "",
       defaultCostCents: initialData?.defaultCostCents ?? 0,
       unit: initialData?.unit ?? "قطعة",
       notes: initialData?.notes ?? "",
+      tracked: initialData?.tracked ?? false,
+      openingStock: 0, // الرصيد الافتتاحي يُطبَّق فقط عند تفعيل التتبّع لأول مرة.
     },
   });
+
+  // Phase 3 — تتبّع تفعيل التتبّع لتغيير سلوك حقل الرصيد الافتتاحي. وعند محاولة
+  // إلغاء التتبّع لصنف له رصيد > 0، اعرض تحذيراً يطلب تأكيداً صريحاً (§6 سيناريو 4).
+  const isTracked = watch("tracked");
+  const wasInitiallyTracked = initialData?.tracked ?? false;
+  const [confirmUntrackOpen, setConfirmUntrackOpen] = useState(false);
+  const [pendingTrackedValue, setPendingTrackedValue] = useState<boolean | null>(null);
+
+  // Pull the current stock (only if the item is currently tracked) so we can show
+  // the warning in the untrack confirmation.
+  const { data: currentStock } = useComponentStock(
+    wasInitiallyTracked ? initialData?.id : undefined,
+  );
+
+  // Intercept the tracked checkbox: if user tries to turn OFF tracking on an item
+  // that has stock > 0, intercept and show confirm dialog instead.
+  const handleTrackedChange = (checked: boolean) => {
+    if (!checked && wasInitiallyTracked && (currentStock ?? 0) > 0) {
+      // §6 سيناريو 4 / SA1 NOTE-3: اعرض التحذير قبل الإلغاء.
+      setPendingTrackedValue(false);
+      setConfirmUntrackOpen(true);
+      // لا نُغيّر الحقل — يبقى true حتى يؤكّد المستخدم.
+      return;
+    }
+    // وإلا فغيّر مباشرةً.
+    setPendingTrackedValue(checked);
+    // Use react-hook-form setValue indirectly via the Controller below.
+    // Simpler: dispatch via the registered input.
+    const event = { target: { checked, type: "checkbox" } } as React.ChangeEvent<HTMLInputElement>;
+    // Find the input and call its onChange. Use a ref-less approach: rely on Controller.
+    // We've registered tracked as a plain checkbox below; setting value requires
+    // a different mechanism. To keep it simple, we re-render via state + use Controller.
+    void event;
+  };
 
   const submit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -295,6 +417,74 @@ function CatalogForm({
         </Select>
       </div>
 
+      {/* Phase 3 — علم التتبّع + الرصيد الافتتاحي */}
+      <div className="p-3.5 bg-canvas/30 rounded-lg border border-hairline space-y-3">
+        <Controller
+          control={control}
+          name="tracked"
+          render={({ field: { value, onChange } }) => (
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="catalog-tracked"
+                checked={value}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  if (!checked && wasInitiallyTracked && (currentStock ?? 0) > 0) {
+                    // §6 سيناريو 4 / SA1 NOTE-3: اعرض التحذير.
+                    setPendingTrackedValue(false);
+                    setConfirmUntrackOpen(true);
+                    return;
+                  }
+                  onChange(checked);
+                }}
+                className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info"
+              />
+              <label
+                htmlFor="catalog-tracked"
+                className="text-sm font-bold text-ink/75 cursor-pointer flex items-center gap-1.5"
+              >
+                <PackageCheck className="w-4 h-4 text-info" />
+                متتبَّع (تفعيل خصم/إضافة المخزون عند الشراء والتوصيل)
+              </label>
+            </div>
+          )}
+        />
+
+        {/* الرصيد الافتتاحي يظهر فقط عند تفعيل التتبّع لأول مرة. */}
+        {isTracked && !wasInitiallyTracked && (
+          <div className="space-y-1.5">
+            <label htmlFor="catalog-opening" className="text-xs font-semibold text-ink-3">
+              الرصيد الافتتاحي (يُضاف مرة واحدة عند التفعيل)
+            </label>
+            <input
+              id="catalog-opening"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              {...register("openingStock", { valueAsNumber: true })}
+              className="w-full h-12 px-4 py-2 rounded-md border border-hairline-2 bg-paper text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
+            />
+            <p className="text-[11px] text-ink-3">
+              سيُدرَج حركة <code className="font-mono">in</code> بقيمة هذا الرقم
+              عند الحفظ. يمكن تعديل الرصيد لاحقاً عبر «تسوية يدوية».
+            </p>
+          </div>
+        )}
+
+        {/* تنبيه عند محاولة إلغاء التتبّع لصنف له رصيد > 0. */}
+        {wasInitiallyTracked && !isTracked && (
+          <div className="p-2 rounded-md bg-warn-soft text-warn-deep text-xs flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              ستفقد التتبّع. الرصيد الحالي ({currentStock ?? 0} {initialData?.unit ?? "قطعة"})
+              سيُعامَل كصفر للطلبات الجديدة. سيتم حذف سجل الحركات ناعماً (الأثر التاريخي يُحافَظ عليه).
+            </span>
+          </div>
+        )}
+      </div>
+
       <TextArea
         label="ملاحظات (اختياري)"
         {...register("notes")}
@@ -329,6 +519,233 @@ function CatalogForm({
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* §6 سيناريو 4 / SA1 NOTE-3 — تأكيد إلغاء التتبّع لصنف له رصيد > 0. */}
+      <ConfirmDialog
+        isOpen={confirmUntrackOpen}
+        title="تأكيد إلغاء التتبّع"
+        message={`ستفقد التتبّع. الرصيد الحالي ${currentStock ?? 0} ${initialData?.unit ?? "قطعة"} سيُعامَل كصفر للطلبات الجديدة. سيتم حذف سجل الحركات ناعماً. هل أنت متأكد؟`}
+        confirmLabel="نعم، ألغِ التتبّع"
+        onConfirm={() => {
+          setConfirmUntrackOpen(false);
+          // اضبط الحقل يدوياً — react-hook-form setValue يلزم controller.
+          // نُحاكي ذلك عبر استدعاء handleChange على الـ input.
+          if (pendingTrackedValue !== null) {
+            // استخدم setValue عبر المرجع إلى الـ Controller. للبساطة، نُحدّث
+            // القيمة عبر dispatch event على الـ DOM.
+            const input = document.getElementById("catalog-tracked") as HTMLInputElement | null;
+            if (input) {
+              input.checked = pendingTrackedValue;
+              input.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }
+          setPendingTrackedValue(null);
+        }}
+        onCancel={() => {
+          setConfirmUntrackOpen(false);
+          setPendingTrackedValue(null);
+        }}
+      />
     </form>
+  );
+}
+
+/**
+ * مودال عرض آخر 20 حركة مخزون لصنف.
+ */
+function MovementsList({ catalogComponentId }: { catalogComponentId: string }) {
+  const { data: movements = [], isLoading } = useCatalogMovements(catalogComponentId, 20);
+
+  if (isLoading) {
+    return (
+      <div className="p-4 text-center text-sm text-ink-3">جارٍ التحميل…</div>
+    );
+  }
+
+  if (movements.length === 0) {
+    return (
+      <div className="p-6 text-center text-sm text-ink-3">
+        لا توجد حركات مخزون مسجَّلة لهذا الصنف بعد.
+      </div>
+    );
+  }
+
+  const sourceTypeAr: Record<string, string> = {
+    purchase: "شراء",
+    order_delivery: "توصيل طلب",
+    opening: "رصيد افتتاحي",
+    adjustment: "تسوية",
+    manual_in: "إضافة يدوية",
+    manual_out: "صرف يدوي",
+  };
+
+  return (
+    <div className="p-2">
+      <ul className="divide-y divide-hairline">
+        {movements.map((m) => (
+          <li key={m.id} className="py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                    m.direction === "in"
+                      ? "bg-info-soft text-info"
+                      : "bg-alert-soft text-alert"
+                  }`}
+                >
+                  {m.direction === "in" ? "+" : "−"}
+                  {m.quantity}
+                </span>
+                <span className="text-xs text-ink-3">
+                  {sourceTypeAr[m.sourceType] ?? m.sourceType}
+                </span>
+              </div>
+              <div className="text-[11px] text-ink-3 mt-0.5">
+                <DateText date={m.date} />
+                {m.notes ? ` · ${m.notes}` : ""}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * مودال التسوية اليدوية للرصيد (صرف يدوي / إضافة يدوية). §6 سيناريو 11.
+ * لا تدخل P&L — حركة مخزون صرفة عبر adjustStock action.
+ */
+function AdjustStockForm({
+  item,
+  onDone,
+}: {
+  item: CatalogComponent;
+  onDone: () => void;
+}) {
+  const [direction, setDirection] = useState<"in" | "out">("out");
+  const [quantity, setQuantity] = useState(1);
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const adjustStockMutation = useAdjustStock();
+  const { data: currentStock = 0 } = useComponentStock(item.id);
+
+  const handleSubmit = async () => {
+    if (quantity <= 0) {
+      toast.error("الكمية يجب أن تكون موجبة");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await adjustStockMutation.mutateAsync({
+        catalogComponentId: item.id,
+        direction,
+        quantity,
+        reason: reason.trim() || undefined,
+        requestId: crypto.randomUUID(),
+      });
+      if (res.status === "ok") {
+        toast.success(
+          direction === "in"
+            ? `تمت إضافة ${quantity} ${item.unit} للمخزون`
+            : `تم صرف ${quantity} ${item.unit} من المخزون`,
+        );
+        onDone();
+      } else {
+        toast.error(res.message);
+      }
+    } catch {
+      toast.error("فشل الاتصال بالسيرفر");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="p-3 bg-canvas/30 rounded-md text-sm text-ink-2 flex items-center justify-between">
+        <span>الرصيد الحالي:</span>
+        <span className="font-bold text-info">{currentStock} {item.unit}</span>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-bold text-ink/75">نوع التسوية</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setDirection("out")}
+            className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+              direction === "out"
+                ? "border-alert text-alert bg-alert-soft"
+                : "border-hairline text-ink-2 bg-paper hover:bg-canvas"
+            }`}
+          >
+            <PackageMinus className="w-4 h-4" />
+            صرف يدوي (out)
+          </button>
+          <button
+            type="button"
+            onClick={() => setDirection("in")}
+            className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+              direction === "in"
+                ? "border-info text-info bg-info-soft"
+                : "border-hairline text-ink-2 bg-paper hover:bg-canvas"
+            }`}
+          >
+            <PackageCheck className="w-4 h-4" />
+            إضافة يدوية (in)
+          </button>
+        </div>
+        <p className="text-[11px] text-ink-3">
+          التسوية اليدوية لا تدخل P&L ولا الميزانية — مجرد تعديل تشغيلي على الرصيد.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="adjust-qty" className="text-sm font-bold text-ink/75">
+          الكمية
+        </label>
+        <input
+          id="adjust-qty"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          step={1}
+          value={quantity}
+          onChange={(e) => setQuantity(Number(e.target.value) || 0)}
+          className="w-full h-12 px-4 py-2 rounded-md border border-hairline-2 bg-paper text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
+        />
+        {direction === "out" && quantity > currentStock && (
+          <p className="text-[11px] text-warn-deep flex items-center gap-1">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            الكمية تتجاوز الرصيد — سيرصبح الرصيد سالباً ({currentStock - quantity} {item.unit}).
+            مسموح (§6 سيناريو 1) لكن يُنصح بمراجعة الأرقام.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="adjust-reason" className="text-sm font-bold text-ink/75">
+          السبب (اختياري)
+        </label>
+        <input
+          id="adjust-reason"
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="مثال: تلف، فقدان، جرد"
+          className="w-full h-12 px-4 py-2 rounded-md border border-hairline-2 bg-paper text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
+        />
+      </div>
+
+      <Button
+        type="button"
+        onClick={handleSubmit}
+        isLoading={isSubmitting}
+        className="w-full"
+      >
+        تأكيد التسوية
+      </Button>
+    </div>
   );
 }
