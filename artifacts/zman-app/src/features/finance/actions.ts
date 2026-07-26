@@ -162,6 +162,13 @@ export async function createPurchase(
           unitCostMicroCents: parsed.data.unitCostMicroCents,
           unitCostCents: derivedUnitCostCents,
           notes: parsed.data.notes,
+          // Phase 2 — التصنيف بُعدين. costNature → null للرأسمالي (لا معنى لطبيعته —
+          // سيُهلك لاحقاً) وللقديم غير المُصنَّف. spec بطاقة 2.D القبول: رأسمالي
+          // = (isCapitalAsset:true, costNature:null).
+          isCapitalAsset: parsed.data.isCapitalAsset,
+          costNature: parsed.data.isCapitalAsset
+            ? null
+            : (parsed.data.costNature ?? null),
         })
         .returning();
 
@@ -258,6 +265,13 @@ export async function updatePurchase(
           unitCostMicroCents: parsed.data.unitCostMicroCents,
           unitCostCents: derivedUnitCostCents,
           notes: parsed.data.notes,
+          // Phase 2 — التصنيف بُعدين. costNature → null للرأسمالي (لا معنى لطبيعته —
+          // سيُهلك لاحقاً) وللقديم غير المُصنَّف. spec بطاقة 2.D القبول: رأسمالي
+          // = (isCapitalAsset:true, costNature:null).
+          isCapitalAsset: parsed.data.isCapitalAsset,
+          costNature: parsed.data.isCapitalAsset
+            ? null
+            : (parsed.data.costNature ?? null),
           updatedAt: new Date(),
         })
         .where(
@@ -455,6 +469,13 @@ export async function createExpense(
           category: parsed.data.category,
           amountCents: parsed.data.amountCents,
           description: parsed.data.description,
+          // Phase 2 — التصنيف بُعدين. costNature → null للرأسمالي (لا معنى لطبيعته —
+          // سيُهلك لاحقاً) وللقديم غير المُصنَّف. spec بطاقة 2.D القبول: رأسمالي
+          // = (isCapitalAsset:true, costNature:null).
+          isCapitalAsset: parsed.data.isCapitalAsset,
+          costNature: parsed.data.isCapitalAsset
+            ? null
+            : (parsed.data.costNature ?? null),
         })
         .returning();
 
@@ -545,6 +566,13 @@ export async function updateExpense(
           category: parsed.data.category,
           amountCents: parsed.data.amountCents,
           description: parsed.data.description,
+          // Phase 2 — التصنيف بُعدين. costNature → null للرأسمالي (لا معنى لطبيعته —
+          // سيُهلك لاحقاً) وللقديم غير المُصنَّف. spec بطاقة 2.D القبول: رأسمالي
+          // = (isCapitalAsset:true, costNature:null).
+          isCapitalAsset: parsed.data.isCapitalAsset,
+          costNature: parsed.data.isCapitalAsset
+            ? null
+            : (parsed.data.costNature ?? null),
           updatedAt: new Date(),
         })
         .where(

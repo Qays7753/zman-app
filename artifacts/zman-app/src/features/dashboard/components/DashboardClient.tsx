@@ -427,16 +427,42 @@ export function DashboardClient() {
               />
             )}
 
+            {/* ═══ إضافات أصول رأسمالية — سطر منفصل (لا يُخصم من الربح التشغيلي) ═══ */}
+            {/* Phase 2: بطاقة شفافية تُذكِّر المالك أن شراء الآلات/الأثاث لا يُسجَّل
+                كخسارة في الشهر، بل يظهر هنا ويتطلب إهلاكاً مستقلاً (المرحلة 4).
+                الرقم من computeOperatingPnl الموحَّدة، مطابق لما يظهر في الميزانية
+                والتقارير. */}
+            {summaryAllTime && (summaryAllTime.capitalAdditionsCents ?? 0) > 0 && (
+              <div className="bg-amber-50/60 rounded-lg border border-amber-200 shadow-sm p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Landmark className="h-5 w-5 text-amber-700 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-ink">إضافات أصول رأسمالية</h3>
+                      <InfoTooltip text="مشتريات ومصاريف صُنِّفت كأصول رأسمالية (آلات، أثاث، معدات). لا تُخصم من الربح التشغيلي أعلاه — تُعرض هنا للشفافية وتستلزم إهلاكاً مستقلاً لاحقاً." />
+                    </div>
+                    <p className="text-[10px] text-ink/50 mt-0.5">لا تُخصم من الربح التشغيلي</p>
+                  </div>
+                </div>
+                <span className="text-base font-black text-amber-700 font-mono whitespace-nowrap">
+                  <AmountText amount={summaryAllTime.capitalAdditionsCents ?? 0} hideCurrency />
+                </span>
+              </div>
+            )}
+
             {/* ═══ الربح مقابل السيولة — تركيبة النقد as-of نهاية الفترة ═══ */}
             {/* تُحسب من الوضع المالي المتوازن، فالمجموع = النقد المتاح دائماً
-                وبند «تسويات أخرى» يبقى صفراً لأي فترة تختارها. */}
+                وبند «تسويات أخرى» يبقى صفراً لأي فترة تختارها.
+                Phase 2: نطرح capitalAdditionsCents من التركيبة لأن retained
+                أصبح تشغيلياً (الرأسمالي مستبعَد). Option A من CRITICAL-NOTE-2. */}
             {position && (() => {
               const realCash = position.assets.totalCents;
               const opening = position.equity.openingCashInEquityCents;
               const ownerNet = position.equity.injectionsCents - position.equity.drawingsCents;
               const depositsHeld = position.liabilities.depositsCents;
               const profit = position.equity.retainedProfitCents;
-              const composed = opening + ownerNet + depositsHeld + profit;
+              const capitalAdditions = position.equity.capitalAdditionsCents ?? 0;
+              const composed = opening + ownerNet + depositsHeld + profit - capitalAdditions;
               const residual = realCash - composed;
               return (
                 <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 space-y-2">
@@ -466,6 +492,17 @@ export function DashboardClient() {
                         <AmountText amount={profit} hideCurrency parenNegative />
                       </span>
                     </div>
+                    {capitalAdditions > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink/60 whitespace-nowrap flex items-center gap-1">
+                          إضافات أصول رأسمالية
+                          <InfoTooltip text="مشتريات ومصاريف رأسمالية (آلات، أثاث). لا تُخصم من الربح التشغيلي بل تُطرح هنا من تركيبة السيولة للحفاظ على توازن الميزانية." />
+                        </span>
+                        <span className="font-mono font-bold text-amber-700 whitespace-nowrap">
+                          <AmountText amount={-capitalAdditions} hideCurrency parenNegative />
+                        </span>
+                      </div>
+                    )}
                     {Math.abs(residual) > 0 && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-ink/40 whitespace-nowrap">تسويات أخرى</span>

@@ -37,6 +37,12 @@ export const purchase = pgTable(
       )
       .notNull(),
     notes: text("notes").notNull().default(""),
+    // Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر).
+    // isCapitalAsset: افتراضي false (الصفوف القديمة كلها تشغيلية). costNature
+    // nullable — NULL مقبول للرأسمالي (لا معنى لطبيعته) وللصفوف القديمة غير
+    // المُصنَّفة صراحةً. CHECK في migration 0018 يفرض المنطق.
+    isCapitalAsset: boolean("is_capital_asset").notNull().default(false),
+    costNature: text("cost_nature"),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -55,11 +61,20 @@ export const purchase = pgTable(
       check("purchase_quantity_positive", sql`${table.quantity} > 0`),
       check("purchase_unit_cost_nonnegative", sql`${table.unitCostCents} >= 0`),
       check("purchase_notes_length", sql`char_length(${table.notes}) <= 1000`),
+      // Phase 2 — CHECK التصنيف (موسَّع لقبول NULL عند is_capital=false ليتسق
+      // مع backfill الافتراضي للصفوف القديمة — انظر CRITICAL-NOTE-1 في migration 0018).
+      check(
+        "purchase_classification_check",
+        sql`${table.isCapitalAsset} = true OR ${table.costNature} IS NULL OR ${table.costNature} IN ('fixed','variable')`,
+      ),
       index("purchase_date_idx")
         .on(table.date.desc())
         .where(sql`deleted_at is null`),
       index("purchase_supplier_idx")
         .on(table.supplier)
+        .where(sql`deleted_at is null`),
+      index("purchase_capital_idx")
+        .on(table.isCapitalAsset)
         .where(sql`deleted_at is null`),
     ];
   },
@@ -74,6 +89,9 @@ export const expense = pgTable(
     category: text("category").notNull(),
     amountCents: integer("amount_cents").notNull(),
     description: text("description").notNull().default(""),
+    // Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر). نفس منطق purchase.
+    isCapitalAsset: boolean("is_capital_asset").notNull().default(false),
+    costNature: text("cost_nature"),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -93,11 +111,19 @@ export const expense = pgTable(
         "expense_description_length",
         sql`char_length(${table.description}) <= 1000`,
       ),
+      // Phase 2 — CHECK التصنيف (موسَّع لقبول NULL عند is_capital=false).
+      check(
+        "expense_classification_check",
+        sql`${table.isCapitalAsset} = true OR ${table.costNature} IS NULL OR ${table.costNature} IN ('fixed','variable')`,
+      ),
       index("expense_date_idx")
         .on(table.date.desc())
         .where(sql`deleted_at is null`),
       index("expense_category_idx")
         .on(table.category)
+        .where(sql`deleted_at is null`),
+      index("expense_capital_idx")
+        .on(table.isCapitalAsset)
         .where(sql`deleted_at is null`),
     ];
   },

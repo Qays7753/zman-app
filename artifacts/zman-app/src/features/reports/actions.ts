@@ -6,6 +6,7 @@ import type { ActionResponse } from "../finance/actions";
 import { expense, purchase, sale, account, cashMovement, ownerTransaction, openingBalance } from "../finance/db";
 import { order } from "../orders/db";
 import { mapDbError } from "@/lib/db/errors";
+import { computeOperatingPnl } from "../finance/pnl";
 
 import { formatFilsToJod } from "@/lib/money";
 
@@ -50,54 +51,28 @@ export async function computeCashBasisPnl(
   range: "all" | "month" | "30d" = "all",
   tx: any = db,
 ) {
-  const baseConds = [isNull(cashMovement.deletedAt), isNull(account.deletedAt)];
-  const sStart = rangeStartDate(range);
-  const sEnd = rangeEndDate(range);
-  if (sStart) baseConds.push(sql`${cashMovement.date} >= ${sStart}`);
-  if (sEnd) baseConds.push(sql`${cashMovement.date} <= ${sEnd}`);
+  // Phase 2 — كل التعريف inline للربح استُبدَل بنداء computeOperatingPnl الموحَّد.
+  // هذا يضمن أن reports.pnl == dashboard.summary.netProfit == monthlyProfit
+  // (LOCKED-6) — يحرسه IC-13. الربح الآن تشغيلي: يطرح المصاريف والمشتريات
+  // التشغيلية فقط، والرأسمالي يظهر سطراً منفصلاً (capitalAdditionsCents).
+  const startDate = rangeStartDate(range) ?? undefined;
+  const endDate = rangeEndDate(range) ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
 
-  const [[salesRes], [purchasesRes], [expensesRes]] = await Promise.all([
-    tx
-      .select({ total: sum(cashMovement.amountCents) })
-      .from(cashMovement)
-      .innerJoin(account, eq(cashMovement.accountId, account.id))
-      .where(
-        and(
-          ...baseConds,
-          eq(cashMovement.direction, "in"),
-          eq(cashMovement.sourceType, "sale")
-        )
-      ),
-    tx
-      .select({ total: sum(cashMovement.amountCents) })
-      .from(cashMovement)
-      .innerJoin(account, eq(cashMovement.accountId, account.id))
-      .where(
-        and(
-          ...baseConds,
-          eq(cashMovement.direction, "out"),
-          eq(cashMovement.sourceType, "purchase")
-        )
-      ),
-    tx
-      .select({ total: sum(cashMovement.amountCents) })
-      .from(cashMovement)
-      .innerJoin(account, eq(cashMovement.accountId, account.id))
-      .where(
-        and(
-          ...baseConds,
-          eq(cashMovement.direction, "out"),
-          eq(cashMovement.sourceType, "expense")
-        )
-      ),
-  ]);
+  const pnl = await computeOperatingPnl({ startDate, endDate, tx });
 
-  const salesCents = Number(salesRes?.total) || 0;
-  const purchasesCents = Number(purchasesRes?.total) || 0;
-  const expensesCents = Number(expensesRes?.total) || 0;
-  const netCents = salesCents - purchasesCents - expensesCents;
-
-  return { salesCents, purchasesCents, expensesCents, netCents };
+  // الحقول القديمة (purchasesCents, expensesCents) احتفظنا بها كأسماء بديلة
+  // للقيم التشغيلية لتجنّب كسر المستهلكين الحاليين. الآن تعني «التشغيلي فقط»
+  // (الرأسمالي مُستبعَد) — وهو السلوك الصحيح لقوائم P&L التشغيلية.
+  return {
+    salesCents: pnl.salesCents,
+    operatingExpensesCents: pnl.operatingExpensesCents,
+    operatingPurchasesCents: pnl.operatingPurchasesCents,
+    capitalAdditionsCents: pnl.capitalAdditionsCents,
+    netCents: pnl.operatingNetCents,
+    // أسماء بديلة للتوافق مع المستهلكين الحاليين (تشير للتشغيلي فقط الآن):
+    purchasesCents: pnl.operatingPurchasesCents,
+    expensesCents: pnl.operatingExpensesCents,
+  };
 }
 
 export async function downloadReport(
@@ -160,7 +135,8 @@ export async function downloadReport(
 | رأس المال المصرح به (مرجعي) | ${formatFilsToJod(p.equity.openingCapitalCents)} |
 | إيداعات إضافية للمالك | ${formatFilsToJod(p.equity.injectionsCents)} |
 | مسحوبات شخصية للمالك | ${formatFilsToJod(p.equity.drawingsCents)} |
-| أرباح مدورة محتجزة | ${formatFilsToJod(p.equity.retainedProfitCents)} |
+| أرباح مدورة محتجزة (تشغيلية) | ${formatFilsToJod(p.equity.retainedProfitCents)} |
+| إضافات أصول رأسمالية (مستبعدة من الربح التشغيلي) | ${formatFilsToJod(p.equity.capitalAdditionsCents)} |
 | **إجمالي حقوق الملكية** | **${formatFilsToJod(p.equity.totalCents)}** |
 
 ---
@@ -172,7 +148,8 @@ export async function downloadReport(
     ? "متوازنة محاسبياً وبسلاسة"
     : `غير متوازنة! الانحراف: ${formatFilsToJod(Math.abs(p.equityDriftCents))}`
 }
-* **أرباح محتجزة مترتبة في الميزانية:** ${formatFilsToJod(p.equity.retainedProfitCents)}
+* **أرباح محتجزة مترتبة في الميزانية (تشغيلية):** ${formatFilsToJod(p.equity.retainedProfitCents)}
+* **إضافات أصول رأسمالية (مستبعدة من الربح التشغيلي):** ${formatFilsToJod(p.equity.capitalAdditionsCents)}
 * **صافي أرباح الدفتر النقدي (Ledger):** ${formatFilsToJod(p.ledgerPnlNetCents)}
 * **صافي أرباح الجداول المصدرية (Source):** ${formatFilsToJod(p.sourceTablePnlNetCents)}
 * **انحراف الدفتر النقدي والمصدر (Drift):** ${formatFilsToJod(p.pnlSourceReconciliationCents)}
@@ -182,7 +159,7 @@ export async function downloadReport(
 `;
     } else if (type === "pnl") {
       // 1. P&L Report
-      const { salesCents, purchasesCents, expensesCents, netCents } = await computeCashBasisPnl(range);
+      const { salesCents, purchasesCents, expensesCents, netCents, capitalAdditionsCents } = await computeCashBasisPnl(range);
 
       markdown = `# تقرير الأرباح والخسائر (P&L)
 
@@ -195,9 +172,13 @@ export async function downloadReport(
 | البند المالي | القيمة الإجمالية | التفاصيل |
 | :--- | :--- | :--- |
 | **إجمالي المبيعات (الإيرادات)** | ${formatFilsToJod(salesCents)} | مجموع المدفوعات المستلمة من الزبائن |
-| **إجمالي المشتريات (المواد)** | ${formatFilsToJod(purchasesCents)} | تكاليف الخامات والمشتريات التشغيلية للورشة |
-| **إجمالي المصاريف (العمومية)** | ${formatFilsToJod(expensesCents)} | المصاريف التشغيلية، الإيجارات، الفواتير، والرواتب |
-| **صافي الأرباح / الخسائر** | **${formatFilsToJod(netCents)}** | **الأرباح الصافية المحتسبة بعد خصم كافة التكاليف** |
+| **إجمالي المشتريات (التشغيلية)** | ${formatFilsToJod(purchasesCents)} | تكاليف الخامات والمشتريات التشغيلية للورشة |
+| **إجمالي المصاريف (التشغيلية)** | ${formatFilsToJod(expensesCents)} | المصاريف التشغيلية، الإيجارات، الفواتير، والرواتب |
+| **إضافات أصول رأسمالية** | ${formatFilsToJod(capitalAdditionsCents)} | مستبعدة من الربح التشغيلي |
+| **صافي الأرباح / الخسائر** | **${formatFilsToJod(netCents)}** | **الأرباح التشغيلية الصافية بعد خصم المصاريف والمشتريات التشغيلية** |
+
+> **ملاحظة:** الإضافات الرأسمالية (آلات، أثاث) لا تُخصم من الربح التشغيلي. تُعرض
+> هنا للشفافية والتذكير بأنها تستلزم إهلاكاً مستقلاً (المرحلة 4).
 
 ---
 *تم إنشاء هذا التقرير تلقائياً بواسطة نظام Zman الداخلي لإدارة الورش والمخازن.*
@@ -615,6 +596,9 @@ export type FinancialPositionData = {
     injectionsCents: number;
     drawingsCents: number;
     retainedProfitCents: number;
+    /** Phase 2 — إضافات رأسمالية (آلات/أثاث) مُستبعَدة من retainedProfit
+     * التشغيلي. تُطرح من totalEquity كسطر منفصل (Option A) للحفاظ على IC-1. */
+    capitalAdditionsCents: number;
     totalCents: number;
   };
   balanced: boolean;
@@ -756,7 +740,14 @@ export async function getFinancialPosition(
         );
       const drawingsCents = Number(drawingsRes?.total) || 0;
 
-      // 5. الأرباح المدورة = (كل المقبوضات من مبيعات وعربونات) - (عربونات الطلبات غير الموصلة) - (المدفوعات للمشتريات والمصاريف)
+      // 5. الأرباح المدورة = (كل المقبوضات من مبيعات وعربونات) - (عربونات الطلبات غير الموصلة) - (المدفوعات التشغيلية للمشتريات والمصاريف)
+      //    Phase 2: المصاريف والمشتريات الرأسمالية مُستبعَدة من retained (ربح
+      //    تشغيلي). تُخصم كذلك من totalEquity كسطر منفصل (Option A — انظر
+      //    CRITICAL-NOTE-2) للحفاظ على معادلة الميزانية (IC-1):
+      //      totalEquity = opening + injections − drawings + retainedOperating − capitalAdditions
+      //    retained زاد بمقدار capitalOut (لم يعد مطروحاً) لكن totalAssets لم
+      //    يتغير (كان يطرح capitalOut أصلاً). بطرح capitalAdditions من totalEquity
+      //    نُلغي الزيادة فتبقى المعادلة متوازنة.
       const [salesCashInRes] = await tx
         .select({ total: sum(cashMovement.amountCents) })
         .from(cashMovement)
@@ -772,25 +763,25 @@ export async function getFinancialPosition(
         );
       const salesCashInCents = Number(salesCashInRes?.total) || 0;
 
-      const [expensesPurchasesCashOutRes] = await tx
-        .select({ total: sum(cashMovement.amountCents) })
-        .from(cashMovement)
-        .innerJoin(account, eq(cashMovement.accountId, account.id))
-        .where(
-          and(
-            eq(cashMovement.direction, "out"),
-            sql`${cashMovement.sourceType} in ('expense', 'purchase')`,
-            isNull(account.deletedAt),
-            sql`${cashMovement.date} <= ${asOfDate}`,
-            isNull(cashMovement.deletedAt)
-          )
-        );
-      const expensesPurchasesCashOutCents = Number(expensesPurchasesCashOutRes?.total) || 0;
+      // Phase 2 — استدعِ computeOperatingPnl لكل الفترة حتى asOfDate (لا حدّ أدنى).
+      // نأخذ منها: operatingExpensesCents، operatingPurchasesCents، capitalAdditionsCents.
+      // salesCents من الدالة != salesCashInCents هنا (الأولى source='sale' فقط،
+      // الثانية source IN ('sale','deposit')) — نُبقي salesCashInCents كما هي.
+      const operatingPnl = await computeOperatingPnl({
+        endDate: asOfDate,
+        tx,
+      });
+      const operatingExpensesCashOutCents = operatingPnl.operatingExpensesCents;
+      const operatingPurchasesCashOutCents = operatingPnl.operatingPurchasesCents;
+      const operatingCashOutCents = operatingExpensesCashOutCents + operatingPurchasesCashOutCents;
+      const capitalAdditionsCents = operatingPnl.capitalAdditionsCents;
 
-      const retainedProfitCents = salesCashInCents - depositsCents - expensesPurchasesCashOutCents;
+      const retainedProfitCents = salesCashInCents - depositsCents - operatingCashOutCents;
 
-      // حساب إجمالي حقوق الملكية بناء على نقدية البداية الفعلية بدلاً من رأس المال الافتتاحي المصرح به لضمان توازن الميزانية دائماً
-      const totalEquity = openingCashInEquityCents + injectionsCents - drawingsCents + retainedProfitCents;
+      // حساب إجمالي حقوق الملكية — Option A: capitalAdditions سطر طرح منفصل.
+      // هذا يُحافظ على IC-1 (equityDriftCents == 0) رغم أن retained لم يعد يطرح
+      // الرأسمالي. المعادلة موثَّقة في ACCOUNTING_RULES.md INV-18 (Phase 2 §8).
+      const totalEquity = openingCashInEquityCents + injectionsCents - drawingsCents + retainedProfitCents - capitalAdditionsCents;
 
       // D5: REAL reconciliation — two independently-derived checks that CAN fail.
       // Check 1: equity-from-ledger vs equity-from-components.
@@ -798,8 +789,9 @@ export async function getFinancialPosition(
       const equityFromComponents = totalEquity;
       const equityDriftCents = equityFromLedger - equityFromComponents;
 
-      // Check 2: retained profit (cash-basis, all time) vs cash-basis P&L (all time).
-      const pnlAsOfDateNetCents = salesCashInCents - expensesPurchasesCashOutCents;
+      // Check 2: retained profit (cash-basis, all time, OPERATING) vs cash-basis
+      // P&L (all time, OPERATING). Both sides exclude capital → drift should stay 0.
+      const pnlAsOfDateNetCents = salesCashInCents - operatingCashOutCents;
       const pnlReconciliationCents = pnlAsOfDateNetCents - (retainedProfitCents + depositsCents);
 
       // F-05: real reconciliation between ledger (cash_movement) and source tables (sale, purchase, expense, order deposits).
@@ -888,6 +880,7 @@ export async function getFinancialPosition(
             injectionsCents,
             drawingsCents,
             retainedProfitCents,
+            capitalAdditionsCents,
             totalCents: totalEquity,
           },
           balanced: Math.abs(equityDriftCents) === 0,

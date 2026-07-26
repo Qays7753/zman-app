@@ -53,6 +53,18 @@ export function PurchasesTab() {
 
   const purchases = data?.pages.flatMap((page) => page.items) || [];
 
+  // Phase 2 — فلتر URL اختياري `?nature=capital|fixed|variable` (يُطبَّق على العميل).
+  const natureFilter = searchParams.get("nature");
+  const filteredPurchases = natureFilter
+    ? purchases.filter((item) => {
+        if (natureFilter === "capital") return item.isCapitalAsset === true;
+        if (natureFilter === "fixed") return item.isCapitalAsset === false && item.costNature === "fixed";
+        if (natureFilter === "variable")
+          return item.isCapitalAsset === false && (item.costNature === "variable" || !item.costNature);
+        return true;
+      })
+    : purchases;
+
   // تحديث محددات الـ URL
   const updateUrl = (params: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -121,23 +133,23 @@ export function PurchasesTab() {
         <SkeletonList />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
-      ) : purchases.length === 0 ? (
+      ) : filteredPurchases.length === 0 ? (
         <EmptyState
-          title={search ? "لا توجد نتائج بحث مطابقة" : "لا توجد مشتريات مسجلة"}
+          title={search || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مشتريات مسجلة"}
           description={
-            search
+            search || natureFilter
               ? "جرب تعديل كلمة البحث أو فلتر النتائج."
               : "تسجيل المشتريات يساعد في حصر تكلفة المواد الخام وحساب صافي أرباح الورشة بدقة."
           }
-          actionLabel={search ? undefined : "تسجيل أول فاتورة"}
+          actionLabel={search || natureFilter ? undefined : "تسجيل أول فاتورة"}
           onAction={
-            search ? undefined : () => updateUrl({ newPurchase: "true" })
+            search || natureFilter ? undefined : () => updateUrl({ newPurchase: "true" })
           }
         />
       ) : (
         <div className="space-y-3 flex-1 flex flex-col">
           <div className="space-y-3">
-            {purchases.map((item, idx) => (
+            {filteredPurchases.map((item, idx) => (
               // biome-ignore lint/a11y/useSemanticElements: card container is interactive
               <div
                 key={item.id}
@@ -154,9 +166,19 @@ export function PurchasesTab() {
                 className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 cursor-pointer transition-all animate-fade-slide-in"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-ink text-base">
-                    {item.item}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold text-ink text-base truncate">
+                      {item.item}
+                    </span>
+                    {/* Phase 2 — شارة التصنيف: رأس مال (amber) / ثابتة (blue) / متغيّرة (canvas). */}
+                    {item.isCapitalAsset ? (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] rounded-full font-bold shrink-0">رأس مال</span>
+                    ) : item.costNature === "fixed" ? (
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full font-bold shrink-0">ثابتة</span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-canvas text-ink-3 text-[10px] rounded-full font-bold shrink-0">متغيّرة</span>
+                    )}
+                  </div>
                   <span className="font-bold text-ink text-base">
                     <AmountText amount={item.totalCents} />
                   </span>

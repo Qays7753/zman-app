@@ -4,6 +4,7 @@ import { and, desc, isNull, sql, eq } from "drizzle-orm";
 import { expense, purchase, sale, cashMovement, account } from "@/features/finance/db";
 import { order } from "@/features/orders/db";
 import { db } from "@/lib/db/client";
+import { computeOperatingPnl } from "@/features/finance/pnl";
 
 export interface FinancialSummary {
   sales: number;
@@ -12,6 +13,8 @@ export interface FinancialSummary {
   expenses: number;
   purchases: number;
   netProfit: number;
+  /** Phase 2 — إضافات رأسمالية للفترة (مُستبعَدة من netProfit التشغيلي). */
+  capitalAdditionsCents: number;
   ownerNet: number;
   ownerInject: number;
   ownerDraw: number;
@@ -144,14 +147,19 @@ export async function getFinancialSummary(
   const sales = actualSales + deposits;
   const expenses = Number(expensesResult[0]?.total) || 0;
   const purchases = Number(purchasesResult[0]?.total) || 0;
-  // Profit EXCLUDES undelivered deposits (Rule 5). 'sales' here is the liquidity
-  // display number (actualSales + deposits); profit must use actualSales only.
-  const netProfit = actualSales - expenses - purchases;
+  // Phase 2 — الربح التشغيلي عبر computeOperatingPnl الموحَّدة. الرأسمالي
+  // مُستبعَد. هذه الدالة نفسها تُستدعى من reports.pnl و monthlyProfit → التطابق
+  // مضمون بالبناء (LOCKED-6)، ويحرسه IC-13.
+  // actualSales/deposits/expenses/purchases أعلاه تبقى كما هي (تضم الرأسمالي)
+  // لأنها أرقام «السيولة» المعروضة في لوحة المقارنة، لا الربح.
+  const operatingPnl = await computeOperatingPnl({ startDate, endDate });
+  const netProfit = operatingPnl.operatingNetCents;
+  const capitalAdditionsCents = operatingPnl.capitalAdditionsCents;
   const ownerInject = Number(ownerInjectResult[0]?.total) || 0;
   const ownerDraw = Number(ownerDrawResult[0]?.total) || 0;
   const ownerNet = ownerInject - ownerDraw;
 
-  return { sales, actualSales, deposits, expenses, purchases, netProfit, ownerNet, ownerInject, ownerDraw };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, ownerNet, ownerInject, ownerDraw };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)
@@ -531,49 +539,35 @@ const AR_MONTHS_SHORT = [
 ] as const;
 
 /**
- * ربح كل شهر (أساس نقدي) لآخر N أشهر — بطاقة مستقلة لا يمسّها الفلتر الزمني.
- * netProfit للشهر = مبيعات مكتملة ('sale') − مشتريات − مصاريف، من دفتر الصندوق.
- * ملاحظة: العربون مستثنى (ليس ربحاً حتى التسليم). شهر الشراء قد يظهر خسارة —
- * وهذا صحيح: الربح تراكمي ويظهر بأشهر البيع (§ النموذج المالي).
+ * ربح كل شهر (أساس نقدي، تشغيلي) لآخر N أشهر — بطاقة مستقلة لا يمسّها الفلتر الزمني.
+ * netProfit للشهر = مبيعات مكتملة ('sale') − مشتريات تشغيلية − مصاريف تشغيلية،
+ * من computeOperatingPnl الموحَّدة (LOCKED-6). العربون مستثنى (ليس ربحاً حتى
+ * التسليم). شهر الشراء التشغيلي قد يظهر خسارة — وهذا صحيح: الربح تراكمي
+ * ويظهر بأشهر البيع. الإضافات الرأسمالية لا تُطرح من الربح التشغيلي (تُعرض
+ * سطراً منفصلاً في الميزانية).
+ *
+ * ملاحظة أداء (Phase 2): استبدلنا استعلام مجمَّع واحد بـ N استدعاء متتالٍ
+ * لـ computeOperatingPnl (N = عدد الأشهر، افتراضياً 6). N+1 استعلام بدل 1،
+ * لكنه يُوحِّد تعريف الربح مع dashboard.summary و reports.pnl فيُلغي drift.
+ * مقبول للوحة من 6 أشهر — انظر SA1 NOTE + بطاقة 2.F.
  */
 export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfit[]> {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
-  const startStr = start.toLocaleDateString("en-CA");
-
-  const rows = await db
-    .select({
-      month: sql<string>`to_char(${cashMovement.date}, 'YYYY-MM')`,
-      sales: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' and ${cashMovement.sourceType} = 'sale' then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
-      purchases: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'out' and ${cashMovement.sourceType} = 'purchase' then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
-      expenses: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'out' and ${cashMovement.sourceType} = 'expense' then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
-    })
-    .from(cashMovement)
-    .innerJoin(account, eq(cashMovement.accountId, account.id))
-    .where(
-      and(
-        isNull(cashMovement.deletedAt),
-        isNull(account.deletedAt),
-        sql`${cashMovement.date} >= ${startStr}`,
-      ),
-    )
-    .groupBy(sql`to_char(${cashMovement.date}, 'YYYY-MM')`);
-
-  const map = new Map<string, number>();
-  for (const r of rows) {
-    const net = (Number(r.sales) || 0) - (Number(r.purchases) || 0) - (Number(r.expenses) || 0);
-    map.set(r.month, net);
-  }
 
   // آخر N أشهر، الأحدث أولاً — نملأ الأشهر بلا حركة بصفر لاستمرارية العرض.
   const result: MonthlyProfit[] = [];
   for (let i = 0; i < months; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    // بداية ونهاية الشهر بصيغة YYYY-MM-DD. نمرّرها لـ computeOperatingPnl.
+    const lastDayNum = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const monthStart = `${key}-01`;
+    const monthEnd = `${key}-${String(lastDayNum).padStart(2, "0")}`;
+    const pnl = await computeOperatingPnl({ startDate: monthStart, endDate: monthEnd });
     result.push({
       month: key,
       label: `${AR_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
-      netProfitCents: map.get(key) || 0,
+      netProfitCents: pnl.operatingNetCents,
     });
   }
   return result;

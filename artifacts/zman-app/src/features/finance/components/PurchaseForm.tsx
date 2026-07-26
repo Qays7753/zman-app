@@ -58,6 +58,9 @@ export function PurchaseForm({
     unitCostCents: initialData?.unitCostCents || 0,
     totalCents: initialData?.totalCents || 0,
     notes: initialData?.notes || "",
+    // Phase 2 — التصنيف بُعدين: افتراضي false/'variable'.
+    isCapitalAsset: initialData?.isCapitalAsset ?? false,
+    costNature: initialData?.costNature ?? "variable",
   };
 
   const {
@@ -71,6 +74,9 @@ export function PurchaseForm({
     resolver: zodResolver(purchaseInputSchema),
     defaultValues,
   });
+
+  // Phase 2 — نراقب isCapitalAsset لإظهار/إخفاء حقل طبيعة التكلفة.
+  const isCapital = watch("isCapitalAsset");
 
   const watchQty = watch("quantity") || 0;
   const watchUnitCost = watch("unitCostCents") || 0;
@@ -136,6 +142,8 @@ export function PurchaseForm({
       setValue("unitCostCents", initialData.unitCostCents);
       setValue("totalCents", initialData.totalCents);
       setValue("notes", initialData.notes || "");
+      setValue("isCapitalAsset", initialData.isCapitalAsset ?? false);
+      setValue("costNature", initialData.costNature ?? "variable");
       setIsCustomItem(!catalogItems.some((c) => c.name === initialData.item));
     }
   }, [initialData, setValue, catalogItems]);
@@ -266,6 +274,48 @@ export function PurchaseForm({
             <p className="text-xs text-alert mt-1">
               {errors.supplier.message as string}
             </p>
+          )}
+        </div>
+
+        {/* Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر).
+            ملاحظة: حقل «صنف الكتالوج المرتبط» يُؤجَّل للمرحلة 3 (بطاقة 3.A
+            migration 0021 تُضيف linked_catalog_component_id؛ بطاقة 2.J تختار
+            المنهج البديل الأنظف: فقط التصنيف في Phase 2). */}
+        <div className="space-y-3 p-3.5 bg-canvas/30 rounded-lg border border-hairline">
+          {/* بُعد 1: رأسمالي؟ */}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id={`${formId}-capital`}
+              {...register("isCapitalAsset")}
+              className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info"
+            />
+            <label
+              htmlFor={`${formId}-capital`}
+              className="text-sm font-bold text-ink/75 cursor-pointer"
+            >
+              أصل رأسمالي (آلة، أثاث، معدات — يُهلَك عبر الزمن، لا يُخصم من الربح التشغيلي)
+            </label>
+          </div>
+
+          {/* بُعد 2: الطبيعة (يظهر إن لم يكن رأسمالياً) */}
+          {!isCapital && (
+            <div className="space-y-2 flex flex-col">
+              <label
+                htmlFor={`${formId}-cost-nature`}
+                className="text-sm font-bold text-ink/75"
+              >
+                طبيعة التكلفة
+              </label>
+              <select
+                id={`${formId}-cost-nature`}
+                {...register("costNature")}
+                className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink text-start focus:outline-none focus:ring-2 focus:ring-ink"
+              >
+                <option value="variable">متغيّرة (خامات، تغليف، وقود)</option>
+                <option value="fixed">ثابتة (إيجار، اشتراك، رواتب)</option>
+              </select>
+            </div>
           )}
         </div>
 

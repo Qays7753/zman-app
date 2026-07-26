@@ -12,6 +12,12 @@ import {
   openingBalance,
 } from "./db";
 import { order } from "../orders/db";
+// Phase 2 — IC-13 يستدعي نقاط الدخول العامة الثلاث للربح التشغيلي ويتحقّق من
+// تطابقها. أي تعديل مستقبلي يحاول الالتفاف على computeOperatingPnl الموحَّدة
+// سيُكشَف هنا. لا دورة استيراد وقت التشغيل: تقارير/إجراءات تستعمل import type
+// فقط من finance/actions (ActionResponse)، فيُمحى وقت التجميع.
+import { getFinancialSummary, getMonthlyProfit } from "../dashboard/queries";
+import { computeCashBasisPnl } from "../reports/actions";
 
 // ─────────────────────────────────────────────────────────────────────────
 // فحص السلامة المالية (Financial Integrity Check)
@@ -49,7 +55,7 @@ export async function runFinancialIntegrityCheck(
 ): Promise<IntegrityReport> {
   const effectiveDate = asOfDate ?? new Date().toLocaleDateString("en-CA");
 
-  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11] =
+  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic13] =
     await Promise.all([
       checkIC1EquityDrift(effectiveDate),
       checkIC2OrphanMovements(),
@@ -62,9 +68,11 @@ export async function runFinancialIntegrityCheck(
       checkIC9SaleAmountMatchesOrderRevenue(),
       checkIC10OwnerTxAmountMatchesCashMovement(),
       checkIC11OpeningBalanceMatchesCashMovements(),
+      // Phase 2 — IC-13: LOCKED-6 (تطابق الربح بين المصادر الثلاثة).
+      checkIC13PnlSourcesConsistency(effectiveDate),
     ]);
 
-  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11];
+  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic13];
 
   const overallStatus: IntegrityCheckStatus = results.some(
     (r) => r.status === "FAIL",
@@ -883,6 +891,73 @@ async function checkIC11OpeningBalanceMatchesCashMovements(): Promise<IntegrityC
     suggestedFixAr:
       drift !== 0
         ? `الانحراف ${(drift / 1000).toFixed(3)} د.أ. تحقّق من حذف حساب يحمل رصيداً افتتاحياً، أو من تعديل يدوي لـ opening_balance دون إنشاء حركة صندوق مقابلة.`
+        : undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-13 — تطابق مصادر الربح التشغيلي الثلاثة (LOCKED-6) — Phase 2
+// ─────────────────────────────────────────────────────────────────────────
+//
+// الهدف: ضمان أن الربح التشغيلي في:
+//   (1) dashboard.summary.netProfit        (getFinancialSummary)
+//   (2) reports.pnl.netCents               (computeCashBasisPnl)
+//   (3) dashboard.monthlyProfit[last]      (getMonthlyProfit — الشهر الحالي)
+//   = رقم واحد بالضبط (القرار 6 من الـ spec).
+//
+// الآلية: نستدعي نقاط الدخول العامة الثلاث (وليس computeOperatingPnl مباشرة)
+// ونقارن نتائجها. اليوم، الثلاثة ينداءون computeOperatingPnl داخلياً → التطابق
+// مضمون بالبناء. IC-13 يحرس المستقبل: إن غيّر أحدهم تعريفه inline، يُكشَف
+// فوراً عند فحص السلامة.
+//
+// الفترة المُختارة (موثَّقة): «الشهر الحالي» (1 من الشهر → آخر يوم في الشهر).
+// نتجاهل معامل asOfDate عمداً — IC-13 يفحص التطابق في اللحظة الحالية بغضّ
+// النظر عن الـ as-of date المطلوب للميزانية، لأن الهدف هو كشف drift وقت
+// التشغيل. هذا يتسق مع "month" range في computeCashBasisPnl وgetMonthlyProfit[0].
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC13PnlSourcesConsistency(
+  _asOfDate: string,
+): Promise<IntegrityCheckResult> {
+  // الفترة: الشهر الحالي بصيغة YYYY-MM-DD للنقطة (1)، و"month" range للنقطة (2)،
+  // والشهر الأحدث للنقطة (3) — كلها تغطي نفس الفترة.
+  const ammanToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
+  const [yearStr, monthStr] = ammanToday.split("-");
+  const monthStart = `${yearStr}-${monthStr}-01`;
+  const lastDayNum = new Date(Number(yearStr), Number(monthStr), 0).getDate();
+  const monthEnd = `${yearStr}-${monthStr}-${String(lastDayNum).padStart(2, "0")}`;
+
+  // (1) dashboard.summary.netProfit
+  const summary = await getFinancialSummary(monthStart, monthEnd);
+  const dashboardNet = summary.netProfit;
+
+  // (2) reports.pnl.netCents
+  const pnl = await computeCashBasisPnl("month");
+  const reportsNet = pnl.netCents;
+
+  // (3) dashboard.monthlyProfit[last] — getMonthlyProfit يُرجع الأحدث أولاً.
+  const monthly = await getMonthlyProfit(6);
+  const monthlyNet = monthly[0]?.netProfitCents ?? 0;
+
+  const drift = Math.max(
+    Math.abs(dashboardNet - reportsNet),
+    Math.abs(dashboardNet - monthlyNet),
+    Math.abs(reportsNet - monthlyNet),
+  );
+
+  return {
+    id: "IC-13",
+    invariantId: "INV-19",
+    status: drift === 0 ? "PASS" : "FAIL",
+    titleAr: "تطابق مصادر الربح التشغيلي (LOCKED-6)",
+    descriptionAr:
+      drift === 0
+        ? `المصادر الثلاثة متطابقة للشهر الحالي: dashboard = reports = monthly = ${(dashboardNet / 1000).toFixed(3)} د.أ.`
+        : `انحراف في الربح التشغيلي بين المصادر: dashboard=${(dashboardNet / 1000).toFixed(3)} د.أ، reports=${(reportsNet / 1000).toFixed(3)} د.أ، monthly=${(monthlyNet / 1000).toFixed(3)} د.أ. الانحراف الأقصى = ${(drift / 1000).toFixed(3)} د.أ.`,
+    driftCents: drift,
+    suggestedFixAr:
+      drift !== 0
+        ? `راجع تعريفات الربح في dashboard/queries.ts وreports/actions.ts. كلها يجب أن تنداء computeOperatingPnl من finance/pnl.ts. أي تعريف inline = مصدر انحراف.`
         : undefined,
   };
 }

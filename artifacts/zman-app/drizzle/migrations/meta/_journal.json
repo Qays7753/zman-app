@@ -127,6 +127,13 @@
       "when": 1785105777721,
       "tag": "0017_order_component_catalog_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785107163308,
+      "tag": "0018_cost_classification",
+      "breakpoints": true
     }
   ]
 }

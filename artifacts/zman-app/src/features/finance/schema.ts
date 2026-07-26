@@ -29,6 +29,12 @@ export const purchaseInputSchema = z.object({
     .max(1000, { message: "الملاحظات لا تتعدى 1000 حرف" })
     .optional()
     .default(""),
+  // Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر).
+  // isCapitalAsset: افتراضي false (كل شراء تشغيلي ما لم يُحدَّد خلافه).
+  // costNature: اختياري — NULL مقبول في الـ DB للرأسمالي وللصفوف القديمة.
+  // عند isCapitalAsset=false يُفضَّل تحديده (defaultValues في الـ form تضع 'variable').
+  isCapitalAsset: z.boolean().default(false),
+  costNature: z.enum(["fixed", "variable"]).optional(),
 });
 
 // 2. مخطط التحقق للمصاريف
@@ -49,6 +55,9 @@ export const expenseInputSchema = z.object({
     .max(1000, { message: "الوصف لا يتعدى 1000 حرف" })
     .optional()
     .default(""),
+  // Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر). نفس منطق purchase.
+  isCapitalAsset: z.boolean().default(false),
+  costNature: z.enum(["fixed", "variable"]).optional(),
 });
 
 export const saleInputSchema = z

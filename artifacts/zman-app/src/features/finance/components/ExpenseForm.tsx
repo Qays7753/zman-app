@@ -51,6 +51,9 @@ export function ExpenseForm({
     category: initialData?.category || "",
     amountCents: initialData?.amountCents || 0,
     description: initialData?.description || "",
+    // Phase 2 — التصنيف بُعدين: افتراضي false/'variable'.
+    isCapitalAsset: initialData?.isCapitalAsset ?? false,
+    costNature: initialData?.costNature ?? "variable",
   };
 
   const {
@@ -65,6 +68,9 @@ export function ExpenseForm({
     defaultValues,
   });
 
+  // Phase 2 — نراقب isCapitalAsset لإظهار/إخفاء حقل طبيعة التكلفة.
+  const isCapital = watch("isCapitalAsset");
+
   useEffect(() => {
     if (initialData) {
       setValue(
@@ -74,6 +80,8 @@ export function ExpenseForm({
       setValue("category", initialData.category);
       setValue("amountCents", initialData.amountCents);
       setValue("description", initialData.description || "");
+      setValue("isCapitalAsset", initialData.isCapitalAsset ?? false);
+      setValue("costNature", initialData.costNature ?? "variable");
       setIsCustomCategory(!finalCategories.includes(initialData.category));
     }
   }, [initialData, setValue, finalCategories]);
@@ -207,6 +215,45 @@ export function ExpenseForm({
           {...register("description")}
           error={errors.description?.message as string}
         />
+
+        {/* Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر). */}
+        <div className="space-y-3 p-3.5 bg-canvas/30 rounded-lg border border-hairline">
+          {/* بُعد 1: رأسمالي؟ */}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id={`${formId}-capital`}
+              {...register("isCapitalAsset")}
+              className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info"
+            />
+            <label
+              htmlFor={`${formId}-capital`}
+              className="text-sm font-bold text-ink/75 cursor-pointer"
+            >
+              أصل رأسمالي (يُهلَك عبر الزمن، لا يُخصم من الربح التشغيلي)
+            </label>
+          </div>
+
+          {/* بُعد 2: الطبيعة (يظهر إن لم يكن رأسمالياً) */}
+          {!isCapital && (
+            <div className="space-y-2 flex flex-col">
+              <label
+                htmlFor={`${formId}-cost-nature`}
+                className="text-sm font-bold text-ink/75"
+              >
+                طبيعة التكلفة
+              </label>
+              <select
+                id={`${formId}-cost-nature`}
+                {...register("costNature")}
+                className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink text-start focus:outline-none focus:ring-2 focus:ring-ink"
+              >
+                <option value="variable">متغيّرة (خامات، تغليف، وقود)</option>
+                <option value="fixed">ثابتة (إيجار، اشتراك، رواتب)</option>
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3">

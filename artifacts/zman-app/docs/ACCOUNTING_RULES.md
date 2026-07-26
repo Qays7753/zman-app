@@ -120,3 +120,49 @@ ZMAN ورشة صغيرة. صاحبها يريد أن يعرف «كم نقدًا 
 - **برومتات الذكاء الاصطناعي:** أضِف السطر «التزم بـ `docs/ACCOUNTING_RULES.md`». يجب أن يقرأه الوكيل قبل أي تعديل مالي.
 - **مراجعة الكود:** أي PR يلمس المالية/الطلبات/التقارير/اللوحة يجب أن يذكر القواعد التي يحافظ عليها.
 - **الفحص الدوري:** اضغط «فحص الآن» في صفحة التقارير بعد كل نشر، أو جدوله يوميًا.
+
+---
+
+## 8. التصنيف الرأسمالي والتشغيلي (المرحلة 2)
+
+> **كل مصروف/شراء يُصنَّف بُعدين:** رأسمالي (نعم/لا) + طبيعة (ثابت/متغيّر).
+> الافتراضي = تشغيلي-متغيّر. الربح التشغيلي يستثني الرأسمالي؛ الرأسمالي يظهر
+> سطراً منفصلاً في الميزانية ويُخصم من حقوق الملكية للحفاظ على توازن IC-1.
+
+| # | القاعدة | يفرضها الفحص |
+|---|---|---|
+| INV-18 | كل صف في `expense` و`purchase` يُصنَّف رأسمالياً (`is_capital_asset` boolean NOT NULL DEFAULT false) وطبيعياً (`cost_nature` text nullable ∈ {'fixed','variable'}). CHECK constraint على الجدولين يمنع القيم غير الصالحة: `is_capital_asset = true OR cost_nature IS NULL OR cost_nature IN ('fixed','variable')`. الافتراضي للصفوف القديمة = (false, NULL) ≡ «تشغيلي-متغيّر» ضمنياً، فلا تتغير الأرقام القائمة. CHECK constraint على الجدولين يمنع ترك الأبعاد في حالة غير منطقية. | مراجعة يدوية + CHECK في DB |
+| INV-19 | **الرأسمالي لا يدخل الربح التشغيلي.** معادلة الربح التشغيلي الموحَّدة (LOCKED-6) عبر `computeOperatingPnl({startDate, endDate, tx})` من `src/features/finance/pnl.ts`: `operatingNetCents = salesCents − operatingExpensesCents − operatingPurchasesCents`، حيث المصاريف/المشتريات التشغيلية تستثني الرأسمالي عبر `COALESCE(is_capital_asset, false) = false`. `capitalAdditionsCents` = مصاريف رأسمالية + مشتريات رأسمالية، وتُعرض سطراً منفصلاً. **معادلة الميزانية المعدَّلة (Option A — للحفاظ على IC-1):** `retainedProfitCents = salesCashInCents − depositsLiability − operatingExpensesCents − operatingPurchasesCents` (ربح تشغيلي، يستثني الرأسمالي). `totalEquity = openingCash + injections − drawings + retainedProfitCents − capitalAdditionsCents` (سطر طرح منفصل للرأسمالي). المعادلة متوازنة: retained زاد بمقدار capitalOut (لم يعد مطروحاً) وtotalAssets لم يتغيّر (كان يطرح capitalOut أصلاً) → بطرح capitalAdditions من totalEquity نُلغي الزيادة فتبقى IC-1 = 0. | IC-6 المعدَّل + IC-13 |
+| INV-19a | **تطابق الربح التشغيلي بين المصادر الثلاثة (LOCKED-6):** `dashboard.summary.netProfit` == `reports.pnl.netCents` == `dashboard.monthlyProfit[last].netProfitCents` لنفس الفترة، بالفِلْس. لا تعريف inline للربح مسموح — كلها تُنداء `computeOperatingPnl`. | IC-13 |
+
+**قواعد إضافية للتعديلات المستقبلية في هذه المرحلة:**
+
+**افعل:**
+- قبل تعديل أي من `dashboard/queries.ts:getFinancialSummary`، `reports/actions.ts:computeCashBasisPnl`، `dashboard/queries.ts:getMonthlyProfit`، اقرأ INV-19 + INV-19a. كل تعريف inline للربح = خرق للقرار 6 من الـ spec.
+- عند إضافة حقول تصنيف جديدة على `expense`/`purchase`، حدّث Zod schema + Drizzle field + Migration + CHECK constraint معاً في PR واحد.
+- عند تعديل `getFinancialPosition`، تحقّق أن `equityDriftCents == 0` و`pnlReconciliationCents == 0` بعد التعديل. أي بند جديد يُضاف لطرفَي المعادلة.
+
+**لا تفعل أبدًا:**
+- لا تُعدّل تعريف الربح inline في dashboard أو reports أو monthly — استدعِ `computeOperatingPnl` فقط.
+- لا تُسقط CHECK constraint على `is_capital_asset`/`cost_nature` — يحمي سلامة التصنيف.
+- لا تُضمِن `totalCents` (عمود مُولَّد GENERATED ALWAYS) في أي `.values({...})` أو `.set({...})` على `purchase`. اكتب `unitCostMicroCents` و`quantity` فقط.
+- لا تُسقط سطر `capitalAdditionsCents` من `totalEquity` في `getFinancialPosition` — IC-1 سينكسر بـ drift = 2 × capital.
+
+---
+
+## 9. دفتر المخزون (placeholder — المرحلة 3)
+
+> هذه الفقرة placeholder. سيُملأها SUB-AGENT 3 (Selective Inventory) في بطاقة 3.O
+> بعد إكمال Phase 3 (migrations 0019/0020/0021 + inventory module + IC-12).
+> القواعد المتوقَّعة:
+> - INV-20: `catalog_movement` هو الدفتر المستقل للحركة المادية للمخزون (منفصل عن `cash_movement`).
+> - INV-21: خصم المخزون يحدث فقط داخل `convertOrderToSale` (transaction واحدة مع sale insert).
+> - INV-22: استرجاع المخزون يحدث فقط داخل `reverseSale` (soft-delete للحركات الأصلية).
+> - IC-12: قيد سلامة دفتر المخزون — WARN فقط (معلومي)، لا FAIL.
+
+---
+
+## 10. الإهلاك (placeholder — المرحلة 4)
+
+> placeholder. سيُملأها SUB-AGENT 4 (Depreciation) في بطاقة 4.G بعد إكمال Phase 4.
+> يحتاج قرار المالك صراحةً قبل البدء (انظر بطاقة 4.A من الـ spec).

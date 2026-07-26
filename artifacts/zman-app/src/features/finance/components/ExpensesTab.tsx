@@ -66,6 +66,20 @@ export function ExpensesTab() {
 
   const expenses = data?.pages.flatMap((page) => page.items) || [];
 
+  // Phase 2 — فلتر URL اختياري `?nature=capital|fixed|variable` (يُطبَّق على
+  // العميل لأن الـ infinite-scroll يجعل الفلترة في الـ server معقَّدة). إن لم
+  // يُمرَّر، تُعرض كل المصاريف.
+  const natureFilter = searchParams.get("nature");
+  const filteredExpenses = natureFilter
+    ? expenses.filter((item) => {
+        if (natureFilter === "capital") return item.isCapitalAsset === true;
+        if (natureFilter === "fixed") return item.isCapitalAsset === false && item.costNature === "fixed";
+        if (natureFilter === "variable")
+          return item.isCapitalAsset === false && (item.costNature === "variable" || !item.costNature);
+        return true;
+      })
+    : expenses;
+
   // تحديث محددات الـ URL
   const updateUrl = (params: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -134,23 +148,23 @@ export function ExpensesTab() {
         <SkeletonList />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
-      ) : expenses.length === 0 ? (
+      ) : filteredExpenses.length === 0 ? (
         <EmptyState
-          title={search || category !== "all" ? "لا توجد نتائج بحث مطابقة" : "لا توجد مصاريف مسجلة"}
+          title={search || category !== "all" || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مصاريف مسجلة"}
           description={
-            search || category !== "all"
-              ? "جرب تعديل كلمة البحث أو فلتر الفئات."
+            search || category !== "all" || natureFilter
+              ? "جرب تعديل كلمة البحث أو فلتر الفئات أو فلتر الطبيعة."
               : "تسجيل المصاريف التشغيلية (الرواتب، الإيجارات، الفواتير) يعطي رؤية دقيقة للأرباح الصافية للورشة."
           }
-          actionLabel={search || category !== "all" ? undefined : "تسجيل مصروف"}
+          actionLabel={search || category !== "all" || natureFilter ? undefined : "تسجيل مصروف"}
           onAction={
-            search || category !== "all" ? undefined : () => updateUrl({ newExpense: "true" })
+            search || category !== "all" || natureFilter ? undefined : () => updateUrl({ newExpense: "true" })
           }
         />
       ) : (
         <div className="space-y-3 flex-1 flex flex-col">
           <div className="space-y-3">
-            {expenses.map((item, idx) => (
+            {filteredExpenses.map((item, idx) => (
               // biome-ignore lint/a11y/useSemanticElements: card container is interactive
               <div
                 key={item.id}
@@ -175,9 +189,19 @@ export function ExpensesTab() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-ink/60 font-medium">
-                  <span className="px-2.5 py-1 bg-canvas rounded-full text-ink/80 text-[10px] font-bold">
-                    {item.category}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-1 bg-canvas rounded-full text-ink/80 text-[10px] font-bold">
+                      {item.category}
+                    </span>
+                    {/* Phase 2 — شارة التصنيف: رأس مال (amber) / ثابتة (blue) / متغيّرة (canvas). */}
+                    {item.isCapitalAsset ? (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] rounded-full font-bold">رأس مال</span>
+                    ) : item.costNature === "fixed" ? (
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full font-bold">ثابتة</span>
+                    ) : (
+                      <span className="px-2 py-0.5 bg-canvas text-ink-3 text-[10px] rounded-full font-bold">متغيّرة</span>
+                    )}
+                  </div>
                   <DateText date={item.date} relative />
                 </div>
               </div>

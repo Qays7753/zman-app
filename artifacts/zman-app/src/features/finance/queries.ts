@@ -78,6 +78,9 @@ export async function getPurchases(filters: GetPurchasesFilters) {
       unitCostMicroCents: purchase.unitCostMicroCents,
       totalCents: purchase.totalCents,
       notes: purchase.notes,
+      // Phase 2 — حقلا التصنيف لعرض الشارة في PurchasesTab.
+      isCapitalAsset: purchase.isCapitalAsset,
+      costNature: purchase.costNature,
       deletedAt: purchase.deletedAt,
       createdAt: purchase.createdAt,
       updatedAt: purchase.updatedAt,
@@ -142,6 +145,9 @@ export async function getExpenses(filters: GetExpensesFilters) {
       category: expense.category,
       amountCents: expense.amountCents,
       description: expense.description,
+      // Phase 2 — حقلا التصنيف لعرض الشارة في ExpensesTab.
+      isCapitalAsset: expense.isCapitalAsset,
+      costNature: expense.costNature,
       deletedAt: expense.deletedAt,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
