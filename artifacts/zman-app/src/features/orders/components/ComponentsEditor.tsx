@@ -58,7 +58,16 @@ export function ComponentsEditor({
   };
 
   const handleSelectCatalogItem = (item: CatalogComponent) => {
-    append({ name: item.name, costCents: item.defaultCostCents, quantity: 1 });
+    // Phase 1: سجّل معرّف صنف الكتالوج مع snapshot الاسم/التكلفة. المعرّف
+    // هو «الرابط المفقود» الذي سيُتيح خصم المخزون في convertOrderToSale
+    // (المرحلة 3).snapshot الاسم/التكلفة يبقى للأرشيف حتى لو حُذف الصنف.
+    // unit يُؤجَّل إلى Phase 3 (لتمييز المتتبَّع) وفقاً لبطاقة 3.K.
+    append({
+      name: item.name,
+      costCents: item.defaultCostCents,
+      quantity: 1,
+      catalogComponentId: item.id,
+    });
     toast.success(`تمت إضافة "${item.name}" من المكوّنات`);
   };
 
@@ -108,12 +117,23 @@ export function ComponentsEditor({
               >
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex-1">
-                    <label
-                      htmlFor={`comp-name-${field.id}`}
-                      className="text-xs font-semibold text-ink-3 block mb-1"
-                    >
-                      اسم المكوّن
-                    </label>
+                    <div className="flex items-center">
+                      <label
+                        htmlFor={`comp-name-${field.id}`}
+                        className="text-xs font-semibold text-ink-3 block mb-1"
+                      >
+                        اسم المكوّن
+                      </label>
+                      {getValues(`components.${index}.catalogComponentId`) ? (
+                        <span className="text-[10px] text-info ms-2">
+                          مربوط بصنف
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-ink-3 ms-2">
+                          نص حر
+                        </span>
+                      )}
+                    </div>
                     <input
                       id={`comp-name-${field.id}`}
                       type="text"

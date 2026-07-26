@@ -10,6 +10,10 @@ export const orderComponentInputSchema = z.object({
     .number()
     .int()
     .positive("التكرار في الوحدة يجب أن يكون أكبر من صفر"),
+  // الربط المفقود (المرحلة 1): معرّف صنف الكتالوج إن اختير من الـ picker.
+  // اختياري لأن الإضافة اليدوية لا تحمل id (نص حر). يُمرَّر null للـ DB
+  // في orders/actions.ts إن لم يُحدَّد. Phase 3 ستستخدمه لخصم المخزون.
+  catalogComponentId: z.string().uuid().optional(),
 });
 
 export const createOrderSchema = z.object({

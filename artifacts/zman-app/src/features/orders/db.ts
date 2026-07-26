@@ -9,6 +9,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import { catalogComponent } from "../catalog/db";
 
 export const order = pgTable(
   "order",
@@ -93,6 +94,13 @@ export const orderComponent = pgTable(
     orderId: uuid("order_id")
       .notNull()
       .references(() => order.id, { onDelete: "cascade" }),
+    // الربط المفقود (المرحلة 1): معرّف صنف الكتالوج إن اختير من الـ picker.
+    // nullable — المكوّنات المُضافة يدوياً (نص حر) تبقى بلا id. ON DELETE RESTRICT
+    // يحفظ الأثر التاريخي للأصناف المستخدَمة في طلبات قائمة (§6 سيناريو 5).
+    catalogComponentId: uuid("catalog_component_id").references(
+      () => catalogComponent.id,
+      { onDelete: "restrict" },
+    ),
     name: text("name").notNull(),
     costCents: integer("cost_cents").notNull(),
     quantity: integer("quantity").notNull().default(1),

@@ -120,6 +120,13 @@
       "when": 1783460535045,
       "tag": "0016_purchase_high_precision_unit_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785105777721,
+      "tag": "0017_order_component_catalog_fk",
+      "breakpoints": true
     }
   ]
 }

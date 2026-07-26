@@ -37,6 +37,21 @@ export function OrderForm({
 
   const schema = isEditMode ? updateOrderSchema : createOrderSchema;
 
+  // Phase 1: قاعدة بيانات تُعيد catalogComponentId كـ string | null (Drizzle يستنتج
+  // null للأعمدة nullable). Zod تستعمل .optional() (= string | undefined). نُحوّل
+  // null → undefined لمطابقة نموذج الإدخال عند تعبئة defaultValues/reset. actions.ts
+  // يُحوّل undefined → null عند الكتابة للـ DB (?? null).
+  const toFormComponents = (
+    comps: OrderWithComponents["components"] | undefined,
+  ) =>
+    (comps || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      costCents: c.costCents,
+      quantity: c.quantity,
+      catalogComponentId: c.catalogComponentId ?? undefined,
+    }));
+
   const {
     register,
     handleSubmit,
@@ -60,7 +75,7 @@ export function OrderForm({
           customerPhoneAlt: initialData.customerPhoneAlt || "",
           productName: initialData.productName,
           quantity: initialData.quantity,
-          components: initialData.components || [],
+          components: toFormComponents(initialData.components),
           additionalCostsCents: initialData.additionalCostsCents ?? 0,
           totalPriceCents: initialData.totalPriceCents,
           notes: initialData.notes || "",
@@ -106,7 +121,7 @@ export function OrderForm({
         customerPhoneAlt: initialData.customerPhoneAlt || "",
         productName: initialData.productName,
         quantity: initialData.quantity,
-        components: initialData.components || [],
+        components: toFormComponents(initialData.components),
         additionalCostsCents: initialData.additionalCostsCents ?? 0,
         totalPriceCents: initialData.totalPriceCents,
         notes: initialData.notes || "",

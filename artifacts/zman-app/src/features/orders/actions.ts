@@ -159,6 +159,8 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
             name: c.name,
             costCents: c.costCents,
             quantity: c.quantity,
+            // Phase 1: الربط المفقود — معرّف صنف الكتالوج إن وُجد، null للنص الحر.
+            catalogComponentId: c.catalogComponentId ?? null,
           })),
         );
       }
@@ -462,6 +464,8 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
             name: c.name,
             costCents: c.costCents,
             quantity: c.quantity,
+            // Phase 1: الربط المفقود — معرّف صنف الكتالوج إن وُجد، null للنص حر.
+            catalogComponentId: c.catalogComponentId ?? null,
           })),
         );
       }
