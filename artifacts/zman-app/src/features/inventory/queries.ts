@@ -1,3 +1,5 @@
+"use server";
+
 import { and, eq, isNull, sql, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { catalogComponent } from "../catalog/db";
