@@ -12,8 +12,10 @@ import { capitalAsset } from "./db";
 //
 // دوال القراءة هنا تُستخدَم من:
 //   - computeOperatingPnl (src/features/finance/pnl.ts): لحساب monthlyDepreciationCents
-//     للفترة الحالية (شهر واحد لكل أصل تحت الإهلاك).
-//   - IC-14 (src/features/finance/integrityCheck.ts): لحساب netBookValue لكل الأصول.
+//     (= إهلاك الفترة [startDate, endDate] — period-aware بعد إصلاح D2). لكل أصل
+//     تحت الإهلاك، يُحتسى الفرق بين months_elapsed عند endDate وعند startDate.
+//   - IC-14 (src/features/finance/integrityCheck.ts): لحساب netBookValue لكل الأصول
+//     (تراكمي حتى asOfDate — ليس period-aware).
 //
 // ⚠️ CRITICAL-NOTE-4 (SA1): مواصفات البطاقة 4.D تقترح:
 //      date_part('month', age(asOfDate, started_at::date)) < useful_life_months
@@ -23,7 +25,14 @@ import { capitalAsset } from "./db";
 //
 //    الحل (المُتَّبع هنا): EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age)
 //    يُرجِع إجمالي الأشهر المنقضية فعلاً (14 = 1×12 + 2). يُستخدَم في كل من
-//    computeOperatingPnl و IC-14.
+//    computeOperatingPnl و IC-14. لا تغيير على هذه الصيغة (CRITICAL-NOTE-4).
+//
+// ⚠️ D2 fix (SA2): getDepreciationForPeriodCents تقبل { startDate, endDate }
+//    وتُعيد إهلاك الفترة، لا حصّة شهر واحد. الصيغة:
+//      (min(monthsElapsedAt(endDate), usefulLife)
+//       − min(monthsElapsedAt(effectiveStart), usefulLife)) × monthly_dep
+//    حيث effectiveStart = max(startedAt, startDate). إن startDate = null
+//    (range:"all") → monthsAtStart = 0 لكل أصل → النتيجة تراكمية حتى endDate.
 // ─────────────────────────────────────────────────────────────────────────
 
 // نوع المعاملة Drizzle. نستخدم any لأن نوع tx المُمرَّر من db.transaction هو
@@ -32,43 +41,83 @@ import { capitalAsset } from "./db";
 type Tx = any;
 
 /**
- * حساب إجمالي الإهلاك الشهري الجاري للأصول النشطة حتى asOfDate.
+ * حساب الإهلاك المُتراكِم خلال الفترة [startDate, endDate] (D2 fix).
  *
- * لكل صف capital_asset نشط (deleted_at IS NULL) بدأ الإهلاك (started_at::date <= asOfDate)
- * ولم يكتمل بعد (months_elapsed < useful_life_months): يُضاف monthly_depreciation_cents.
+ * لكل صف capital_asset نشط (deleted_at IS NULL) يُحتسى:
  *
- * النتيجة = SUM(monthly_depreciation_cents) — أي قيمة الإهلاك للشهر الحالي.
- * تُخصَم من operatingNetCents في computeOperatingPnl.
+ *   depreciationForWindow =
+ *     ( min(monthsElapsedAt(endDate),        usefulLifeMonths)
+ *       − min(monthsElapsedAt(effectiveStart), usefulLifeMonths) )
+ *     × monthly_depreciation_cents
  *
- * ملاحظة: هذا ليس "إجمالي الإهلاك التراكمي" — إنما حصّة الشهر الواحد لكل أصل
- * تحت الإهلاك. التراكمي يُحسَب في IC-14 (months_elapsed × monthly_dep لكل أصل).
+ * حيث:
+ *   - effectiveStart = max(started_at, startDate). الأصل لا يُحتسى قبل بدئه.
+ *   - إن startDate = null (range:"all" أو getFinancialPosition) → effectiveStart
+ *     يُعامَل كأنه startedAt نفسه → monthsAtStart = 0 لكل أصل → النتيجة
+ *     تراكمية حتى endDate (هذا ما يحتاجه P&L لكامل الفترة).
+ *   - إن started_at > endDate → الأصل لم يبدأ بعد → 0 (CASE الأول).
+ *   - إن monthsElapsedAt(startDate) ≥ usefulLifeMonths → الأصل مُستهلَك بالكامل
+ *     قبل بداية الفترة → 0 (CASE الثاني، يمنع الإهلاك المكرَّر بعد انقضاء العمر).
  *
- * ⚠️ EXTRACT بدل date_part (CRITICAL-NOTE-4): راجع التعليق أعلى الملف.
+ * months_elapsed يُحسَب بصيغة EXTRACT الصحيحة (CRITICAL-NOTE-4 — لا تغيير):
+ *   (EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age))
+ *
+ * النتيجة تُخصَم من operatingNetCents في computeOperatingPnl. مع هذا التعديل
+ * يصبح الإهلاك period-aware:
+ *   - فترة شهر واحد → شهر واحد من الإهلاك لكل أصل نشط بدأ قبل بداية الفترة.
+ *   - فترة سنة → 12 شهراً (أو أقل إن انقضى العمر النافع).
+ *   - range:"all" → cumulative-to-date.
+ *
+ * هذا يُصلِح D2 حيث كان computeCashBasisPnl("all") يطرح شهراً واحداً فقط من
+ * إهلاك كامل العمر لأن الدالة القديمة getActiveMonthlyDepreciationCents كانت
+ * تُعيد SUM(monthly_dep) ثابتة لكل الأصول النشطة بغضّ النظر عن طول الفترة.
+ *
+ * مثال (انظر ACCOUNTING_RULES.md §10): أصل 1,200,000 فلس على 12 شهراً بدأ
+ * قبل 10 أشهر → monthly_dep = 100,000. range:"all" → 10 × 100,000 = 1,000,000.
+ * نافذة 30 يوماً → 1 × 100,000 = 100,000. نافذة شهرين → 200,000.
  */
-export async function getActiveMonthlyDepreciationCents(
-  asOfDate: string,
+export async function getDepreciationForPeriodCents(
+  { startDate, endDate }: { startDate: string | null; endDate: string },
   tx: Tx = db,
 ): Promise<number> {
   const [row] = await tx
     .select({
-      total: sql<number>`coalesce(sum(${capitalAsset.monthlyDepreciationCents}), 0)::bigint`,
+      total: sql<number>`
+        coalesce(sum(
+          case
+            -- الأصل لم يبدأ بعد endDate → لا إهلاك
+            when ${capitalAsset.startedAt}::date > ${endDate}::date then 0
+            -- الأصل مُستهلَك بالكامل قبل بداية الفترة → لا إهلاك مكرَّر
+            when ${startDate}::date is not null
+              and ${capitalAsset.startedAt}::date <= ${startDate}::date
+              and (
+                extract(year from age(${startDate}::date, ${capitalAsset.startedAt}::date)) * 12
+                + extract(month from age(${startDate}::date, ${capitalAsset.startedAt}::date))
+              ) >= ${capitalAsset.usefulLifeMonths}
+              then 0
+            else (
+              least(
+                extract(year from age(${endDate}::date, ${capitalAsset.startedAt}::date)) * 12
+                + extract(month from age(${endDate}::date, ${capitalAsset.startedAt}::date)),
+                ${capitalAsset.usefulLifeMonths}::numeric
+              )
+              - least(
+                case
+                  when ${startDate}::date is null then 0
+                  when ${capitalAsset.startedAt}::date > ${startDate}::date then 0
+                  else
+                    extract(year from age(${startDate}::date, ${capitalAsset.startedAt}::date)) * 12
+                    + extract(month from age(${startDate}::date, ${capitalAsset.startedAt}::date))
+                end,
+                ${capitalAsset.usefulLifeMonths}::numeric
+              )
+            ) * ${capitalAsset.monthlyDepreciationCents}
+          end
+        ), 0)::bigint
+      `,
     })
     .from(capitalAsset)
-    .where(
-      and(
-        isNull(capitalAsset.deletedAt),
-        sql`${capitalAsset.startedAt}::date <= ${asOfDate}`,
-        // ⚠️ CRITICAL-NOTE-4 (SA1): EXTRACT-based months_elapsed بدل date_part.
-        // date_part('month', age(...)) يُرجِع 0-11 فقط (مكوّن الشهر)، أما
-        // (EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age)) فيُرجِع
-        // إجمالي الأشهر المنقضية. لأصل عمره 18 شهراً: date_part = 6 (خطأ)،
-        // EXTRACT = 18 (صحيح). انظر SA1 validation-report §CRITICAL-NOTE-4.
-        sql`(
-          EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
-          + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
-        ) < ${capitalAsset.usefulLifeMonths}`,
-      ),
-    );
+    .where(isNull(capitalAsset.deletedAt));
 
   return Number(row?.total) || 0;
 }

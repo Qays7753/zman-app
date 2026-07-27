@@ -6,7 +6,7 @@ import { account, cashMovement, expense, purchase } from "./db";
 // Phase 4 — capital_asset للإهلاك (محسوب عند القراءة، خيار γ). لا FK إلى
 // cash_movement (الإهلاك غير نقدي — INV-21). نستورد من depreciation/queries
 // لأن استعلام الإهلاك موحَّد هناك ويُستخدَم أيضاً من IC-14.
-import { getActiveMonthlyDepreciationCents } from "../depreciation/queries";
+import { getDepreciationForPeriodCents } from "../depreciation/queries";
 
 /**
  * ============================================================================
@@ -34,9 +34,10 @@ import { getActiveMonthlyDepreciationCents } from "../depreciation/queries";
  *                              رأسمالية. تُعرض سطراً منفصلاً في الميزانية
  *                              (تُخصم من totalEquity للحفاظ على IC-1 — انظر
  *                              reports/actions.ts:getFinancialPosition).
- *  - monthlyDepreciationCents: (Phase 4) إهلاك شهري محسوب = SUM(monthly_dep)
- *                              لكل صف في capital_asset نشط وبدأ ولم يكتمل بعد،
- *                              حتى endDate. غير نقدي — لا حركة في cash_movement.
+ *  - monthlyDepreciationCents: (Phase 4 — D2 fix) إهلاك الفترة [startDate, endDate]
+ *                              المحسوب = SUM(Δmonths_elapsed × monthly_dep) لكل
+ *                              صف في capital_asset نشط. غير نقدي — لا حركة في
+ *                              cash_movement. لـ range:"all" → تراكمي حتى endDate.
  *                              INV-21 يستثني صراحةً INV-1 لهذا التعديل.
  *  - operatingNetCents:        = salesCents − operatingExpensesCents
  *                                − operatingPurchasesCents
@@ -75,7 +76,7 @@ export interface OperatingPnlResult {
   operatingExpensesCents: number;
   operatingPurchasesCents: number;
   capitalAdditionsCents: number;
-  /** Phase 4 — إهلاك شهري محسوب للأصول النشطة. غير نقدي (لا يدخل cash_movement). */
+  /** Phase 4 — إهلاك الفترة المحسوب للأصول النشطة (period-aware بعد D2 fix). غير نقدي (لا يدخل cash_movement). */
   monthlyDepreciationCents: number;
   operatingNetCents: number;
 }
@@ -178,15 +179,21 @@ export async function computeOperatingPnl({
   const capitalPurchasesCents = Number(purchaseRow?.capital) || 0;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 4. الإهلاك الشهري المحسوب (Phase 4 — خيار γ).
+  // 4. الإهلاك المحسوب للفترة (Phase 4 — خيار γ، D2 fix — period-aware).
   //
-  // استعلام واحد على capital_asset: SUM(monthly_dep) لكل صف نشط بدأ الإهلاك
-  // (started_at::date <= endDate) ولم يكتمل بعد (months_elapsed < useful_life).
+  // استعلام واحد على capital_asset: لكل صف نشط، يُحتسب إهلاك الفترة [startDate,
+  // endDate] كالفرق بين months_elapsed عند endDate وعند effectiveStart =
+  // max(started_at, startDate). إن startDate = null (range:"all" أو
+  // getFinancialPosition) → monthsAtStart = 0 لكل أصل → النتيجة تراكمية حتى
+  // endDate. هذا يُصلِح D2: قبل هذا التعديل كانت الدالة تُعيد SUM(monthly_dep)
+  // لكل الأصول النشطة — أي حصة شهر واحد بغضّ النظر عن طول الفترة. فترة كل التاريخ
+  // كانت تطرح شهراً واحداً فقط من إهلاك أصل عمره 10 أشهر (مثلاً).
   //
   // ⚠️ CRITICAL-NOTE-4 (SA1): نستخدم EXTRACT(YEAR FROM age) * 12 +
   // EXTRACT(MONTH FROM age) لحساب months_elapsed، لا date_part('month', age)
   // الذي يُرجِع 0-11 فقط (مكوّن الشهر، لا الإجمالي). لأصل عمره 14 شهراً:
   // date_part = 2 (خطأ، يستمر الإهلاك بعد انقضاء العمر)؛ EXTRACT = 14 (صحيح).
+  // لا تغيير على هذه الصيغة — راجع depreciation/queries.ts.
   //
   // ⚠️ الإهلاك غير نقدي: لا يُدرَج أي حركة في cash_movement. هو تعديل محسوب
   // يُخصم من operatingNetCents فقط. INV-21 يستثني صراحةً INV-1 لهذا التعديل.
@@ -197,11 +204,12 @@ export async function computeOperatingPnl({
   //   لذلك retainedProfitCents لا يشمل الإهلاك، والميزانية تبقى cash-basis صرفة.
   //   IC-1 (equityDrift) و IC-6 (pnlReconciliation) لا يتأثران إطلاقاً.
   //   الفرق بين dashboard.netProfit (يضم الإهلاك) و retainedProfitCents (لا يضمه)
-  //   = monthlyDepreciationCents. هذا فصل مقصود بين «الربح التشغيلي المُعدَّل»
-  //   (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية). موثَّق في INV-21.
+  //   = monthlyDepreciationCents (= إهلاك الفترة). هذا فصل مقصود بين «الربح
+  //   التشغيلي المُعدَّل» (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية).
+  //   موثَّق في INV-21 و§10. تُعالَج تسمية البطاقتين في DashboardClient (D3 fix).
   // ─────────────────────────────────────────────────────────────────────────
-  const monthlyDepreciationCents = await getActiveMonthlyDepreciationCents(
-    endDate,
+  const monthlyDepreciationCents = await getDepreciationForPeriodCents(
+    { startDate: startDate ?? null, endDate },
     tx,
   );
 

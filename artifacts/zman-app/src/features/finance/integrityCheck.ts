@@ -995,54 +995,101 @@ async function checkIC12CatalogLedgerConsistency(
 // مضمون بالبناء. IC-13 يحرس المستقبل: إن غيّر أحدهم تعريفه inline، يُكشَف
 // فوراً عند فحص السلامة.
 //
-// الفترة المُختارة (موثَّقة): «الشهر الحالي» (1 من الشهر → آخر يوم في الشهر).
-// نتجاهل معامل asOfDate عمداً — IC-13 يفحص التطابق في اللحظة الحالية بغضّ
-// النظر عن الـ as-of date المطلوب للميزانية، لأن الهدف هو كشف drift وقت
-// التشغيل. هذا يتسق مع "month" range في computeCashBasisPnl وgetMonthlyProfit[0].
+// الفترات المُختارة (موثَّقة):
+//   (A) «الشهر الحالي» — 1 من الشهر → آخر يوم في الشهر. نتجاهل معامل asOfDate
+//   عمداً — IC-13 يفحص التطابق في اللحظة الحالية بغضّ النظر عن الـ as-of date
+//   المطلوب للميزانية، لأن الهدف هو كشف drift وقت التشغيل. هذا يتسق مع "month"
+//   range في computeCashBasisPnl وgetMonthlyProfit[0].
+//
+//   (B) «كل التاريخ» (all-time) — يُمرَّر startDate = "2020-01-01" (نفس بداية
+//   «الكل» في DashboardClient) وendDate = اليوم. هذا يكشف أخطاء period-scaling
+//   في الإهلاك (D2) التي قد تختبئ داخل نافذة شهر واحد: قبل إصلاح D2 كانت
+//   computeCashBasisPnl("all") تطرح شهراً واحداً فقط من الإهلاك مهما طالت الفترة،
+//   لكن IC-13 للشهر الحالي كان يبقى PASS لأن الشهر الواحد كان صحيحاً. مع
+//   إضافة الفترة (B) يصبح الانحراف مكتشفاً. نقارن هنا المصدرين (1) و(2) فقط
+//   لأن monthlyProfit بطبيعته شهري وليس له وضع «all».
+//
+// شرط النجاح: drift = 0 في الفترتين معاً. أي انحراف في إحداهما = FAIL.
 // ─────────────────────────────────────────────────────────────────────────
 
 async function checkIC13PnlSourcesConsistency(
   _asOfDate: string,
 ): Promise<IntegrityCheckResult> {
-  // الفترة: الشهر الحالي بصيغة YYYY-MM-DD للنقطة (1)، و"month" range للنقطة (2)،
-  // والشهر الأحدث للنقطة (3) — كلها تغطي نفس الفترة.
+  // ═══ الفترة (A): الشهر الحالي ═══
+  // بصيغة YYYY-MM-DD للنقطة (1)، و"month" range للنقطة (2)، والشهر الأحدث
+  // للنقطة (3) — كلها تغطي نفس الفترة.
   const ammanToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
   const [yearStr, monthStr] = ammanToday.split("-");
   const monthStart = `${yearStr}-${monthStr}-01`;
   const lastDayNum = new Date(Number(yearStr), Number(monthStr), 0).getDate();
   const monthEnd = `${yearStr}-${monthStr}-${String(lastDayNum).padStart(2, "0")}`;
 
-  // (1) dashboard.summary.netProfit
-  const summary = await getFinancialSummary(monthStart, monthEnd);
-  const dashboardNet = summary.netProfit;
+  // (1) dashboard.summary.netProfit — الشهر الحالي
+  const summaryMonth = await getFinancialSummary(monthStart, monthEnd);
+  const dashboardNetMonth = summaryMonth.netProfit;
 
-  // (2) reports.pnl.netCents
-  const pnl = await computeCashBasisPnl("month");
-  const reportsNet = pnl.netCents;
+  // (2) reports.pnl.netCents — الشهر الحالي
+  const pnlMonth = await computeCashBasisPnl("month");
+  const reportsNetMonth = pnlMonth.netCents;
 
   // (3) dashboard.monthlyProfit[last] — getMonthlyProfit يُرجع الأحدث أولاً.
   const monthly = await getMonthlyProfit(6);
   const monthlyNet = monthly[0]?.netProfitCents ?? 0;
 
-  const drift = Math.max(
-    Math.abs(dashboardNet - reportsNet),
-    Math.abs(dashboardNet - monthlyNet),
-    Math.abs(reportsNet - monthlyNet),
+  const driftMonth = Math.max(
+    Math.abs(dashboardNetMonth - reportsNetMonth),
+    Math.abs(dashboardNetMonth - monthlyNet),
+    Math.abs(reportsNetMonth - monthlyNet),
   );
+
+  // ═══ الفترة (B): كل التاريخ (all-time) ═══
+  // D2 fix (SA2): يكشف أخطاء period-scaling في الإهلاك. نقارن المصدرين (1) و(2)
+  // فقط — monthlyProfit شهري بطبيعته وليس له وضع «all». نستخدم startDate ثابت
+  // بعيد (2020-01-01) كـ«بداية التاريخ» — نفس ما يستعمله DashboardClient افتراضياً
+  // للفترة «الكل». لو استُعمل null بدلاً منه لما تغيّر التطابق: getFinancialSummary
+  // يأخذ startDate إجبارياً، وcomputeCashBasisPnl("all") يمرِّر null لـ
+  // computeOperatingPnl وكلاهما يصل لنتيجة period-aware متطابقة بعد D2 fix.
+  const ALL_TIME_START = "2020-01-01";
+  const summaryAll = await getFinancialSummary(ALL_TIME_START, ammanToday);
+  const dashboardNetAll = summaryAll.netProfit;
+
+  const pnlAll = await computeCashBasisPnl("all");
+  const reportsNetAll = pnlAll.netCents;
+
+  const driftAll = Math.abs(dashboardNetAll - reportsNetAll);
+
+  // الانحراف النهائي = الأكبر بين الفترتين. كلاهما يجب أن يكون 0 لاجتياز الفحص.
+  const drift = Math.max(driftMonth, driftAll);
+
+  const fmt = (n: number) => (n / 1000).toFixed(3);
+  let descriptionAr: string;
+  if (drift === 0) {
+    descriptionAr =
+      `الفترة (A) الشهر الحالي: dashboard = reports = monthly = ${fmt(dashboardNetMonth)} د.أ. ` +
+      `الفترة (B) كل التاريخ: dashboard = reports = ${fmt(dashboardNetAll)} د.أ. ` +
+      `المصادر الثلاثة متطابقة في الفترتين (LOCKED-6 محفوظ بعد D2 fix).`;
+  } else {
+    descriptionAr =
+      `انحراف في الربح التشغيلي: ` +
+      `الفترة (A) الشهر الحالي: dashboard=${fmt(dashboardNetMonth)} د.أ، reports=${fmt(reportsNetMonth)} د.أ، monthly=${fmt(monthlyNet)} د.أ. ` +
+      `الفترة (B) كل التاريخ: dashboard=${fmt(dashboardNetAll)} د.أ، reports=${fmt(reportsNetAll)} د.أ. ` +
+      `الانحراف الأقصى = ${fmt(drift)} د.أ. ` +
+      (driftAll > driftMonth
+        ? `الانحراف في الفترة (B) يشير غالباً لخطأ في period-scaling للإهلاك (D2). `
+        : ``) +
+      `راجع تعريفات الربح في dashboard/queries.ts وreports/actions.ts.`;
+  }
 
   return {
     id: "IC-13",
     invariantId: "INV-19",
     status: drift === 0 ? "PASS" : "FAIL",
-    titleAr: "تطابق مصادر الربح التشغيلي (LOCKED-6)",
-    descriptionAr:
-      drift === 0
-        ? `المصادر الثلاثة متطابقة للشهر الحالي: dashboard = reports = monthly = ${(dashboardNet / 1000).toFixed(3)} د.أ.`
-        : `انحراف في الربح التشغيلي بين المصادر: dashboard=${(dashboardNet / 1000).toFixed(3)} د.أ، reports=${(reportsNet / 1000).toFixed(3)} د.أ، monthly=${(monthlyNet / 1000).toFixed(3)} د.أ. الانحراف الأقصى = ${(drift / 1000).toFixed(3)} د.أ.`,
+    titleAr: "تطابق مصادر الربح التشغيلي (LOCKED-6) — شهر حالي + كل التاريخ",
+    descriptionAr,
     driftCents: drift,
     suggestedFixAr:
       drift !== 0
-        ? `راجع تعريفات الربح في dashboard/queries.ts وreports/actions.ts. كلها يجب أن تنداء computeOperatingPnl من finance/pnl.ts. أي تعريف inline = مصدر انحراف.`
+        ? `راجع تعريفات الربح في dashboard/queries.ts وreports/actions.ts. كلها يجب أن تنداء computeOperatingPnl من finance/pnl.ts. أي تعريف inline = مصدر انحراف. إن الانحراف في الفترة (B) دون (A) = علامة على خطأ في period-scaling للإهلاك (D2) — تأكّد أن getDepreciationForPeriodCents تُستعمل (لا getActiveMonthlyDepreciationCents القديمة).`
         : undefined,
   };
 }

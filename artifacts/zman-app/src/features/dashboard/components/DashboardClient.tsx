@@ -47,9 +47,14 @@ import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { FinancialAdvisor } from "./FinancialAdvisor";
 
 /**
- * لوحة المقارنة المالية الموحّدة (مبيعات · مشتريات · مصاريف · صافي الربح).
+ * لوحة المقارنة المالية الموحّدة (مبيعات · مشتريات · مصاريف · الربح التشغيلي).
  * محسّنة للموبايل: أشرطة أفقية نسبية بطول متناسب مع أكبر قيمة، ليقرأ المالك
- * الأكبر من الأصغر بلمحة، وسطر صافي ربح مميّز أسفلها.
+ * الأكبر من الأصغر بلمحة، وسطر ربح تشغيلي مميّز أسفلها.
+ *
+ * D3 fix (SA2): تسمية البطاقة صريحة الآن — «الربح التشغيلي (بعد الإهلاك)» —
+ * لتمييزها عن «الربح النقدي المحتجز (قبل الإهلاك)» الذي يُعرض في لوحة الربح
+ * مقابل السيولة. الفرق بين الرقمين = إهلاك الفترة المحسوب (غير نقدي). موثَّق
+ * في ACCOUNTING_RULES.md §10.
  */
 function FinanceComparePanel({
   actualSales,
@@ -85,7 +90,8 @@ function FinanceComparePanel({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
           <BarChart3 className="h-4.5 w-4.5 text-info" />
-          صافي الربح
+          الربح التشغيلي
+          <InfoTooltip text="الربح التشغيلي = مبيعات − مشتريات تشغيلية − مصاريف تشغيلية − إهلاك الفترة (غير نقدي). هذا الرقم يضم الإهلاك المحسوب للأصول الرأسمالية ضمن الفترة المختارة. خالف «الربح النقدي المحتجز» المعروض أسفل في لوحة الربح مقابل السيولة — الفرق بينهما = الإهلاك. راجع ACCOUNTING_RULES.md §10." />
         </h3>
         <span className="text-[10px] text-ink/40 whitespace-nowrap">الإجمالي لكل الفترات</span>
       </div>
@@ -113,11 +119,12 @@ function FinanceComparePanel({
         })}
       </div>
 
-      {/* صافي الربح — الرقم الأساسي */}
+      {/* الربح التشغيلي (بعد الإهلاك) — الرقم الأساسي. D3 fix: صياغة صريحة. */}
       <div className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${isProfit ? "border-info/30" : "border-alert/30"}`}>
         <span className="text-sm font-bold text-ink flex items-center gap-1.5">
           {isProfit ? <TrendingUp className="h-4.5 w-4.5 text-info" /> : <TrendingDown className="h-4.5 w-4.5 text-alert" />}
-          صافي الربح
+          الربح التشغيلي (بعد الإهلاك)
+          <InfoTooltip text="الربح التشغيلي (بعد الإهلاك) = مبيعات − مشتريات − مصاريف − إهلاك الفترة. يضم الإهلاك المحسوب للأصول الرأسمالية في الفترة المختارة (غير نقدي — لا يدخل cash_movement). يختلف عن «الربح النقدي المحتجز (قبل الإهلاك)» المعروض في لوحة الربح مقابل السيولة، والفرق = الإهلاك. راجع ACCOUNTING_RULES.md §10." />
         </span>
         <span className={`text-lg font-black font-mono whitespace-nowrap flex items-baseline gap-1 ${isProfit ? "text-info" : "text-alert"}`}>
           <AmountText amount={netProfit} hideCurrency parenNegative />
@@ -450,6 +457,29 @@ export function DashboardClient() {
               </div>
             )}
 
+            {/* ═══ إهلاك الفترة (غير نقدي) — سطر شفافية لتفسير الفرق بين البطاقتين ═══ */}
+            {/* D3 fix (SA2): بطاقة تُظهر قيمة الإهلاك المحسوبة للفترة المختارة. هذا
+                هو الفرق الدقيق بين «الربح التشغيلي (بعد الإهلاك)» أعلاه و«الربح
+                النقدي المحتجز (قبل الإهلاك)» أدناه. الرقم من computeOperatingPnl
+                الموحَّدة (LOCKED-6 محفوظ — لا مسار منفصل). period-aware بعد D2 fix. */}
+            {summaryAllTime && (summaryAllTime.monthlyDepreciationCents ?? 0) > 0 && (
+              <div className="bg-sky-50/60 rounded-lg border border-sky-200 shadow-sm p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <TrendingDown className="h-5 w-5 text-sky-700 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-ink">إهلاك الفترة (غير نقدي)</h3>
+                      <InfoTooltip text="إهلاك محسوب للأصول الرأسمالية النشطة ضمن الفترة المختارة (period-aware — يتغيّر بطول الفترة). هذا الرقم مُخصوم من «الربح التشغيلي (بعد الإهلاك)» أعلاه، لكنه غير نقدي فلا يدخل cash_movement ولا يُخصم من «الربح النقدي المحتجز (قبل الإهلاك)» أدناه. الفرق بين البطاقتين = هذا الرقم بالضبط. راجع ACCOUNTING_RULES.md §10." />
+                    </div>
+                    <p className="text-[10px] text-ink/50 mt-0.5">الفرق بين البطاقتين أعلاه وأسفل</p>
+                  </div>
+                </div>
+                <span className="text-base font-black text-sky-700 font-mono whitespace-nowrap">
+                  <AmountText amount={summaryAllTime.monthlyDepreciationCents ?? 0} hideCurrency />
+                </span>
+              </div>
+            )}
+
             {/* ═══ الربح مقابل السيولة — تركيبة النقد as-of نهاية الفترة ═══ */}
             {/* تُحسب من الوضع المالي المتوازن، فالمجموع = النقد المتاح دائماً
                 وبند «تسويات أخرى» يبقى صفراً لأي فترة تختارها.
@@ -469,7 +499,7 @@ export function DashboardClient() {
                   <div className="flex items-center gap-1.5">
                     <Wallet className="h-4 w-4 text-info" />
                     <h3 className="text-xs font-bold text-ink">الربح مقابل السيولة</h3>
-                    <InfoTooltip text="النقد الموجود في صندوقك ليس كله ربحاً. إنه مزيج من: رأس المال الذي بدأت به، وصافي ما أضفته أو سحبته كمالك، وعربونات لزبائن لم تُسلَّم طلباتهم بعد (نقد تتصرّف به بحرّية لكنه التزام حتى التسليم)، وأخيراً ربحك الفعلي من العمل. لهذا يكون النقد عادةً أكبر من الربح — وهذا وضع طبيعي." />
+                    <InfoTooltip text="النقد الموجود في صندوقك ليس كله ربحاً. إنه مزيج من: رأس المال الذي بدأت به، وصافي ما أضفته أو سحبته كمالك، وعربونات لزبائن لم تُسلَّم طلباتهم بعد (نقد تتصرّف به بحرّية لكنه التزام حتى التسليم)، وأخيراً ربحك النقدي المحتجز من العمل. لهذا يكون النقد عادةً أكبر من الربح — وهذا وضع طبيعي." />
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
@@ -486,8 +516,14 @@ export function DashboardClient() {
                       <span className="text-ink/60 whitespace-nowrap">عربون مسلّم مقدّماً</span>
                       <span className="font-mono font-bold text-warn-deep whitespace-nowrap"><AmountText amount={depositsHeld} hideCurrency parenNegative /></span>
                     </div>
+                    {/* D3 fix (SA2): التسمية صريحة — «الربح النقدي المحتجز (قبل الإهلاك)».
+                        لا تشمل الإهلاك المحسوب (غير النقدي) المعروض في بطاقة مستقلة أعلاه.
+                        الفرق بين هذا الرقم و«الربح التشغيلي (بعد الإهلاك)» = إهلاك الفترة. */}
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-ink/60 whitespace-nowrap">ربحك الفعلي من العمل</span>
+                      <span className="text-ink/60 whitespace-nowrap flex items-center gap-1">
+                        الربح النقدي المحتجز (قبل الإهلاك)
+                        <InfoTooltip text="الربح النقدي المحتجز = مبيعات نقدية − مشتريات تشغيلية نقدية − مصاريف تشغيلية نقدية. لا يشمل الإهلاك (لأن الإهلاك غير نقدي — لا يخرج من الصندوق). يختلف عن «الربح التشغيلي (بعد الإهلاك)» المعروض في البطاقة العلوية، والفرق = إهلاك الفترة المعروض في بطاقة مستقلة. راجع ACCOUNTING_RULES.md §10." />
+                      </span>
                       <span className={`font-mono font-bold whitespace-nowrap ${profit >= 0 ? "text-info" : "text-alert"}`}>
                         <AmountText amount={profit} hideCurrency parenNegative />
                       </span>

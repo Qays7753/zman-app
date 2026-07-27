@@ -15,6 +15,13 @@ export interface FinancialSummary {
   netProfit: number;
   /** Phase 2 — إضافات رأسمالية للفترة (مُستبعَدة من netProfit التشغيلي). */
   capitalAdditionsCents: number;
+  /**
+   * Phase 4 — D2 fix: إهلاك الفترة [startDate, endDate] المحسوب (period-aware).
+   * غير نقدي. مُخصوم من netProfit. معرَض على الـ dashboard لإظهار الفرق بين
+   * «الربح التشغيلي (بعد الإهلاك)» و«الربح النقدي المحتجز (قبل الإهلاك)» (D3 fix).
+   * مصدره computeOperatingPnl — نفس المسار الموحِّد الذي يُغذّي netProfit (LOCKED-6).
+   */
+  monthlyDepreciationCents: number;
   ownerNet: number;
   ownerInject: number;
   ownerDraw: number;
@@ -155,11 +162,15 @@ export async function getFinancialSummary(
   const operatingPnl = await computeOperatingPnl({ startDate, endDate });
   const netProfit = operatingPnl.operatingNetCents;
   const capitalAdditionsCents = operatingPnl.capitalAdditionsCents;
+  // Phase 4 — D2 fix: إهلاك الفترة (period-aware). معرَض على الـ dashboard لإظهار
+  // الفرق بين «الربح التشغيلي (بعد الإهلاك)» و«الربح النقدي المحتجز (قبل الإهلاك)»
+  // (D3 fix). مصدره نفس operatingPnl الموحَّد — لا مسار منفصل (LOCKED-6 محفوظ).
+  const monthlyDepreciationCents = operatingPnl.monthlyDepreciationCents;
   const ownerInject = Number(ownerInjectResult[0]?.total) || 0;
   const ownerDraw = Number(ownerDrawResult[0]?.total) || 0;
   const ownerNet = ownerInject - ownerDraw;
 
-  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, ownerNet, ownerInject, ownerDraw };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, monthlyDepreciationCents, ownerNet, ownerInject, ownerDraw };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)
