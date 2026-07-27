@@ -21,6 +21,19 @@ import {
 import type { NewPurchase } from "../types";
 import { PurchaseForm } from "./PurchaseForm";
 import { FinanceCatalogModal } from "./FinanceCatalogModal";
+// Phase 4 — مودال سؤال الإهلاك (خلف toggle «تصنيف متقدّم»).
+import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
+import { useAddCapitalAsset } from "@/features/depreciation/hooks";
+import { formatFilsToJod } from "@/lib/money";
+
+// معلومات الصف الرأسمالي المُنشَأ مؤخراً لاستخدامها في مودال الإهلاك.
+interface PendingCapitalAsset {
+  sourceType: "expense" | "purchase";
+  sourceId: string;
+  name: string;
+  purchaseDate: string;
+  purchaseAmountCents: number;
+}
 
 export function PurchasesTab() {
   const router = useRouter();
@@ -32,6 +45,10 @@ export function PurchasesTab() {
   const newPurchase = searchParams.get("newPurchase") === "true";
   const editId = searchParams.get("editPurchase");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  // Phase 4 — معلومات الصف الرأسمالي المُنشَأ مؤخراً + إظهار مودال الإهلاك.
+  const [pendingCapitalAsset, setPendingCapitalAsset] =
+    useState<PendingCapitalAsset | null>(null);
+  const capitalAssetMutation = useAddCapitalAsset();
 
   // هوك جلب البيانات اللانهائي (§10.1)
   const {
@@ -77,21 +94,50 @@ export function PurchasesTab() {
 
 
 
-  const handleCreate = async (fields: NewPurchase) => {
+  const handleCreate = async (
+    fields: NewPurchase,
+    advancedClassification: boolean,
+  ) => {
     const res = await createMutation.mutateAsync({
       values: fields,
       requestId: crypto.randomUUID(),
     });
     if (res.status === "ok") {
       toast.success("تم تسجيل المشتريات بنجاح");
-      updateUrl({ newPurchase: null });
+      // Phase 4 — إن كان رأسمالياً والـ toggle «تصنيف متقدّم» مفتوحاً، اعرض
+      // مودال الإهلاك. وإلا فالسلوك الافتراضي Phase 2.
+      if (
+        fields.isCapitalAsset &&
+        advancedClassification &&
+        res.data &&
+        typeof res.data === "object" &&
+        "id" in res.data
+      ) {
+        // totalCents = round(unitCostMicroCents × quantity / 1000). يُحسَب هنا
+        // لأن purchaseInputSchema لا يضمّ totalCents (الـ DB يُولِّده GENERATED ALWAYS).
+        const micro = fields.unitCostMicroCents ?? 0;
+        const qty = fields.quantity ?? 1;
+        const totalCents = Math.round((micro * qty) / 1000);
+        setPendingCapitalAsset({
+          sourceType: "purchase",
+          sourceId: (res.data as { id: string }).id,
+          name: fields.item ?? "أصل رأسمالي",
+          purchaseDate: fields.date ?? new Date().toLocaleDateString("en-CA"),
+          purchaseAmountCents: totalCents,
+        });
+      } else {
+        updateUrl({ newPurchase: null });
+      }
       refetch();
     } else {
       toast.error(res.message);
     }
   };
 
-  const handleUpdate = async (fields: NewPurchase) => {
+  const handleUpdate = async (
+    fields: NewPurchase,
+    advancedClassification: boolean,
+  ) => {
     if (!editId) return;
     const updatedAt = activePurchase?.updatedAt instanceof Date
       ? activePurchase.updatedAt.toISOString()
@@ -103,11 +149,65 @@ export function PurchasesTab() {
     });
     if (res.status === "ok") {
       toast.success("تم تحديث المشتريات بنجاح");
-      updateUrl({ editPurchase: null });
+      if (
+        fields.isCapitalAsset &&
+        advancedClassification &&
+        res.data &&
+        typeof res.data === "object" &&
+        "id" in res.data
+      ) {
+        const micro = fields.unitCostMicroCents ?? 0;
+        const qty = fields.quantity ?? 1;
+        const totalCents = Math.round((micro * qty) / 1000);
+        setPendingCapitalAsset({
+          sourceType: "purchase",
+          sourceId: (res.data as { id: string }).id,
+          name: fields.item ?? "أصل رأسمالي",
+          purchaseDate: fields.date ?? new Date().toLocaleDateString("en-CA"),
+          purchaseAmountCents: totalCents,
+        });
+      } else {
+        updateUrl({ editPurchase: null });
+      }
       refetch();
     } else {
       toast.error(res.message);
     }
+  };
+
+  // Phase 4 — تأكيد الإهلاك: استدعاء addCapitalAsset بعد حفظ الصف.
+  const handleConfirmSpread = async (usefulLifeMonths: number) => {
+    if (!pendingCapitalAsset) return;
+    const res = await capitalAssetMutation.mutateAsync({
+      sourceType: "purchase",
+      sourceId: pendingCapitalAsset.sourceId,
+      name: pendingCapitalAsset.name,
+      purchaseDate: pendingCapitalAsset.purchaseDate,
+      purchaseAmountCents: pendingCapitalAsset.purchaseAmountCents,
+      usefulLifeMonths,
+    });
+    if (res.status === "ok") {
+      toast.success(
+        `تم إنشاء الإهلاك — ${formatFilsToJod(
+          res.data.monthlyDepreciationCents,
+        )} شهرياً لمدة ${res.data.usefulLifeMonths} شهراً`,
+      );
+    } else {
+      toast.error(res.message);
+    }
+    setPendingCapitalAsset(null);
+    updateUrl({ newPurchase: null, editPurchase: null });
+  };
+
+  const handleConfirmDeductOnce = () => {
+    toast.info("تم تسجيل الأصل كإضافة رأسمالية — لا إهلاك شهري");
+    setPendingCapitalAsset(null);
+    updateUrl({ newPurchase: null, editPurchase: null });
+  };
+
+  const handleCloseDepreciationModal = () => {
+    setPendingCapitalAsset(null);
+    updateUrl({ newPurchase: null, editPurchase: null });
   };
 
   const handleConfirmDelete = async () => {
@@ -248,6 +348,17 @@ export function PurchasesTab() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmOpen(false)}
         isLoading={deleteMutation.isPending}
+      />
+
+      {/* Phase 4 — مودال سؤال الإهلاك بعد حفظ صف رأسمالي (خلف toggle «تصنيف متقدّم»). */}
+      <DepreciationPromptModal
+        isOpen={pendingCapitalAsset !== null}
+        onClose={handleCloseDepreciationModal}
+        assetName={pendingCapitalAsset?.name ?? ""}
+        purchaseAmountCents={pendingCapitalAsset?.purchaseAmountCents ?? 0}
+        onConfirmDeductOnce={handleConfirmDeductOnce}
+        onConfirmSpread={handleConfirmSpread}
+        isSubmitting={capitalAssetMutation.isPending}
       />
     </div>
   );

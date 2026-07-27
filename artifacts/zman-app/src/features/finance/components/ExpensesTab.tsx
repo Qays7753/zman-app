@@ -21,6 +21,19 @@ import {
 } from "../hooks";
 import type { NewExpense } from "../types";
 import { ExpenseForm } from "./ExpenseForm";
+// Phase 4 — مودال سؤال الإهلاك (خلف toggle «تصنيف متقدّم»).
+import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
+import { useAddCapitalAsset } from "@/features/depreciation/hooks";
+import { formatFilsToJod } from "@/lib/money";
+
+// معلومات الصف الرأسمالي المُنشَأ مؤخراً لاستخدامها في مودال الإهلاك.
+interface PendingCapitalAsset {
+  sourceType: "expense" | "purchase";
+  sourceId: string;
+  name: string;
+  purchaseDate: string;
+  purchaseAmountCents: number;
+}
 export function ExpensesTab() {
   const router = useRouter();
   const pathname = usePathname();
@@ -32,6 +45,10 @@ export function ExpensesTab() {
   const newExpense = searchParams.get("newExpense") === "true";
   const editId = searchParams.get("editExpense");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  // Phase 4 — معلومات الصف الرأسمالي المُنشَأ مؤخراً + إظهار مودال الإهلاك.
+  const [pendingCapitalAsset, setPendingCapitalAsset] =
+    useState<PendingCapitalAsset | null>(null);
+  const capitalAssetMutation = useAddCapitalAsset();
 
   // الفئات المعتمدة للتصفية (§5.1)
   const categoriesList = [
@@ -92,21 +109,46 @@ export function ExpensesTab() {
 
 
 
-  const handleCreate = async (fields: NewExpense) => {
+  const handleCreate = async (
+    fields: NewExpense,
+    advancedClassification: boolean,
+  ) => {
     const res = await createMutation.mutateAsync({
       values: fields,
       requestId: crypto.randomUUID(),
     });
     if (res.status === "ok") {
       toast.success("تم تسجيل المصروف بنجاح");
-      updateUrl({ newExpense: null });
+      // Phase 4 — إن كان رأسمالياً والـ toggle «تصنيف متقدّم» مفتوحاً، اعرض
+      // مودال الإهلاك. وإلا فالسلوك الافتراضي Phase 2 (إضافات رأسمالية).
+      if (
+        fields.isCapitalAsset &&
+        advancedClassification &&
+        res.data &&
+        typeof res.data === "object" &&
+        "id" in res.data
+      ) {
+        setPendingCapitalAsset({
+          sourceType: "expense",
+          sourceId: (res.data as { id: string }).id,
+          name: fields.description || fields.category || "أصل رأسمالي",
+          purchaseDate: fields.date ?? new Date().toLocaleDateString("en-CA"),
+          purchaseAmountCents: fields.amountCents,
+        });
+        // لا نُغلق مودال الفورم الآن — يُغلق عند إغلاق مودال الإهلاك.
+      } else {
+        updateUrl({ newExpense: null });
+      }
       refetch();
     } else {
       toast.error(res.message);
     }
   };
 
-  const handleUpdate = async (fields: NewExpense) => {
+  const handleUpdate = async (
+    fields: NewExpense,
+    advancedClassification: boolean,
+  ) => {
     if (!editId) return;
     const updatedAt = activeExpense?.updatedAt instanceof Date
       ? activeExpense.updatedAt.toISOString()
@@ -118,11 +160,67 @@ export function ExpensesTab() {
     });
     if (res.status === "ok") {
       toast.success("تم تحديث بيانات المصروف بنجاح");
-      updateUrl({ editExpense: null });
+      // Phase 4 — للتعديل أيضاً: إن كان رأسمالياً و toggle مفتوحاً، اعرض المودال.
+      // ملاحظة: التعديل لا يُنشئ capital_asset تلقائياً (إن وُجد صف قديم،
+      // addCapitalAsset يُرجِعه idempotent). لذلك آمن استدعاؤه دائماً.
+      if (
+        fields.isCapitalAsset &&
+        advancedClassification &&
+        res.data &&
+        typeof res.data === "object" &&
+        "id" in res.data
+      ) {
+        setPendingCapitalAsset({
+          sourceType: "expense",
+          sourceId: (res.data as { id: string }).id,
+          name: fields.description || fields.category || "أصل رأسمالي",
+          purchaseDate: fields.date ?? new Date().toLocaleDateString("en-CA"),
+          purchaseAmountCents: fields.amountCents,
+        });
+      } else {
+        updateUrl({ editExpense: null });
+      }
       refetch();
     } else {
       toast.error(res.message);
     }
+  };
+
+  // Phase 4 — تأكيد الإهلاك: استدعاء addCapitalAsset بعد حفظ الصف.
+  const handleConfirmSpread = async (usefulLifeMonths: number) => {
+    if (!pendingCapitalAsset) return;
+    const res = await capitalAssetMutation.mutateAsync({
+      sourceType: "expense",
+      sourceId: pendingCapitalAsset.sourceId,
+      name: pendingCapitalAsset.name,
+      purchaseDate: pendingCapitalAsset.purchaseDate,
+      purchaseAmountCents: pendingCapitalAsset.purchaseAmountCents,
+      usefulLifeMonths,
+    });
+    if (res.status === "ok") {
+      toast.success(
+        `تم إنشاء الإهلاك — ${formatFilsToJod(
+          res.data.monthlyDepreciationCents,
+        )} شهرياً لمدة ${res.data.usefulLifeMonths} شهراً`,
+      );
+    } else {
+      toast.error(res.message);
+    }
+    setPendingCapitalAsset(null);
+    updateUrl({ newExpense: null, editExpense: null });
+  };
+
+  const handleConfirmDeductOnce = () => {
+    // لا capital_asset يُنشأ — السلوك الافتراضي Phase 2 (إضافات رأسمالية).
+    toast.info("تم تسجيل الأصل كإضافة رأسمالية — لا إهلاك شهري");
+    setPendingCapitalAsset(null);
+    updateUrl({ newExpense: null, editExpense: null });
+  };
+
+  const handleCloseDepreciationModal = () => {
+    // المستخدم أغلق بدون اختيار — نعامله كـ«خصم مرة واحدة» (السلوك الافتراضي).
+    setPendingCapitalAsset(null);
+    updateUrl({ newExpense: null, editExpense: null });
   };
 
   const handleConfirmDelete = async () => {
@@ -263,6 +361,17 @@ export function ExpensesTab() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmOpen(false)}
         isLoading={deleteMutation.isPending}
+      />
+
+      {/* Phase 4 — مودال سؤال الإهلاك بعد حفظ صف رأسمالي (خلف toggle «تصنيف متقدّم»). */}
+      <DepreciationPromptModal
+        isOpen={pendingCapitalAsset !== null}
+        onClose={handleCloseDepreciationModal}
+        assetName={pendingCapitalAsset?.name ?? ""}
+        purchaseAmountCents={pendingCapitalAsset?.purchaseAmountCents ?? 0}
+        onConfirmDeductOnce={handleConfirmDeductOnce}
+        onConfirmSpread={handleConfirmSpread}
+        isSubmitting={capitalAssetMutation.isPending}
       />
     </div>
   );

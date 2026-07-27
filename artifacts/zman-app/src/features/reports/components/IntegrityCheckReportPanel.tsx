@@ -126,6 +126,13 @@ export function IntegrityCheckReportPanel() {
                         القيمة التقديرية للمخزون:{" "}
                         <AmountText amount={Math.abs(r.driftCents)} />
                       </>
+                    ) : r.id === "IC-14" ? (
+                      // IC-14 يستعمل driftCents كحقل «القيمة الدفترية المتبقية» (موجبة
+                      // دائماً). الـ label يختلف عن باقي الفحوصات (نمط IC-12).
+                      <>
+                        القيمة الدفترية المتبقية للأصول:{" "}
+                        <AmountText amount={Math.abs(r.driftCents)} />
+                      </>
                     ) : (
                       <>
                         الفارق: <AmountText amount={Math.abs(r.driftCents)} />{" "}
@@ -139,7 +146,9 @@ export function IntegrityCheckReportPanel() {
                   <p className="text-xs">
                     {r.id === "IC-12"
                       ? `عدد الأصناف المتتبَّعة: ${r.count}`
-                      : `عدد المخالفات: ${r.count}`}
+                      : r.id === "IC-14"
+                        ? `عدد الأصول الرأسمالية النشطة: ${r.count}`
+                        : `عدد المخالفات: ${r.count}`}
                   </p>
                 )}
 

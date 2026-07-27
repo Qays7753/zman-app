@@ -21,6 +21,9 @@ import { catalogMovement } from "../inventory/db";
 // فقط من finance/actions (ActionResponse)، فيُمحى وقت التجميع.
 import { getFinancialSummary, getMonthlyProfit } from "../dashboard/queries";
 import { computeCashBasisPnl } from "../reports/actions";
+// Phase 4 — IC-14 يعرض القيمة الدفترية المتبقية للأصول الرأسمالية المُهلَكة.
+// WARN فقط (معلومة، لا FAIL). يستعين بـ getCapitalAssetValuation من depreciation/queries.
+import { getCapitalAssetValuation } from "../depreciation/queries";
 
 // ─────────────────────────────────────────────────────────────────────────
 // فحص السلامة المالية (Financial Integrity Check)
@@ -58,7 +61,7 @@ export async function runFinancialIntegrityCheck(
 ): Promise<IntegrityReport> {
   const effectiveDate = asOfDate ?? new Date().toLocaleDateString("en-CA");
 
-  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13] =
+  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14] =
     await Promise.all([
       checkIC1EquityDrift(effectiveDate),
       checkIC2OrphanMovements(),
@@ -75,9 +78,11 @@ export async function runFinancialIntegrityCheck(
       checkIC12CatalogLedgerConsistency(effectiveDate),
       // Phase 2 — IC-13: LOCKED-6 (تطابق الربح بين المصادر الثلاثة).
       checkIC13PnlSourcesConsistency(effectiveDate),
+      // Phase 4 — IC-14: القيمة الدفترية للأصول الرأسمالية المُهلَكة. WARN فقط.
+      checkIC14CapitalAssetValuation(effectiveDate),
     ]);
 
-  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13];
+  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14];
 
   const overallStatus: IntegrityCheckStatus = results.some(
     (r) => r.status === "FAIL",
@@ -1039,5 +1044,64 @@ async function checkIC13PnlSourcesConsistency(
       drift !== 0
         ? `راجع تعريفات الربح في dashboard/queries.ts وreports/actions.ts. كلها يجب أن تنداء computeOperatingPnl من finance/pnl.ts. أي تعريف inline = مصدر انحراف.`
         : undefined,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-14 — القيمة الدفترية للأصول الرأسمالية المُهلَكة (Phase 4) — WARN فقط
+// ─────────────────────────────────────────────────────────────────────────
+//
+// الهدف: عرض ملخص قيمة الأصول الأصلية، الإهلاك المُتراكم حتى asOfDate، والقيمة
+// الدفترية المتبقية (netBookValue). معلومة فقط — لا FAIL إطلاقاً. الإهلاك تقدير
+// يعتمد على useful_life_months (حكم تقديري من المستخدم)، وليس قيد سلامة مالية.
+//
+// الآلية: يستعين بـ getCapitalAssetValuation(asOfDate) من depreciation/queries.ts
+// التي تُنفِّذ استعلاماً واحدً على capital_asset مع:
+//   - totalOriginalCents = SUM(purchase_amount_cents) WHERE deleted_at IS NULL.
+//   - totalDepreciatedToDateCents = SUM(months_elapsed × monthly_dep) حيث
+//     months_elapsed ≤ useful_life_months (الأصول المُستهلَكة بالكامل تُساهم
+//     بـ useful_life_months × monthly_dep، لا أكثر).
+//   - months_elapsed يُحسَب بالصيغة الصحيحة EXTRACT(YEAR FROM age) * 12 +
+//     EXTRACT(MONTH FROM age) — راجع CRITICAL-NOTE-4.
+//
+// النتيجة:
+//   - status: WARN دائماً (معلومة، لا FAIL).
+//   - invariantId: "INV-21" (الإهلاك غير النقدي — Phase 4 §10).
+//   - count: عدد الأصول النشطة (activeCount).
+//   - driftCents: يُعاد استخدام الحقل لعرض netBookValueCents (موجب دائماً).
+//     UI يتعامل مع الـ label الخاص عبر `r.id === "IC-14"` (مثل IC-12).
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC14CapitalAssetValuation(
+  asOfDate: string,
+): Promise<IntegrityCheckResult> {
+  const {
+    totalOriginalCents,
+    totalDepreciatedToDateCents,
+    netBookValueCents,
+    activeCount,
+  } = await getCapitalAssetValuation(asOfDate);
+
+  const formattedOriginal = (totalOriginalCents / 1000).toFixed(3);
+  const formattedDepreciated = (totalDepreciatedToDateCents / 1000).toFixed(3);
+  const formattedNetBook = (netBookValueCents / 1000).toFixed(3);
+
+  return {
+    id: "IC-14",
+    invariantId: "INV-21",
+    status: "WARN",
+    titleAr: "تقييم الأصول الرأسمالية (معلومة — إهلاك محسوب)",
+    descriptionAr:
+      `عدد الأصول النشطة: ${activeCount}. ` +
+      `إجمالي القيمة الأصلية: ${formattedOriginal} د.أ. ` +
+      `الإهلاك المُتراكم حتى ${asOfDate}: ${formattedDepreciated} د.أ. ` +
+      `القيمة الدفترية المتبقية: ${formattedNetBook} د.أ. ` +
+      `الإهلاك تقدير محسوب عند القراءة (خيار γ) — غير نقدي، لا يدخل cash_movement. ` +
+      `يُخصَم شهرياً من الربح التشغيلي عبر computeOperatingPnl.`,
+    count: activeCount,
+    // نُعيد استخدام driftCents كحقل «القيمة الدفترية المتبقية» (موجبة دائماً).
+    // UI يتعامل مع الـ label الخاص عبر `r.id === "IC-14"` (نمط IC-12).
+    driftCents: netBookValueCents,
+    suggestedFixAr: undefined,
   };
 }

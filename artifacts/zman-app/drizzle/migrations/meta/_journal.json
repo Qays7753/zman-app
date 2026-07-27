@@ -155,6 +155,13 @@
       "when": 1785108038976,
       "tag": "0021_purchase_linked_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785108038977,
+      "tag": "0022_capital_assets",
+      "breakpoints": true
     }
   ]
 }

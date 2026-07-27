@@ -68,6 +68,8 @@ export async function computeCashBasisPnl(
     operatingExpensesCents: pnl.operatingExpensesCents,
     operatingPurchasesCents: pnl.operatingPurchasesCents,
     capitalAdditionsCents: pnl.capitalAdditionsCents,
+    // Phase 4 — إهلاك شهري محسوب لكل الأصول النشطة. غير نقدي. يُخصَم من netCents.
+    monthlyDepreciationCents: pnl.monthlyDepreciationCents,
     netCents: pnl.operatingNetCents,
     // أسماء بديلة للتوافق مع المستهلكين الحاليين (تشير للتشغيلي فقط الآن):
     purchasesCents: pnl.operatingPurchasesCents,
@@ -159,7 +161,7 @@ export async function downloadReport(
 `;
     } else if (type === "pnl") {
       // 1. P&L Report
-      const { salesCents, purchasesCents, expensesCents, netCents, capitalAdditionsCents } = await computeCashBasisPnl(range);
+      const { salesCents, purchasesCents, expensesCents, netCents, capitalAdditionsCents, monthlyDepreciationCents } = await computeCashBasisPnl(range);
 
       markdown = `# تقرير الأرباح والخسائر (P&L)
 
@@ -175,10 +177,15 @@ export async function downloadReport(
 | **إجمالي المشتريات (التشغيلية)** | ${formatFilsToJod(purchasesCents)} | تكاليف الخامات والمشتريات التشغيلية للورشة |
 | **إجمالي المصاريف (التشغيلية)** | ${formatFilsToJod(expensesCents)} | المصاريف التشغيلية، الإيجارات، الفواتير، والرواتب |
 | **إضافات أصول رأسمالية** | ${formatFilsToJod(capitalAdditionsCents)} | مستبعدة من الربح التشغيلي |
-| **صافي الأرباح / الخسائر** | **${formatFilsToJod(netCents)}** | **الأرباح التشغيلية الصافية بعد خصم المصاريف والمشتريات التشغيلية** |
+| **إهلاك شهري (غير نقدي)** | ${formatFilsToJod(monthlyDepreciationCents)} | إهلاك محسوب للأصول الرأسمالية النشطة — Phase 4 |
+| **صافي الأرباح / الخسائر** | **${formatFilsToJod(netCents)}** | **الأرباح التشغيلية الصافية بعد خصم المصاريف والمشتريات التشغيلية والإهلاك** |
 
 > **ملاحظة:** الإضافات الرأسمالية (آلات، أثاث) لا تُخصم من الربح التشغيلي. تُعرض
 > هنا للشفافية والتذكير بأنها تستلزم إهلاكاً مستقلاً (المرحلة 4).
+>
+> **ملاحظة Phase 4:** الإهلاك الشهري (غير النقدي) يُخصَم من الربح التشغيلي للأصول
+> التي اختار المستخدم توزيعها على عمرها النافع (خيار γ — محسوب عند القراءة).
+> لا يؤثر على الميزانية (يبقى cash-basis صرفاً) — راجع INV-21.
 
 ---
 *تم إنشاء هذا التقرير تلقائياً بواسطة نظام Zman الداخلي لإدارة الورش والمخازن.*

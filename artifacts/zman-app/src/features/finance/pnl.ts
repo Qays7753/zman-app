@@ -3,6 +3,10 @@
 import { and, eq, isNull, sql, sum } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { account, cashMovement, expense, purchase } from "./db";
+// Phase 4 — capital_asset للإهلاك (محسوب عند القراءة، خيار γ). لا FK إلى
+// cash_movement (الإهلاك غير نقدي — INV-21). نستورد من depreciation/queries
+// لأن استعلام الإهلاك موحَّد هناك ويُستخدَم أيضاً من IC-14.
+import { getActiveMonthlyDepreciationCents } from "../depreciation/queries";
 
 /**
  * ============================================================================
@@ -30,10 +34,15 @@ import { account, cashMovement, expense, purchase } from "./db";
  *                              رأسمالية. تُعرض سطراً منفصلاً في الميزانية
  *                              (تُخصم من totalEquity للحفاظ على IC-1 — انظر
  *                              reports/actions.ts:getFinancialPosition).
+ *  - monthlyDepreciationCents: (Phase 4) إهلاك شهري محسوب = SUM(monthly_dep)
+ *                              لكل صف في capital_asset نشط وبدأ ولم يكتمل بعد،
+ *                              حتى endDate. غير نقدي — لا حركة في cash_movement.
+ *                              INV-21 يستثني صراحةً INV-1 لهذا التعديل.
  *  - operatingNetCents:        = salesCents − operatingExpensesCents
- *                                − operatingPurchasesCents.
- *                              هذا هو «الربح التشغيلي». Phase 4 ستطرح منه
- *                              monthlyDepreciationCents لاحقاً.
+ *                                − operatingPurchasesCents
+ *                                − monthlyDepreciationCents.
+ *                              هذا هو «الربح التشغيلي» (معدَّل بإهلاك غير نقدي
+ *                              — خيار γ من بطاقة 4.A).
  *
  *  المعاملات:
  *  ─────────
@@ -66,6 +75,8 @@ export interface OperatingPnlResult {
   operatingExpensesCents: number;
   operatingPurchasesCents: number;
   capitalAdditionsCents: number;
+  /** Phase 4 — إهلاك شهري محسوب للأصول النشطة. غير نقدي (لا يدخل cash_movement). */
+  monthlyDepreciationCents: number;
   operatingNetCents: number;
 }
 
@@ -167,17 +178,49 @@ export async function computeOperatingPnl({
   const capitalPurchasesCents = Number(purchaseRow?.capital) || 0;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 4. التجميع النهائي.
+  // 4. الإهلاك الشهري المحسوب (Phase 4 — خيار γ).
+  //
+  // استعلام واحد على capital_asset: SUM(monthly_dep) لكل صف نشط بدأ الإهلاك
+  // (started_at::date <= endDate) ولم يكتمل بعد (months_elapsed < useful_life).
+  //
+  // ⚠️ CRITICAL-NOTE-4 (SA1): نستخدم EXTRACT(YEAR FROM age) * 12 +
+  // EXTRACT(MONTH FROM age) لحساب months_elapsed، لا date_part('month', age)
+  // الذي يُرجِع 0-11 فقط (مكوّن الشهر، لا الإجمالي). لأصل عمره 14 شهراً:
+  // date_part = 2 (خطأ، يستمر الإهلاك بعد انقضاء العمر)؛ EXTRACT = 14 (صحيح).
+  //
+  // ⚠️ الإهلاك غير نقدي: لا يُدرَج أي حركة في cash_movement. هو تعديل محسوب
+  // يُخصم من operatingNetCents فقط. INV-21 يستثني صراحةً INV-1 لهذا التعديل.
+  //
+  // التأثير على getFinancialPosition (IC-1, IC-6):
+  //   getFinancialPosition لا يستعمل operatingNetCents مباشرة — يبني retainedProfit
+  //   محلياً من operatingExpensesCents + operatingPurchasesCents (cash-basis نقدي).
+  //   لذلك retainedProfitCents لا يشمل الإهلاك، والميزانية تبقى cash-basis صرفة.
+  //   IC-1 (equityDrift) و IC-6 (pnlReconciliation) لا يتأثران إطلاقاً.
+  //   الفرق بين dashboard.netProfit (يضم الإهلاك) و retainedProfitCents (لا يضمه)
+  //   = monthlyDepreciationCents. هذا فصل مقصود بين «الربح التشغيلي المُعدَّل»
+  //   (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية). موثَّق في INV-21.
+  // ─────────────────────────────────────────────────────────────────────────
+  const monthlyDepreciationCents = await getActiveMonthlyDepreciationCents(
+    endDate,
+    tx,
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 5. التجميع النهائي.
   // ─────────────────────────────────────────────────────────────────────────
   const capitalAdditionsCents = capitalExpensesCents + capitalPurchasesCents;
   const operatingNetCents =
-    salesCents - operatingExpensesCents - operatingPurchasesCents;
+    salesCents -
+    operatingExpensesCents -
+    operatingPurchasesCents -
+    monthlyDepreciationCents;
 
   return {
     salesCents,
     operatingExpensesCents,
     operatingPurchasesCents,
     capitalAdditionsCents,
+    monthlyDepreciationCents,
     operatingNetCents,
   };
 }

@@ -182,7 +182,75 @@ ZMAN ورشة صغيرة. صاحبها يريد أن يعرف «كم نقدًا 
 
 ---
 
-## 10. الإهلاك (placeholder — المرحلة 4)
+## 10. الإهلاك (المرحلة 4 — خيار γ: محسوب عند القراءة، غير نقدي)
 
-> placeholder. سيُملأها SUB-AGENT 4 (Depreciation) في بطاقة 4.G بعد إكمال Phase 4.
-> يحتاج قرار المالك صراحةً قبل البدء (انظر بطاقة 4.A من الـ spec).
+> **`capital_asset` جدول مستقل للأصول الرأسمالية المُهلَكة.** لا يدخل
+> `cash_movement` إطلاقاً — الإهلاك تعديل محسوب يُخصَم من الربح التشغيلي فقط
+> (لمطابقة مفهوم «تكلفة الأصل» بذهن صاحب العمل). يُحسَب عند كل قراءة من
+> `computeOperatingPnl` و`IC-14` — لا CRON، لا جدول شهري. القرار 7 من
+> الـ spec (الخيار γ) مع تعديل صريح لـ INV-1.
+
+### التعارض الدستوري المُحلول
+
+INV-1 ينصّ على أن «`cash_movement` هو المصدر الوحيد للحقيقة لكل النقد». خيار γ
+يُضيف الإهلاك كـ**تعديل غير نقدي** يُخصَم من الربح التشغيلي. هذا **لا يكسر**
+INV-1 من حيث المبدأ (الإهلاك ليس حركة نقدية، فلا يدخل cash_movement)، لكنه
+يُعدِّل تفسير «الربح التشغيلي» ليشمل بنداً غير نقدي. INV-21 يوثِّق هذا التعديل
+صراحةً كاستثناء مقصود.
+
+| # | القاعدة | يفرضها الفحص |
+|---|---|---|
+| INV-21 | **الإهلاك شهري محسوب، ليس حركة نقدية.** لا يُدرَج أي صف في `cash_movement` للإهلاك. يُحسَب عند كل قراءة من `capital_asset` عبر `(EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age))` بدل `date_part('month', age)` (الذي يُرجِع 0-11 فقط، خاطئ للأصول فوق 12 شهراً — راجع SA1 CRITICAL-NOTE-4). النتيجة تُخصَم من `operatingNetCents` في `computeOperatingPnl`. `started_at = now()` (تاريخ بداية الإهلاك = لحظة قرار المستخدم، لا تاريخ الشراء الأصلي — يمنع الإهلاك بأثر رجعي). الإهلاك يبدأ من الشهر الذي يلي `started_at` ويستمر طوال `useful_life_months`. لا يدخل الميزانية (`getFinancialPosition` لا يستعمل `operatingNetCents` — يبني `retainedProfitCents` محلياً من `operatingExpensesCents + operatingPurchasesCents` cash-basis). الفرق بين `dashboard.netProfit` (يضم الإهلاك) و`retainedProfitCents` (لا يضمه) = `monthlyDepreciationCents`. هذا فصل مقصود بين «الربح التشغيلي المُعدَّل» (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية). | IC-14 (WARN) |
+| IC-14 | **WARN فقط، لا FAIL.** يعرض: (1) `totalOriginalCents` = SUM(purchase_amount_cents)، (2) `totalDepreciatedToDateCents` = SUM(months_elapsed × monthly_dep) حيث months_elapsed ≤ useful_life_months، (3) `netBookValueCents` = الفرق. الإهلاك تقدير يعتمد على `useful_life_months` (حكم تقديري من المستخدم) — ليس قيد سلامة مالية. الفحص معلومي بحت، لا FAIL إطلاقاً (نمط IC-12). | IC-14 |
+
+**قواعد إضافية للتعديلات المستقبلية في هذه المرحلة:**
+
+**افعل:**
+- قبل تعديل `computeOperatingPnl`، اقرأ INV-21. أي تعديل للإهلاك يجب أن يبقى
+  محسوباً عند القراءة (لا تخزين شهري)، وأن يستعمل صيغة EXTRACT الصحيحة
+  لـ months_elapsed (لا `date_part`).
+- عند تعديل `getCapitalAssetValuation` في `depreciation/queries.ts`، تحقّق أن
+  الـ CASE WHEN يحدّ من months_elapsed عند useful_life_months (الأصول
+  المُستهلَكة بالكامل لا تُساهم بأكثر من useful_life_months × monthly_dep).
+- عند تعديل `DepreciationPromptModal`، احرص على أن usefulLifeMonths بين 1 و
+  600 (50 سنة) — الحد الأقصى منطقي للأصول طويلة العمر.
+- عند تعديل `addCapitalAsset`، تحقّق من idempotency على مستوى المصدر: إن
+  وُجد capital_asset نشط مسبقاً لنفس (source_type, source_id)، أرجِع الصف
+  الموجود (لا تُنشئ صفّاً ثانياً).
+
+**لا تفعل أبداً:**
+- لا تُدرِج أي حركة في `cash_movement` للإهلاك. الإهلاك **غير نقدي** إطلاقاً —
+  INV-21 (استثناء صريح لـ INV-1).
+- لا تستعمل `date_part('month', age(...))` لحساب months_elapsed — يُرجِع 0-11
+  فقط، فيستمر الإهلاك خطأً بعد انقضاء العمر النافع. استعمل دائماً
+  `(EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age))`.
+- لا تُفعِّل الإهلاك تلقائياً عند حفظ صف رأسمالي — يجب أن يطلبه المستخدم
+  صراحةً عبر toggle «تصنيف متقدّم» ثم اختيار «توزيع شهري». السلوك الافتراضي
+  هو «خصم مرة واحدة» (Phase 2 — إضافات رأسمالية).
+- لا تُعدِّل `getFinancialPosition.retainedProfitCents` ليخصم الإهلاك. الميزانية
+  تبقى cash-basis صرفة. الإهلاك تعديل تشغيلي فقط.
+- لا تُسقِط CHECK constraint على `capital_asset_useful_life_positive` (يفترض
+  useful_life_months > 0).
+- لا تُسقِط CHECK constraint على `capital_asset_source_type_enum` (يفترض
+  source_type ∈ {'expense', 'purchase'}).
+- لا تُسقِط الـ trigger `set_updated_at` على `capital_asset` (مُرفَق في migration
+  0022). الحفاظ على `updated_at` تلقائياً يتسق مع باقي الجداول.
+
+### مثال تحقق (من بطاقة 4.D في الـ spec)
+
+أصل رأسمالي 1200 د.أ (1,200,000 فلس)، عمر نافع 12 شهراً → monthly_dep =
+floor(1,200,000 / 12) = 100,000 فلس (100 د.أ/شهر).
+
+- بعد 6 أشهر من `started_at`:
+  - `monthlyDepreciationCents` في P&L = 100,000 فلس (100 د.أ — حصّة الشهر الحالي
+    ما دام months_elapsed < 12).
+  - `totalDepreciatedToDateCents` في IC-14 = 6 × 100,000 = 600,000 فلس (600 د.أ).
+  - `netBookValueCents` = 1,200,000 − 600,000 = 600,000 فلس (600 د.أ).
+- بعد 12 شهراً: months_elapsed = 12 = useful_life_months → الإهلاك توقّف.
+  - `monthlyDepreciationCents` في P&L = 0 (لا يُخصَم بعد الآن).
+  - `totalDepreciatedToDateCents` = 12 × 100,000 = 1,200,000 فلس (1,200 د.أ).
+  - `netBookValueCents` = 0 (الأصل مُستهلَك بالكامل).
+- بعد 18 شهراً (اختبار CRITICAL-NOTE-4):
+  - `date_part('month', age)` = 6 (خطأ — كان سيُستمرّ الإهلاك خطأً).
+  - `(EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age))` = 18 (صحيح).
+  - 18 > 12 → الإهلاك متوقّف، `monthlyDepreciationCents` = 0. ✓

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { List, Trash2, Boxes, PackageCheck } from "lucide-react";
+import { List, Trash2, Boxes, PackageCheck, Settings2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -19,7 +19,10 @@ import { useComponentStock } from "@/features/inventory/hooks";
 
 interface PurchaseFormProps {
   initialData?: Purchase | null;
-  onSubmit: (values: NewPurchase) => void;
+  /** دالة الحفظ. تستقبل القيم + علم «التصنيف المتقدّم» (Phase 4) ليعرف الأب
+   * إن كان يجب أن يعرض مودال الإهلاك بعد النجاح. الأب مسؤول عن mutateAsync
+   * والحصول على res.data.id ثم عرض DepreciationPromptModal. */
+  onSubmit: (values: NewPurchase, advancedClassification: boolean) => void;
   onDelete?: () => void;
   isSubmitting: boolean;
 }
@@ -44,6 +47,11 @@ export function PurchaseForm({
   };
 
   const [isCustomItem, setIsCustomItem] = useState(!initialData?.item);
+
+  // Phase 4 — toggle «تصنيف متقدّم» (مغلق افتراضياً). المستخدم العادي يكتفي
+  // بـ checkbox «أصل رأسمالي» (Phase 2). من يريد الإهلاك يفتح الـ toggle، فبعد
+  // حفظ صف رأسمالي يظهر مودال السؤال.
+  const [advancedClassification, setAdvancedClassification] = useState(false);
 
   // جلب العناصر الشائعة للمشتريات
   const { data: catalogItems = [] } = usePurchaseItemCatalog();
@@ -175,7 +183,10 @@ export function PurchaseForm({
   }, [initialData, setValue, catalogItems]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form
+      onSubmit={handleSubmit((vals) => onSubmit(vals, advancedClassification))}
+      className="space-y-6"
+    >
       <div className="space-y-4">
         {/* التاريخ */}
         <div className="space-y-2 flex flex-col">
@@ -339,6 +350,32 @@ export function PurchaseForm({
                 <option value="variable">متغيّرة (خامات، تغليف، وقود)</option>
                 <option value="fixed">ثابتة (إيجار، اشتراك، رواتب)</option>
               </select>
+            </div>
+          )}
+
+          {/* Phase 4 — toggle «تصنيف متقدّم» (spec card 4.E). مغلق افتراضياً.
+              المستخدم العادي يكتفي بـ checkbox «أصل رأسمالي». من يريد الإهلاك
+              يفتح الـ toggle، فبعد حفظ صف رأسمالي يظهر مودال السؤال. */}
+          {isCapital && (
+            <div className="pt-2 border-t border-hairline mt-2">
+              <button
+                type="button"
+                onClick={() => setAdvancedClassification((v) => !v)}
+                className="flex items-center gap-2 text-xs text-info hover:underline min-h-[40px] px-1 -my-1"
+                aria-expanded={advancedClassification}
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+                {advancedClassification
+                  ? "إخفاء التصنيف المتقدّم"
+                  : "تصنيف متقدّم (إهلاك شهري)"}
+              </button>
+              {advancedClassification && (
+                <p className="text-[11px] text-ink-3 leading-relaxed mt-1.5 ps-5">
+                  بعد الحفظ، سيُسأل المستخدم: هل يريد خصم هذا الأصل مرة واحدة
+                  (افتراضي Phase 2 — لا يؤثّر على الربح التشغيلي) أو توزيعه شهرياً
+                  كإهلاك (يُخصَم شهرياً من الربح التشغيلي طوال عمر الأصل النافع)؟
+                </p>
+              )}
             </div>
           )}
         </div>
