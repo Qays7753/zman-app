@@ -130,6 +130,13 @@ export async function getCatalogMovementsForOrder(orderId: string) {
  * = Σ(balance × defaultCostCents) لكل صنف متتبَّع.
  * ملاحظة: القيمة تقديرية (defaultCostCents من الكتالوج، وليس سعر الشراء الفعلي).
  * تستخدم في IC-12 (WARN only) وفي لوحة معلومات المخزون (اختياري).
+ *
+ * SA4 (Part C) — أضفنا bookValueCents per item = Σ(in total_value_cents)
+ * − Σ(out total_value_cents) من catalog_movement (نفس صيغة getFinancialPosition
+ * و getFinancialSummary.inventoryValueCents — لا منطق جديد). هذا يُمكِّن من
+ * عرض القيمة الدفترية الفعلية لكل صنف على حدة في الـ dashboard القائمة
+ * الموحَّدة للمخزون، بدلاً من الاعتماد على defaultCostCents التقديري.
+ * lowStock = (balance <= 0) — أصناف رصيدها صفر أو سالب (تستحق إعادة الطلب).
  */
 export async function getInventoryValuation(asOfDate?: string) {
   const dateCondition = asOfDate
@@ -148,6 +155,15 @@ export async function getInventoryValuation(asOfDate?: string) {
       balance: sql<number>`coalesce(sum(
         case when ${catalogMovement.direction} = 'in' then ${catalogMovement.quantity}
              else -${catalogMovement.quantity} end
+      ), 0)::bigint`,
+      // SA4 (Part C) — القيمة الدفترية الفعلية للصنف (نفس صيغة
+      // getFinancialPosition.inventoryValueCents). coalesce على total_value_cents
+      // للحركات القديمة بلا total_value_cents.
+      bookValueCents: sql<number>`coalesce(sum(
+        case when ${catalogMovement.direction} = 'in'
+             then coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+             else -(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)))
+        end
       ), 0)::bigint`,
     })
     .from(catalogComponent)
@@ -177,6 +193,13 @@ export async function getInventoryValuation(asOfDate?: string) {
     0,
   );
 
+  // SA4 (Part C) — القيمة الدفترية الإجمالية الفعلية (مطابقة لـ
+  // getFinancialPosition.inventoryValueCents تماماً).
+  const totalBookValueCents = rows.reduce(
+    (sum, r) => sum + (Number(r.bookValueCents) || 0),
+    0,
+  );
+
   const totalCatalogs = rows.length;
   const totalMovements = rows.reduce((sum, r) => sum + Math.abs(r.balance), 0);
 
@@ -184,6 +207,14 @@ export async function getInventoryValuation(asOfDate?: string) {
     totalCatalogs,
     totalMovements,
     totalEstimatedValueCents,
-    items: rows,
+    totalBookValueCents,
+    items: rows.map((r) => ({
+      ...r,
+      bookValueCents: Number(r.bookValueCents) || 0,
+      // SA4 (Part C) — علم «رصيد منخفض» = صفر أو سالب. أبسط قاعدة دون
+      // حدّ أدنى قابل للضبط (لا توجد إعدادات لكل صنف). الأصناف ذات الرصيد
+      // الصفري/السالب تُظهر تحذيراً مرئياً في القائمة الموحَّدة على الـ dashboard.
+      lowStock: r.balance <= 0,
+    })),
   };
 }

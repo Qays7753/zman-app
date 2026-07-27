@@ -20,6 +20,8 @@ import {
   User,
   BarChart3,
   Package,
+  Boxes,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
@@ -40,6 +42,7 @@ import {
   useFinancialPosition,
 } from "../hooks";
 import { useOpeningBalance } from "@/features/finance/hooks";
+import { useInventoryValuation } from "@/features/inventory/hooks";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { STATUS_LABELS, STATUS_COLORS } from "@/lib/status-colors";
 import { LiquidityFlowPanel } from "./LiquidityFlowPanel";
@@ -439,11 +442,13 @@ export function DashboardClient() {
             {/* Phase 2: بطاقة شفافية تُذكِّر المالك أن شراء الآلات/الأثاث لا يُسجَّل
                 كخسارة في الشهر، بل يظهر هنا ويتطلب إهلاكاً مستقلاً (المرحلة 4).
                 الرقم من computeOperatingPnl الموحَّدة، مطابق لما يظهر في الميزانية
-                والتقارير. */}
+                والتقارير.
+                SA4 (Part C): رمز الألوان مُوحَّد مع نظام التوكنز — warn-soft/warn-deep
+                بدل raw amber (SA3 cross-lane recommendation). */}
             {summaryAllTime && (summaryAllTime.capitalAdditionsCents ?? 0) > 0 && (
-              <div className="bg-amber-50/60 rounded-lg border border-amber-200 shadow-sm p-4 flex items-center justify-between gap-3">
+              <div className="bg-warn-soft/60 rounded-lg border border-warn/30 shadow-sm p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Landmark className="h-5 w-5 text-amber-700 shrink-0" />
+                  <Landmark className="h-5 w-5 text-warn-deep shrink-0" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <h3 className="text-xs font-bold text-ink">إضافات أصول رأسمالية</h3>
@@ -452,7 +457,7 @@ export function DashboardClient() {
                     <p className="text-[10px] text-ink/50 mt-0.5">لا تُخصم من الربح التشغيلي</p>
                   </div>
                 </div>
-                <span className="text-base font-black text-amber-700 font-mono whitespace-nowrap">
+                <span className="text-base font-black text-warn-deep font-mono whitespace-nowrap">
                   <AmountText amount={summaryAllTime.capitalAdditionsCents ?? 0} hideCurrency />
                 </span>
               </div>
@@ -462,11 +467,13 @@ export function DashboardClient() {
             {/* D3 fix (SA2): بطاقة تُظهر قيمة الإهلاك المحسوبة للفترة المختارة. هذا
                 هو الفرق الدقيق بين «الربح التشغيلي (بعد الإهلاك)» أعلاه و«الربح
                 النقدي المحتجز (قبل الإهلاك)» أدناه. الرقم من computeOperatingPnl
-                الموحَّدة (LOCKED-6 محفوظ — لا مسار منفصل). period-aware بعد D2 fix. */}
+                الموحَّدة (LOCKED-6 محفوظ — لا مسار منفصل). period-aware بعد D2 fix.
+                SA4 (Part C): رمز الألوان مُوحَّد مع نظام التوكنز — info-soft/info
+                بدل raw sky (SA3 cross-lane recommendation). */}
             {summaryAllTime && (summaryAllTime.monthlyDepreciationCents ?? 0) > 0 && (
-              <div className="bg-sky-50/60 rounded-lg border border-sky-200 shadow-sm p-4 flex items-center justify-between gap-3">
+              <div className="bg-info-soft/60 rounded-lg border border-info/30 shadow-sm p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
-                  <TrendingDown className="h-5 w-5 text-sky-700 shrink-0" />
+                  <TrendingDown className="h-5 w-5 text-info shrink-0" />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <h3 className="text-xs font-bold text-ink">إهلاك الفترة (غير نقدي)</h3>
@@ -475,36 +482,58 @@ export function DashboardClient() {
                     <p className="text-[10px] text-ink/50 mt-0.5">الفرق بين البطاقتين أعلاه وأسفل</p>
                   </div>
                 </div>
-                <span className="text-base font-black text-sky-700 font-mono whitespace-nowrap">
+                <span className="text-base font-black text-info font-mono whitespace-nowrap">
                   <AmountText amount={summaryAllTime.monthlyDepreciationCents ?? 0} hideCurrency />
                 </span>
               </div>
             )}
 
-            {/* ═══ قيمة المخزون — سطر شفافية للمخزون المُرأسمَل (Phase 3-revised / D4 fix) ═══ */}
+            {/* ═══ قيمة المخزون — بطاقة ثابتة (تظهر دائماً، حتى عند الصفر) ═══ */}
             {/* D4 fix (SA3): بطاقة تُظهر قيمة المخزون المتتبَّع على الطريقة
                 in qty × unit_cost − out qty × unit_cost من catalog_movement.
                 هذا الرقم جزء من totalAssets (Cash + Inventory)، ويُعاد توازنه
                 مع retainedProfitCents الذي يطرح COGS. الشراء لمخزون متتبَّع لا
                 يخفض الربح التشغيلي (يُرأسمَل هنا)؛ التكلفة تُخصَم عند البيع عبر
-                COGS (INV-23 / INV-24). */}
-            {position && (position.assets.inventoryValueCents ?? 0) > 0 && (
-              <div className="bg-violet-50/60 rounded-lg border border-violet-200 shadow-sm p-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Package className="h-5 w-5 text-violet-700 shrink-0" />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-xs font-bold text-ink">قيمة المخزون</h3>
-                      <InfoTooltip text="قيمة دفترية للمخزون المتتبَّع من catalog_movement (الوارد × سعر الوحدة − المُصرف × سعر الوحدة). الشراء لصنف متتبَّع لا يُسجَّل كخسارة في الشهر — يُرأسمَل هنا كمخزون. التكلفة تُخصَم من الربح عند البيع عبر COGS (تعديل غير نقدي محسوب عند القراءة، مثل الإهلاك). راجع ACCOUNTING_RULES.md §9 (INV-23 / INV-24)." />
+                COGS (INV-23 / INV-24).
+                SA4 (Part C): البطاقة الآن تظهر دائماً (حتى عند 0) — الـ zero-state
+                يعرض «لا يوجد مخزون متتبَّع» بدل أن تختفي البطاقة. القيمة من
+                summary.inventoryValueCents (مُضافة في SA4) لتعمل حتى دون انتظار
+                position، مع fallback إلى position.assets.inventoryValueCents.
+                رمز الألوان مُوحَّد — emerald-soft/emerald-deep (أصل إيجابي). */}
+            {(() => {
+              const inventoryValue =
+                summaryAllTime?.inventoryValueCents
+                ?? position?.assets.inventoryValueCents
+                ?? 0;
+              const isZero = inventoryValue === 0;
+              return (
+                <div className={`bg-emerald-soft/60 rounded-lg border border-emerald/30 shadow-sm p-4 flex items-center justify-between gap-3`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="h-5 w-5 text-emerald-deep shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-xs font-bold text-ink">قيمة المخزون</h3>
+                        <InfoTooltip text="قيمة دفترية للمخزون المتتبَّع من catalog_movement (الوارد × سعر الوحدة − المُصرف × سعر الوحدة). الشراء لصنف متتبَّع لا يُسجَّل كخسارة في الشهر — يُرأسمَل هنا كمخزون. التكلفة تُخصَم من الربح عند البيع عبر COGS (تعديل غير نقدي محسوب عند القراءة، مثل الإهلاك). راجع ACCOUNTING_RULES.md §9 (INV-23 / INV-24)." />
+                      </div>
+                      <p className="text-[10px] text-ink/50 mt-0.5">
+                        {isZero ? "لا يوجد مخزون متتبَّع" : "جزء من إجمالي الأصول"}
+                      </p>
                     </div>
-                    <p className="text-[10px] text-ink/50 mt-0.5">جزء من إجمالي الأصول</p>
                   </div>
+                  <span className={`text-base font-black font-mono whitespace-nowrap ${isZero ? "text-ink/40" : "text-emerald-deep"}`}>
+                    <AmountText amount={inventoryValue} hideCurrency />
+                  </span>
                 </div>
-                <span className="text-base font-black text-violet-700 font-mono whitespace-nowrap">
-                  <AmountText amount={position.assets.inventoryValueCents ?? 0} hideCurrency />
-                </span>
-              </div>
-            )}
+              );
+            })()}
+
+            {/* ═══ القائمة الموحَّدة للمخزون المتتبَّع — إجابة سؤال «ما الذي يحتاج إعادة طلب؟» ═══ */}
+            {/* SA4 (Part C): قائمة موحَّدة لكل صنف متتبَّع (اسم + رصيد + قيمة دفترية
+                + علم «رصيد منخفض»). تستخدم getInventoryValuation الموسَّعة
+                (bookValueCents + lowStock) — لا منطق جديد. الهدف: من لوحة القيادة
+                وحدها، يستطيع المالك رؤية كل الأصناف المتتبَّعة دفعة واحدة بدل
+                التنقّل في صفحة المكوّنات. الأصناف ذات الرصيد ≤ 0 تُعلَّم بالأحمر. */}
+            <TrackedInventoryPanel />
 
             {/* ═══ الربح مقابل السيولة — تركيبة النقد as-of نهاية الفترة ═══ */}
             {/* تُحسب من الوضع المالي المتوازن، فالمجموع = النقد المتاح دائماً
@@ -568,7 +597,9 @@ export function DashboardClient() {
                           إضافات أصول رأسمالية
                           <InfoTooltip text="مشتريات ومصاريف رأسمالية (آلات، أثاث). لا تُخصم من الربح التشغيلي بل تُطرح هنا من تركيبة السيولة للحفاظ على توازن الميزانية." />
                         </span>
-                        <span className="font-mono font-bold text-amber-700 whitespace-nowrap">
+                        {/* SA4 (Part C): text-amber-700 → text-warn-deep (token-system
+                            alignment with the dedicated capitalAdditions card above). */}
+                        <span className="font-mono font-bold text-warn-deep whitespace-nowrap">
                           <AmountText amount={-capitalAdditions} hideCurrency parenNegative />
                         </span>
                       </div>
@@ -587,14 +618,16 @@ export function DashboardClient() {
                   {/* D4 fix (SA3): سطر ميمو لشفافية قيمة المخزون ضمن الإجمالي.
                       realCash = Cash + Bank + Inventory. لاحظ أن inventoryValue
                       لا يُضاف لـ composed (هو ضمن الإجمالي بالفعل عبر retainedProfitCents
-                      الذي يطرح cogsToDate). عرضه هنا للشفافية فقط. */}
+                      الذي يطرح cogsToDate). عرضه هنا للشفافية فقط.
+                      SA4 (Part C): text-violet-700 → text-emerald-deep (token-system
+                      alignment with the dedicated inventoryValue card above). */}
                   {inventoryValue > 0 && (
                     <div className="flex items-center justify-between text-[10px] text-ink/45">
                       <span className="whitespace-nowrap flex items-center gap-1">
                         ضمنها قيمة المخزون
                         <InfoTooltip text="إجمالي الأصول يشمل النقد في الصناديق والبنك بالإضافة إلى قيمة المخزون المتتبَّع (الوارد × سعر الوحدة − المُصرف × سعر الوحدة). هذا الرقم هو قيمة المخزون ضمن الإجمالي، وليس مبلغاً إضافياً. راجع ACCOUNTING_RULES.md §9." />
                       </span>
-                      <span className="font-mono whitespace-nowrap text-violet-700"><AmountText amount={inventoryValue} hideCurrency parenNegative /></span>
+                      <span className="font-mono whitespace-nowrap text-emerald-deep"><AmountText amount={inventoryValue} hideCurrency parenNegative /></span>
                     </div>
                   )}
                 </div>
@@ -847,5 +880,128 @@ export function DashboardClient() {
         </div>
       </ResponsiveModal>
     </>
+  );
+}
+
+/**
+ * SA4 (Part C) — قائمة موحَّدة للمخزون المتتبَّع.
+ *
+ * يُجيب هذا المكوّن على سؤال المالك: «ما الذي يحتاج إعادة طلب؟» من لوحة القيادة
+ * وحدها. قبل هذه البطاقة كان الرصيد مُوزَّعاً على بطاقات صفحة الكتالوج (واحدة
+ * لكل صنف) — والمالك يضطر للتنقّل لمعرفة منخفض الرصيد.
+ *
+ * مصدر البيانات: `getInventoryValuation` الموسَّعة في `inventory/queries.ts`
+ * (استعلام واحد لكل الأصناف المتتبَّعة). يُرجِي:
+ *   - per-item: name, unit, balance, bookValueCents (نفس صيغة getFinancialPosition)
+ *   - lowStock = (balance ≤ 0) — أصناف رصيدها صفري/سالب تُعلَّم بالأحمر.
+ *
+ * الحالات (state completeness):
+ *   - isLoading → SkeletonList مدمج مع بطاقة فارغة (نفس ارتفاع البطاقة).
+ *   - لا أصناف متتبَّعة → EmptyState موجز (الـ owner لم يفعّل التتبّع بعد).
+ *   - أصناف متتبَّعة كلها برصيد 0 → تُعرَض كلها بعلم «رصيد منخفض».
+ *   - بيانات محمَّلة → قائمة مختصرة (آخر 5 أصناف + رابط للمزيد في صفحة الكتالوج).
+ *
+ * تصميم: نُحتفظ بالقائمة مختصرة على الـ dashboard (آخر 5 + رابط) لتجنّب إغراق
+ * اللوحة. صفحة الكتالوج تبقى مسار الإدارة الكاملة (تعديل/تسوية/حركات).
+ */
+function TrackedInventoryPanel() {
+  const { data, isLoading } = useInventoryValuation();
+
+  // لا نُظهر البطاقة إطلاقاً إن لم يكن هناك أصناف متتبَّعة مسجَّلة بعد (الـ empty
+  // state الحقيقي = «لا أصناف متتبَّعة»). هذا يُميّز عن «أصناف متتبَّعة كلها 0»
+  // الذي نُظهره (مع تحذير لكل صنف).
+  if (!isLoading && data && data.totalCatalogs === 0) {
+    return null;
+  }
+
+  // رتّب: الأصناف منخفضة الرصيد أولاً (الأكثر إلحاحاً للطلب)، ثم الباقي حسب
+  // القيمة الدفترية تنازلياً (الأكبر قيمةً = الأكثر أهمية في الاهتمام).
+  const sortedItems = [...(data?.items ?? [])].sort((a, b) => {
+    if (a.lowStock !== b.lowStock) return a.lowStock ? -1 : 1;
+    return (b.bookValueCents ?? 0) - (a.bookValueCents ?? 0);
+  });
+
+  const lowStockCount = sortedItems.filter((i) => i.lowStock).length;
+  // نعرض أحدث 5 أصناف على الـ dashboard. الباقي يُترك لصفحة الكتالوج.
+  const visibleItems = sortedItems.slice(0, 5);
+  const hiddenCount = sortedItems.length - visibleItems.length;
+
+  return (
+    <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
+          <Boxes className="h-4.5 w-4.5 text-emerald-deep" />
+          رصيد المخزون المتتبَّع
+          <InfoTooltip text="كل صنف متتبَّع في الكتالوج مع رصيده الحالي وقيمته الدفترية. الرصيد = الوارد − المُصرف من catalog_movement. القيمة الدفترية = Σ (سعر الوحدة × الكمية) لكل حركة — مطابقة لما يظهر في الميزانية. الأصناف ذات الرصيد الصفري أو السالب تُعلَّم بالأحمر (تستحق إعادة الطلب)." />
+        </h3>
+        {lowStockCount > 0 && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-alert-soft text-alert border border-alert/30 flex items-center gap-1 shrink-0">
+            <AlertTriangle className="w-3 h-3" />
+            {lowStockCount} رصيد منخفض
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="h-10 bg-canvas rounded-md animate-pulse"
+            />
+          ))}
+        </div>
+      ) : (
+        <>
+          <ul className="divide-y divide-hairline">
+            {visibleItems.map((item) => {
+              const isNegative = item.balance < 0;
+              return (
+                <li
+                  key={item.catalogComponentId}
+                  className="py-2.5 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sm font-semibold text-ink truncate">
+                        {item.name}
+                      </span>
+                      {item.lowStock && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-alert-soft text-alert border border-alert/20 flex items-center gap-0.5 shrink-0">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          {isNegative ? "رصيد سالب" : "رصيد صفري"}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-ink/45 mt-0.5">
+                      القيمة الدفترية:{" "}
+                      <span className="font-mono text-ink/60">
+                        <AmountText amount={item.bookValueCents} hideCurrency />
+                      </span>
+                    </p>
+                  </div>
+                  <span
+                    className={`text-sm font-black font-mono whitespace-nowrap shrink-0 ${
+                      item.lowStock ? "text-alert" : "text-ink"
+                    }`}
+                    dir="ltr"
+                  >
+                    {item.balance} {item.unit}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {hiddenCount > 0 && (
+            <Link
+              href="/catalog"
+              className="block text-center text-xs font-bold text-info hover:text-info/80 transition-colors pt-1"
+            >
+              عرض كل الأصناف المتتبَّعة ({hiddenCount} إضافي) ←
+            </Link>
+          )}
+        </>
+      )}
+    </div>
   );
 }

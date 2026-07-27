@@ -657,7 +657,7 @@ function TrackedStockBanner({
         className={`p-3 rounded-md border text-xs flex items-start gap-2 ${
           isShort
             ? "border-warn/40 bg-warn-soft text-warn-deep"
-            : "border-info/30 bg-info-soft text-info-deep"
+            : "border-info/30 bg-info-soft text-info"
         }`}
       >
         <AlertTriangle
@@ -665,7 +665,7 @@ function TrackedStockBanner({
         />
         <div className="leading-relaxed">
           <span className="font-bold">
-            الرصيد الإجمالي للكونات المتتبَّعة: {totalAvailable}
+            الرصيد الإجمالي للمكوّنات المتتبَّعة: {totalAvailable}
           </span>
           <span className="opacity-70"> · </span>
           <span className="font-bold">

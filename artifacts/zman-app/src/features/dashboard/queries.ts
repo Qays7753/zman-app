@@ -3,6 +3,7 @@
 import { and, desc, isNull, sql, eq } from "drizzle-orm";
 import { expense, purchase, sale, cashMovement, account } from "@/features/finance/db";
 import { order } from "@/features/orders/db";
+import { catalogMovement } from "@/features/inventory/db";
 import { db } from "@/lib/db/client";
 import { computeOperatingPnl } from "@/features/finance/pnl";
 // D8 fix — getAmmanMonthBounds لضمان أن حلقة آخر N أشهر مُعتمَدة على توقيت عمّان
@@ -29,6 +30,27 @@ export interface FinancialSummary {
   ownerNet: number;
   ownerInject: number;
   ownerDraw: number;
+  /**
+   * SA4 (Part C) — قيمة المخزون المتتبَّع as-of endDate (point-in-time، لا flow).
+   * = Σ(in total_value_cents) − Σ(out total_value_cents) من catalog_movement
+   * (deletedAt IS NULL، date <= endDate) — نفس صيغة getFinancialPosition
+   * تماماً (لا منطق جديد — نفس SQL، نفس الـ coalesce على total_value_cents
+   * للحركات القديمة بلا total_value_cents). يُعاد على الـ dashboard لكي لا
+   * يضطر المالك لفتح /reports لرؤية قيمة مخزونه. SA1 Part C flag #2.
+   * Zero-state: قد يكون 0 إن لم تُسجَّل حركات مخزون أو افترقت كل الوارد بالمصروف.
+   * الـ dashboard card يُظهره دائماً (حتى عند 0) — لا يختفي.
+   */
+  inventoryValueCents: number;
+  /**
+   * SA4 (Part C) — COGS التراكمي حتى endDate (كل التاريخ، لا حدّ أدنى).
+   * = Σ(out total_value_cents) من catalog_movement (source_type='order_delivery'
+   * deletedAt IS NULL، date <= endDate). نفس صيغة computeOperatingPnl.cogsCents
+   * في وضع range:"all" (startDate=undefined). معرَض هنا للتوحيد مع
+   * getFinancialPosition.cogsCentsToDate — لا يُعرض حالياً كبطاقة على الـ dashboard
+   * (الـ retained profit في بطاقة «الربح مقابل السيولة» يطرحه ضمنياً) لكنه معرَض
+   * للتمكين من عرضه مستقبلاً. SA1 Part C flag #2.
+   */
+  cogsCentsToDate: number;
 }
 
 export interface ActivityItem {
@@ -137,6 +159,47 @@ export async function getFinancialSummary(
       ),
     );
 
+  // SA4 (Part C) — قيمة المخزون المتتبَّع as-of endDate. نفس صيغة
+  // getFinancialPosition.inventoryValueCents تماماً (لا منطق جديد — شاهد
+  // تعليق inventoryValueCents في الواجهة أعلاه). استعلام واحد على
+  // catalog_movement. الـ fallback إلى `qty × coalesce(unit_cost_cents, 0)`
+  // يحافظ على التوافق مع الحركات القديمة (قبل migration 0024).
+  const inventoryValuePromise = db
+    .select({
+      total: sql<any>`coalesce(sum(
+        case when ${catalogMovement.direction} = 'in'
+             then coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+             else -(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)))
+        end
+      ), 0)::bigint`,
+    })
+    .from(catalogMovement)
+    .where(
+      and(
+        isNull(catalogMovement.deletedAt),
+        sql`${catalogMovement.date} <= ${endDate}`,
+      ),
+    );
+
+  // SA4 (Part C) — COGS التراكمي حتى endDate. نفس صيغة
+  // computeOperatingPnl.cogsCents في وضع range:"all" (startDate=undefined).
+  // = Σ(out total_value_cents) WHERE source_type='order_delivery' AND date <= endDate.
+  // استعلام واحد على catalog_movement — لا نداء لـ computeOperatingPnl ثاني
+  // تجنباً لإعادة استعلامات المصاريف والمشتريات والإهلاك بلا داعٍ.
+  const cogsToDatePromise = db
+    .select({
+      total: sql<any>`coalesce(sum(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))), 0)::bigint`,
+    })
+    .from(catalogMovement)
+    .where(
+      and(
+        eq(catalogMovement.direction, "out"),
+        eq(catalogMovement.sourceType, "order_delivery"),
+        isNull(catalogMovement.deletedAt),
+        sql`${catalogMovement.date} <= ${endDate}`,
+      ),
+    );
+
   const [
     actualSalesResult,
     depositsResult,
@@ -144,6 +207,8 @@ export async function getFinancialSummary(
     purchasesResult,
     ownerInjectResult,
     ownerDrawResult,
+    inventoryValueResult,
+    cogsToDateResult,
   ] = await Promise.all([
     actualSalesPromise,
     depositsPromise,
@@ -151,6 +216,8 @@ export async function getFinancialSummary(
     purchasesPromise,
     ownerInjectPromise,
     ownerDrawPromise,
+    inventoryValuePromise,
+    cogsToDatePromise,
   ]);
 
   const actualSales = Number(actualSalesResult[0]?.total) || 0;
@@ -173,8 +240,14 @@ export async function getFinancialSummary(
   const ownerInject = Number(ownerInjectResult[0]?.total) || 0;
   const ownerDraw = Number(ownerDrawResult[0]?.total) || 0;
   const ownerNet = ownerInject - ownerDraw;
+  // SA4 (Part C) — قيمة المخزون وCOGS التراكمي. نفس الصيغة المُستخدَمة في
+  // getFinancialPosition — لا منطق جديد. معرَضة هنا كي لا يحتاج الـ dashboard
+  // للاعتماد على position كي يُظهر بطاقة المخزون (تفادي اختفاء البطاقة عند
+  // فشل/تأخّر position).
+  const inventoryValueCents = Number(inventoryValueResult[0]?.total) || 0;
+  const cogsCentsToDate = Number(cogsToDateResult[0]?.total) || 0;
 
-  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, monthlyDepreciationCents, ownerNet, ownerInject, ownerDraw };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, monthlyDepreciationCents, ownerNet, ownerInject, ownerDraw, inventoryValueCents, cogsCentsToDate };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)
