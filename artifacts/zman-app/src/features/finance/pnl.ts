@@ -3,6 +3,11 @@
 import { and, eq, isNull, sql, sum } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { account, cashMovement, expense, purchase } from "./db";
+// Phase 3-revised (D4 fix) — catalogMovement لحساب COGS (تكلفة البضاعة المباعة)
+// من الحركات `out` المرتبطة بالمبيعات (source_type='order_delivery').
+// source_id على catalog_movement = sale.id — لكن لا حاجة لـ JOIN sale لأن
+// catalog_movement.date = تاريخ البيع (يُضبط في addCatalogMovement).
+import { catalogMovement } from "../inventory/db";
 // Phase 4 — capital_asset للإهلاك (محسوب عند القراءة، خيار γ). لا FK إلى
 // cash_movement (الإهلاك غير نقدي — INV-21). نستورد من depreciation/queries
 // لأن استعلام الإهلاك موحَّد هناك ويُستخدَم أيضاً من IC-14.
@@ -76,8 +81,19 @@ export interface OperatingPnlResult {
   operatingExpensesCents: number;
   operatingPurchasesCents: number;
   capitalAdditionsCents: number;
-  /** Phase 4 — إهلاك الفترة المحسوب للأصول النشطة (period-aware بعد D2 fix). غير نقدي (لا يدخل cash_movement). */
+  /**
+   * Phase 4 — إهلاك الفترة المحسوب للأصول النشطة (period-aware بعد D2 fix).
+   * غير نقدي (لا يدخل cash_movement).
+   */
   monthlyDepreciationCents: number;
+  /**
+   * Phase 3-revised (D4 fix) — COGS (تكلفة البضاعة المباعة) للفترة = Σ(quantity × unit_cost_cents)
+   * لحركات catalog_movement `out` بـ source_type='order_delivery' نشطة (deletedAt IS NULL)
+   * ضمن [startDate, endDate]. غير نقدي — تعديل محسوب عند القراءة (مثل الإهلاك).
+   * عكس الشراء المُرأسمَل (is_tracked_inventory=true) الذي لم يُخصَم من P&L عند الشراء.
+   * COGS يُخصَم عند البيع لمطابقة الإيراد بالتكلفة. INV-23.
+   */
+  cogsCents: number;
   operatingNetCents: number;
 }
 
@@ -150,6 +166,18 @@ export async function computeOperatingPnl({
 
   // ─────────────────────────────────────────────────────────────────────────
   // 3. المشتريات — نفس نمط المصاريف.
+  //
+  // Phase 3-revised (D4 fix): المشتريات المُرأسمَلة كمخزون (is_tracked_inventory=true)
+  // تُستبعَد من operatingPurchasesCents أيضاً (مثل الرأسمالي). الشراء لمخزون متتبَّع
+  // لا يخفض الربح التشغيلي في شهر الشراء — يُرأسمَل كمخزون، وتُخصَم تكلفته عند
+  // البيع عبر COGS (القسم 3.5 أدناه). الصيغة:
+  //   operatingPurchasesCents = Σ cash_movement.amountCents WHERE
+  //     is_capital_asset = false AND is_tracked_inventory = false
+  //   capitalPurchasesCents   = Σ cash_movement.amountCents WHERE is_capital_asset = true
+  //   trackedPurchasesCents   = Σ cash_movement.amountCents WHERE is_tracked_inventory = true
+  // (ملاحظة: المشتريات المُرأسمَلة كمخزون لا تدخل capitalPurchasesCents لأنها لا
+  // تُستهلَك كرأسمالي — هي مخزون سيُباع. تُعرض في الميزانية كـ inventoryValueCents
+  // في getFinancialPosition، لا كـ capitalAdditionsCents.)
   // ─────────────────────────────────────────────────────────────────────────
   const purchaseConds = [
     isNull(cashMovement.deletedAt),
@@ -162,8 +190,9 @@ export async function computeOperatingPnl({
 
   const [purchaseRow] = await tx
     .select({
-      operating: sql<number>`coalesce(sum(case when coalesce(${purchase.isCapitalAsset}, false) = false then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
+      operating: sql<number>`coalesce(sum(case when coalesce(${purchase.isCapitalAsset}, false) = false AND coalesce(${purchase.isTrackedInventory}, false) = false then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
       capital: sql<number>`coalesce(sum(case when coalesce(${purchase.isCapitalAsset}, false) = true  then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
+      tracked: sql<number>`coalesce(sum(case when coalesce(${purchase.isCapitalAsset}, false) = false AND coalesce(${purchase.isTrackedInventory}, false) = true  then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
     })
     .from(cashMovement)
     .innerJoin(account, eq(cashMovement.accountId, account.id))
@@ -177,6 +206,10 @@ export async function computeOperatingPnl({
     .where(and(...purchaseConds));
   const operatingPurchasesCents = Number(purchaseRow?.operating) || 0;
   const capitalPurchasesCents = Number(purchaseRow?.capital) || 0;
+  // trackedPurchasesCents يُستعمل للتوثيق والمراجعة فقط — لا يدخل P&L ولا
+  // capitalAdditions. هو التدفّق النقدي للمخزون المُرأسمَل.
+  const trackedPurchasesCents = Number(purchaseRow?.tracked) || 0;
+  void trackedPurchasesCents;
 
   // ─────────────────────────────────────────────────────────────────────────
   // 4. الإهلاك المحسوب للفترة (Phase 4 — خيار γ، D2 fix — period-aware).
@@ -214,6 +247,51 @@ export async function computeOperatingPnl({
   );
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 4.5. COGS (تكلفة البضاعة المباعة) للفترة — Phase 3-revised (D4 fix).
+  //
+  // COGS = Σ (catalog_movement.quantity × coalesce(unit_cost_cents, 0))
+  //        WHERE direction = 'out' AND source_type = 'order_delivery'
+  //              AND deleted_at IS NULL AND date ∈ [startDate, endDate]
+  //
+  // هذه حركات الخصم التي تُنشئها deductForDelivery عند convertOrderToSale.
+  // source_id = sale.id، لكن لا حاجة لـ JOIN sale — date على catalog_movement
+  // = تاريخ البيع (يُضبط في addCatalogMovement من getAmmanDate()). coalesce على
+  // unit_cost_cents يعالج الحالات النادرة التي قد لا تحتوي على cost (مخزون
+  // افتتاحي بلا سعر، أو adjustStock يدوي).
+  //
+  // ⚠️ COGS تعديل غير نقدي (مثل الإهلاك): لا يُدرَج أي حركة في cash_movement.
+  // النقد دخل بالكامل في salesCents (المتبقي + العربون المحوَّل). COGS يُخصم
+  // من operatingNetCents لمطابقة الإيراد بالتكلفة في نفس الفترة.
+  //
+  // التأثير على getFinancialPosition (IC-1):
+  //   retainedProfitCents = salesCashInCents − depositsLiability
+  //                         − operatingExpensesCents − operatingPurchasesCents
+  //                         − cogsCentsToDate
+  //   inventoryValueCents = Σ(in qty × unit_cost) − Σ(out qty × unit_cost)
+  //   totalAssets = Cash + inventoryValueCents
+  // توازن IC-1 محفوظ: Cash يقل بمقدار trackedPurchasesCents (الشراء المُرأسمَل
+  // لا يدخل operatingPurchasesCents)، لكن inventoryValueCents يزيد بنفس المقدار
+  // فتبقى totalAssets كما كانت. عند البيع: Cash يزيد بـ salesCashInCents،
+  // inventoryValueCents يقل بـ COGS، retainedProfitCents يقل بـ COGS، فتبقى
+  // المعادلة متوازنة. موثَّق في INV-22 / INV-23 و§9 من ACCOUNTING_RULES.md.
+  // ─────────────────────────────────────────────────────────────────────────
+  const cogsConds = [
+    eq(catalogMovement.direction, "out"),
+    eq(catalogMovement.sourceType, "order_delivery"),
+    isNull(catalogMovement.deletedAt),
+    sql`${catalogMovement.date} <= ${endDate}`,
+  ];
+  if (startDate) cogsConds.push(sql`${catalogMovement.date} >= ${startDate}`);
+
+  const [cogsRow] = await tx
+    .select({
+      total: sql<number>`coalesce(sum(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)), 0)::bigint`,
+    })
+    .from(catalogMovement)
+    .where(and(...cogsConds));
+  const cogsCents = Number(cogsRow?.total) || 0;
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 5. التجميع النهائي.
   // ─────────────────────────────────────────────────────────────────────────
   const capitalAdditionsCents = capitalExpensesCents + capitalPurchasesCents;
@@ -221,6 +299,7 @@ export async function computeOperatingPnl({
     salesCents -
     operatingExpensesCents -
     operatingPurchasesCents -
+    cogsCents -
     monthlyDepreciationCents;
 
   return {
@@ -229,6 +308,7 @@ export async function computeOperatingPnl({
     operatingPurchasesCents,
     capitalAdditionsCents,
     monthlyDepreciationCents,
+    cogsCents,
     operatingNetCents,
   };
 }

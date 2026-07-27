@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { idempotencyKey, order, orderComponent } from "../orders/db";
 import { sale } from "../finance/db";
@@ -43,6 +43,13 @@ interface AddCatalogMovementInput {
   notes?: string;
   date?: string;
   requestId?: string;
+  /**
+   * Phase 3-revised (D4 fix) — سعر الوحدة بالـ fils لكل وحدة عند تسجيل الحركة.
+   * للحركة `in` من purchase: floor(purchase.totalCents / quantity).
+   * للحركة `out` من order_delivery: التكلفة الوسطية المرجَّحة لحظة البيع.
+   * اختياري — يُترك NULL للأصناف غير المتتبَّعة وللتسويات اليدوية (adjustStock).
+   */
+  unitCostCents?: number;
 }
 
 /**
@@ -52,7 +59,11 @@ interface AddCatalogMovementInput {
  * ومن CatalogClient (direction='in', sourceType='opening' للتتبّع الأول،
  * direction='out', sourceType='manual_out' للصرف اليدوي).
  *
- * Idempotency: إن مُرِّر requestId، تحقّق من idempotency_key.
+ * Idempotency: إن مُرِّر requestId، تحقّق من idempotency_key. إن وُجد المفتاح،
+ * نُعيد الحركة المرتبطة عبر targetId (لا عبر استعلام WHERE source_id = '' الذي
+ * يُطلِق خطأ Postgres «invalid input syntax for type uuid» عندما يكون sourceId
+ * غير مُمرَّر — D9 fix). إن لم تُوجَد الحركة (حالة نادرة: مفتاح بلا حركة)،
+ * نرمي خطأ صريح بدل إرجاع { id: "" } الصامت.
  */
 export async function addCatalogMovement(
   input: AddCatalogMovementInput,
@@ -68,6 +79,7 @@ export async function addCatalogMovement(
     notes,
     date,
     requestId,
+    unitCostCents,
   } = input;
 
   if (quantity <= 0) {
@@ -83,16 +95,18 @@ export async function addCatalogMovement(
       .where(eq(idempotencyKey.requestId, requestId));
 
     if (existingKey) {
-      // لا نُرجع الخطأ — idempotency تعني «أعطني نفس النتيجة». ابحث عن حركة
-      // مرتبطة بنفس targetId و sourceType.
+      // D9 fix: ابحث عن الحركة المرتبطة عبر targetId المُسجَّل في idempotency_key
+      // (وليس عبر WHERE source_id = '' الذي كان يُطلِق خطأ uuid cuando sourceId
+      // غير مُمرَّر من adjustStock). اقتصر على نفس catalogComponentId لإضافة أمان
+      // إضافي ضد أي تضارب بين الأصناف. إن لم تُوجَد الحركة (مفتاح بلا حركة — حالة
+      // نادرة بعد حذف ناعم)، ارفع خطأ صريح بدل إرجاع { id: "" }.
       const [existingMov] = await tx
         .select()
         .from(catalogMovement)
         .where(
           and(
-            eq(catalogMovement.sourceType, sourceType),
-            eq(catalogMovement.sourceId, sourceId ?? ""),
-            isNull(catalogMovement.deletedAt),
+            eq(catalogMovement.id, existingKey.targetId),
+            eq(catalogMovement.catalogComponentId, catalogComponentId),
           ),
         )
         .limit(1);
@@ -103,8 +117,13 @@ export async function addCatalogMovement(
           direction: existingMov.direction as "in" | "out",
         };
       }
-      // requestId موجود لكن الحركة غير موجودة — قد تكون عملية أخرى. لا نُدرج.
-      return { id: "", quantity, direction };
+      // requestId موجود لكن الحركة غير موجودة — لا نُدرج. ارفع خطأ صريح كي يُعالِج
+      // المتصل (لا يُرجِع id فارغ يُمرَّر صامتاً لعمل لاحق).
+      throw new Error(
+        `تعذّر إيجاد حركة المخزون المرتبطة بـ requestId=${existingKey.requestId} ` +
+          `(targetId=${existingKey.targetId}). قد تكون الحركة محذوفة ناعماً. ` +
+          `أعد المحاولة بـ requestId جديد.`,
+      );
     }
   }
 
@@ -119,6 +138,7 @@ export async function addCatalogMovement(
       sourceId: sourceId ?? null,
       orderComponentId: orderComponentId ?? null,
       notes: notes ?? "",
+      unitCostCents: unitCostCents ?? null,
     })
     .returning({ id: catalogMovement.id });
 
@@ -197,6 +217,7 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
     quantity: number;
     balanceBefore: number;
     balanceAfter: number;
+    unitCostCents: number;
   }> = [];
 
   for (const c of components) {
@@ -235,6 +256,31 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
       notes += ` ⚠️ الرصيد قبل الخصم (${balanceBefore}) أقل من المطلوب (${requiredQty}) — رصيد سالب بعد الخصم.`;
     }
 
+    // Phase 3-revised (D4 fix) — احسب التكلفة الوسطية المرجَّحة لحظة البيع من
+    // كل الحركات `in` النشطة (deletedAt IS NULL) حتى الآن. الصيغة:
+    //   weightedAvgCost = Σ(quantity × coalesce(unit_cost_cents, 0)) / Σ(quantity)
+    // الحركات الافتتاحية/اليدوية بلا unit_cost_cents تُعامَل كتكلفتها 0 (مخزون
+    // مجاني). إن لم تكن هناك حركات in إطلاقاً، التكلفة = 0 (لا COGS). القيمة
+    // تُخزَّن على الحركة out (unit_cost_cents) لتكون COGS غير قابلة للتعديل
+    // لاحقاً (immutable) — النموذج الموحَّد للقيمة الدفترية للمخزون.
+    const [costRow] = await tx
+      .select({
+        totalQty: sql<number>`coalesce(sum(${catalogMovement.quantity}), 0)::bigint`,
+        totalCost: sql<number>`coalesce(sum(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)), 0)::bigint`,
+      })
+      .from(catalogMovement)
+      .where(
+        and(
+          eq(catalogMovement.catalogComponentId, comp.id),
+          eq(catalogMovement.direction, "in"),
+          isNull(catalogMovement.deletedAt),
+        ),
+      );
+
+    const totalQty = Number(costRow?.totalQty) || 0;
+    const totalCost = Number(costRow?.totalCost) || 0;
+    const unitCostCents = totalQty > 0 ? Math.floor(totalCost / totalQty) : 0;
+
     const result = await addCatalogMovement({
       tx,
       catalogComponentId: comp.id,
@@ -244,6 +290,7 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
       sourceId: saleId,
       orderComponentId: c.id,
       notes,
+      unitCostCents,
       // requestId نفسه لكل حركة ضمن الـ transaction نفسها — لكن idempotency_key
       // مفتاحه الأساسي requestId، فلا يمكن تكراره. نُمرّر undefined لتجنب التضارب
       // مع المفتاح الذي سجّله convertOrderToSale نفسه. convertOrderToSale مسؤول
@@ -258,6 +305,7 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
       quantity: requiredQty,
       balanceBefore,
       balanceAfter: balanceBefore - requiredQty,
+      unitCostCents,
     });
   }
 

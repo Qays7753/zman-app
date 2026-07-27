@@ -162,6 +162,29 @@ export async function createPurchase(
       const derivedUnitCostCents = Math.round(
         parsed.data.unitCostMicroCents / 1000,
       );
+      // Phase 3-revised (D4 fix) — إن كان الصنف المرتبط متتبَّعاً، نُضبط
+      // is_tracked_inventory=true على صف الفاتورة. هذا يُعطِل computeOperatingPnl
+      // عن طرح الشراء من operatingPurchasesCents (يُرأسمَل كمخزون بدلاً من ذلك).
+      // نُحدِّد القيمة قبل INSERT بفحص الصنف المرتبط. إن لم يُربط الصنف أو كان
+      // غير متتبَّع، القيمة الافتراضية false (مشتريات تشغيلية).
+      let isTrackedInventory = false;
+      if (parsed.data.linkedCatalogComponentId) {
+        const [linkedComp0] = await tx
+          .select({ id: catalogComponent.id, tracked: catalogComponent.tracked })
+          .from(catalogComponent)
+          .where(
+            and(
+              eq(catalogComponent.id, parsed.data.linkedCatalogComponentId),
+              isNull(catalogComponent.deletedAt),
+            ),
+          )
+          .for("update");
+        if (!linkedComp0 || !linkedComp0.tracked) {
+          // بطاقة 3.F: خطأ واضح لرفض الربط بصنف غير متتبَّع. transaction ترجع كاملة.
+          throw new Error("الصنف غير متتبَّع أو غير موجود");
+        }
+        isTrackedInventory = true;
+      }
       const [newPurchase] = await tx
         .insert(purchase)
         .values({
@@ -181,6 +204,8 @@ export async function createPurchase(
             : (parsed.data.costNature ?? null),
           // Phase 3 — ربط اختياري بصنف الكتالوج (card 3.F). undefined → null للـ DB.
           linkedCatalogComponentId: parsed.data.linkedCatalogComponentId ?? null,
+          // Phase 3-revised (D4 fix) — علم رأسمَلة المخزون (auto-set).
+          isTrackedInventory,
         })
         .returning();
 
@@ -188,6 +213,9 @@ export async function createPurchase(
 
       // إدراج حركة الصندوق (التزاماً بـ §3) — فقط إن كان المبلغ موجباً (قيد DB:
       // cash_movement_amount_positive يتطلب amountCents > 0).
+      // ملاحظة D4: النقد خرج فعلاً من الصندوق (cash DID leave the box)، لذا
+      // نُدرِج الحركة دائماً. التمييز بين المشتريات التشغيلية والمُرأسمَلة كمخزون
+      // يتم في computeOperatingPnl عبر is_tracked_inventory، لا بحذف الحركة هنا.
       const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
       if (newPurchase.totalCents > 0) {
         await tx.insert(cashMovement).values({
@@ -201,36 +229,25 @@ export async function createPurchase(
         });
       }
 
-      // Phase 3 — إضافة حركة مخزون `in` إن كان الصنف مرتبطاً ومتتبَّعاً (card 3.F).
-      // متطلب spec: إن كان الصنف غير متتبَّع، ارفض بخطأ واضح "الصنف غير متتبَّع أو
-      // غير موجود". هذا يحمي من ربط فاتورة بصنف غير مُفعَّل للتتبّع — المستخدم يجب
-      // أن يُفعّل التتبّع من صفحة المكوّنات أولاً أو يُلغي الربط.
-      if (parsed.data.linkedCatalogComponentId) {
-        const [linkedComp] = await tx
-          .select({ id: catalogComponent.id, tracked: catalogComponent.tracked })
-          .from(catalogComponent)
-          .where(
-            and(
-              eq(catalogComponent.id, parsed.data.linkedCatalogComponentId),
-              isNull(catalogComponent.deletedAt),
-            ),
-          )
-          .for("update");
-
-        if (!linkedComp || !linkedComp.tracked) {
-          // بطاقة 3.F: خطأ واضح لرفض الربط بصنف غير متتبَّع. transaction ترجع كاملة.
-          throw new Error("الصنف غير متتبَّع أو غير موجود");
-        }
-
+      // Phase 3-revised (D4 fix) — إضافة حركة مخزون `in` إن كان الصنف متتبَّعاً.
+      // unit_cost_cents = floor(totalCents / quantity) — تُخزَّن على الحركة لتُستعمَل
+      // لاحقاً في حساب COGS عند البيع (تكلفة الوسط المرجَّح) ولقيمة المخزون في
+      // الميزانية. Math.floor يقبل فقدان كسر الـ fils (موثَّق — Fils discipline).
+      if (isTrackedInventory && parsed.data.linkedCatalogComponentId) {
+        const unitCostCentsForMovement =
+          newPurchase.quantity > 0
+            ? Math.floor(newPurchase.totalCents / newPurchase.quantity)
+            : 0;
         await addCatalogMovement({
           tx,
-          catalogComponentId: linkedComp.id,
+          catalogComponentId: parsed.data.linkedCatalogComponentId,
           direction: "in",
           quantity: parsed.data.quantity,
           sourceType: "purchase",
           sourceId: newPurchase.id,
           notes: `إضافة من فاتورة شراء: ${newPurchase.item} (الكمية: ${newPurchase.quantity})`,
           date: newPurchase.date,
+          unitCostCents: unitCostCentsForMovement,
           // requestId لا يُمرَّر: المفتاح مُستخدَم بالفعل من create_purchase.
           // convertOrderToSale يضمن idempotency على مستوى transaction كاملاً.
         });
@@ -302,6 +319,25 @@ export async function updatePurchase(
       const derivedUnitCostCents = Math.round(
         parsed.data.unitCostMicroCents / 1000,
       );
+      // Phase 3-revised (D4 fix) — مثل createPurchase: اضبط is_tracked_inventory
+      // تلقائياً بناءً على tracked للصنف المرتبط الجديد.
+      let isTrackedInventory = false;
+      if (parsed.data.linkedCatalogComponentId) {
+        const [linkedComp0] = await tx
+          .select({ id: catalogComponent.id, tracked: catalogComponent.tracked })
+          .from(catalogComponent)
+          .where(
+            and(
+              eq(catalogComponent.id, parsed.data.linkedCatalogComponentId),
+              isNull(catalogComponent.deletedAt),
+            ),
+          )
+          .for("update");
+        if (!linkedComp0 || !linkedComp0.tracked) {
+          throw new Error("الصنف غير متتبَّع أو غير موجود");
+        }
+        isTrackedInventory = true;
+      }
       const [updatedPurchase] = await tx
         .update(purchase)
         .set({
@@ -321,6 +357,8 @@ export async function updatePurchase(
             : (parsed.data.costNature ?? null),
           // Phase 3 — ربط بصنف الكتالوج (card 3.F). undefined → null للـ DB.
           linkedCatalogComponentId: parsed.data.linkedCatalogComponentId ?? null,
+          // Phase 3-revised (D4 fix) — علم رأسمَلة المخزون (auto-set).
+          isTrackedInventory,
           updatedAt: new Date(),
         })
         .where(
@@ -395,32 +433,21 @@ export async function updatePurchase(
           )
         );
 
-      if (parsed.data.linkedCatalogComponentId) {
-        const [linkedComp] = await tx
-          .select({ id: catalogComponent.id, tracked: catalogComponent.tracked })
-          .from(catalogComponent)
-          .where(
-            and(
-              eq(catalogComponent.id, parsed.data.linkedCatalogComponentId),
-              isNull(catalogComponent.deletedAt),
-            ),
-          )
-          .for("update");
-
-        if (!linkedComp || !linkedComp.tracked) {
-          // نفس خطأ createPurchase — الفاتورة لا يمكن ربطها بصنف غير متتبَّع.
-          throw new Error("الصنف غير متتبَّع أو غير موجود");
-        }
-
+      if (isTrackedInventory && parsed.data.linkedCatalogComponentId) {
+        const unitCostCentsForMovement =
+          updatedPurchase.quantity > 0
+            ? Math.floor(updatedPurchase.totalCents / updatedPurchase.quantity)
+            : 0;
         await addCatalogMovement({
           tx,
-          catalogComponentId: linkedComp.id,
+          catalogComponentId: parsed.data.linkedCatalogComponentId,
           direction: "in",
           quantity: parsed.data.quantity,
           sourceType: "purchase",
           sourceId: updatedPurchase.id,
           notes: `إضافة من فاتورة شراء: ${updatedPurchase.item} (الكمية: ${updatedPurchase.quantity})`,
           date: updatedPurchase.date,
+          unitCostCents: unitCostCentsForMovement,
         });
       }
 

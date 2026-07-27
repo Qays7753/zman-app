@@ -19,6 +19,7 @@ import {
   ArrowLeftRight,
   User,
   BarChart3,
+  Package,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
@@ -480,11 +481,42 @@ export function DashboardClient() {
               </div>
             )}
 
+            {/* ═══ قيمة المخزون — سطر شفافية للمخزون المُرأسمَل (Phase 3-revised / D4 fix) ═══ */}
+            {/* D4 fix (SA3): بطاقة تُظهر قيمة المخزون المتتبَّع على الطريقة
+                in qty × unit_cost − out qty × unit_cost من catalog_movement.
+                هذا الرقم جزء من totalAssets (Cash + Inventory)، ويُعاد توازنه
+                مع retainedProfitCents الذي يطرح COGS. الشراء لمخزون متتبَّع لا
+                يخفض الربح التشغيلي (يُرأسمَل هنا)؛ التكلفة تُخصَم عند البيع عبر
+                COGS (INV-22 / INV-23). */}
+            {position && (position.assets.inventoryValueCents ?? 0) > 0 && (
+              <div className="bg-violet-50/60 rounded-lg border border-violet-200 shadow-sm p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Package className="h-5 w-5 text-violet-700 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-xs font-bold text-ink">قيمة المخزون</h3>
+                      <InfoTooltip text="قيمة دفترية للمخزون المتتبَّع من catalog_movement (الوارد × سعر الوحدة − المُصرف × سعر الوحدة). الشراء لصنف متتبَّع لا يُسجَّل كخسارة في الشهر — يُرأسمَل هنا كمخزون. التكلفة تُخصَم من الربح عند البيع عبر COGS (تعديل غير نقدي محسوب عند القراءة، مثل الإهلاك). راجع ACCOUNTING_RULES.md §9 (INV-22 / INV-23)." />
+                    </div>
+                    <p className="text-[10px] text-ink/50 mt-0.5">جزء من إجمالي الأصول</p>
+                  </div>
+                </div>
+                <span className="text-base font-black text-violet-700 font-mono whitespace-nowrap">
+                  <AmountText amount={position.assets.inventoryValueCents ?? 0} hideCurrency />
+                </span>
+              </div>
+            )}
+
             {/* ═══ الربح مقابل السيولة — تركيبة النقد as-of نهاية الفترة ═══ */}
             {/* تُحسب من الوضع المالي المتوازن، فالمجموع = النقد المتاح دائماً
                 وبند «تسويات أخرى» يبقى صفراً لأي فترة تختارها.
                 Phase 2: نطرح capitalAdditionsCents من التركيبة لأن retained
-                أصبح تشغيلياً (الرأسمالي مستبعَد). Option A من CRITICAL-NOTE-2. */}
+                أصبح تشغيلياً (الرأسمالي مستبعَد). Option A من CRITICAL-NOTE-2.
+                Phase 3-revised (D4 fix): retainedProfitCents يطرح cogsCentsToDate
+                (تعديل غير نقدي لمطابقة الإيراد بالتكلفة). totalAssets الآن = Cash +
+                Inventory (inventoryValueCents). التركيبة موزونة تلقائياً مع الجديد:
+                inventoryValue ضمن realCash (المجموع)، وCOGS ضمن profit (الطرح)،
+                فيتبقى residual = 0 جبرياً. لشفافية أكبر، نُظهر inventoryValueCents
+                كسطر ميمو أسفل المجموع (لا يدخل في composed — هو ضمن الإجمالي). */}
             {position && (() => {
               const realCash = position.assets.totalCents;
               const opening = position.equity.openingCashInEquityCents;
@@ -492,6 +524,7 @@ export function DashboardClient() {
               const depositsHeld = position.liabilities.depositsCents;
               const profit = position.equity.retainedProfitCents;
               const capitalAdditions = position.equity.capitalAdditionsCents ?? 0;
+              const inventoryValue = position.assets.inventoryValueCents ?? 0;
               const composed = opening + ownerNet + depositsHeld + profit - capitalAdditions;
               const residual = realCash - composed;
               return (
@@ -499,7 +532,7 @@ export function DashboardClient() {
                   <div className="flex items-center gap-1.5">
                     <Wallet className="h-4 w-4 text-info" />
                     <h3 className="text-xs font-bold text-ink">الربح مقابل السيولة</h3>
-                    <InfoTooltip text="النقد الموجود في صندوقك ليس كله ربحاً. إنه مزيج من: رأس المال الذي بدأت به، وصافي ما أضفته أو سحبته كمالك، وعربونات لزبائن لم تُسلَّم طلباتهم بعد (نقد تتصرّف به بحرّية لكنه التزام حتى التسليم)، وأخيراً ربحك النقدي المحتجز من العمل. لهذا يكون النقد عادةً أكبر من الربح — وهذا وضع طبيعي." />
+                    <InfoTooltip text="النقد الموجود في صندوقك ليس كله ربحاً. إنه مزيج من: رأس المال الذي بدأت به، وصافي ما أضفته أو سحبته كمالك، وعربونات لزبائن لم تُسلَّم طلباتهم بعد (نقد تتصرّف به بحرّية لكنه التزام حتى التسليم)، وأخيراً ربحك المحتجز من العمل. لهذا يكون النقد عادةً أكبر من الربح — وهذا وضع طبيعي. Phase 3-revised: الإجمالي يشمل قيمة المخزون المتتبَّع (إن وُجد)." />
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
@@ -516,13 +549,14 @@ export function DashboardClient() {
                       <span className="text-ink/60 whitespace-nowrap">عربون مسلّم مقدّماً</span>
                       <span className="font-mono font-bold text-warn-deep whitespace-nowrap"><AmountText amount={depositsHeld} hideCurrency parenNegative /></span>
                     </div>
-                    {/* D3 fix (SA2): التسمية صريحة — «الربح النقدي المحتجز (قبل الإهلاك)».
-                        لا تشمل الإهلاك المحسوب (غير النقدي) المعروض في بطاقة مستقلة أعلاه.
-                        الفرق بين هذا الرقم و«الربح التشغيلي (بعد الإهلاك)» = إهلاك الفترة. */}
+                    {/* D3 fix (SA2): التسمية صريحة — «الربح المحتجز (قبل الإهلاك)».
+                        D4 fix (SA3): retainedProfitCents يطرح الآن COGS التراكمي
+                        (تعديل غير نقدي لمطابقة الإيراد بالتكلفة للأصناف المتتبَّعة).
+                        لا يشمل الإهلاك المحسوب (غير النقدي) المعروض في بطاقة مستقلة أعلاه. */}
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-ink/60 whitespace-nowrap flex items-center gap-1">
-                        الربح النقدي المحتجز (قبل الإهلاك)
-                        <InfoTooltip text="الربح النقدي المحتجز = مبيعات نقدية − مشتريات تشغيلية نقدية − مصاريف تشغيلية نقدية. لا يشمل الإهلاك (لأن الإهلاك غير نقدي — لا يخرج من الصندوق). يختلف عن «الربح التشغيلي (بعد الإهلاك)» المعروض في البطاقة العلوية، والفرق = إهلاك الفترة المعروض في بطاقة مستقلة. راجع ACCOUNTING_RULES.md §10." />
+                        الربح المحتجز (بعد COGS، قبل الإهلاك)
+                        <InfoTooltip text="الربح المحتجز = مبيعات نقدية − مشتريات تشغيلية نقدية − مصاريف تشغيلية نقدية − تكلفة البضاعة المباعة (COGS، تعديل غير نقدي). لا يشمل الإهلاك (لأنه غير نقدي). يختلف عن «الربح التشغيلي (بعد الإهلاك)» المعروض في البطاقة العلوية، والفرق = إهلاك الفترة المعروض في بطاقة مستقلة. راجع ACCOUNTING_RULES.md §9 و§10." />
                       </span>
                       <span className={`font-mono font-bold whitespace-nowrap ${profit >= 0 ? "text-info" : "text-alert"}`}>
                         <AmountText amount={profit} hideCurrency parenNegative />
@@ -547,9 +581,22 @@ export function DashboardClient() {
                     )}
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-hairline">
-                    <span className="text-sm font-black text-info whitespace-nowrap">النقد المتاح الآن</span>
+                    <span className="text-sm font-black text-info whitespace-nowrap">إجمالي الأصول المتاحة</span>
                     <span className="text-lg font-black text-info font-mono whitespace-nowrap"><AmountText amount={realCash} hideCurrency parenNegative /></span>
                   </div>
+                  {/* D4 fix (SA3): سطر ميمو لشفافية قيمة المخزون ضمن الإجمالي.
+                      realCash = Cash + Bank + Inventory. لاحظ أن inventoryValue
+                      لا يُضاف لـ composed (هو ضمن الإجمالي بالفعل عبر retainedProfitCents
+                      الذي يطرح cogsToDate). عرضه هنا للشفافية فقط. */}
+                  {inventoryValue > 0 && (
+                    <div className="flex items-center justify-between text-[10px] text-ink/45">
+                      <span className="whitespace-nowrap flex items-center gap-1">
+                        ضمنها قيمة المخزون
+                        <InfoTooltip text="إجمالي الأصول يشمل النقد في الصناديق والبنك بالإضافة إلى قيمة المخزون المتتبَّع (الوارد × سعر الوحدة − المُصرف × سعر الوحدة). هذا الرقم هو قيمة المخزون ضمن الإجمالي، وليس مبلغاً إضافياً. راجع ACCOUNTING_RULES.md §9." />
+                      </span>
+                      <span className="font-mono whitespace-nowrap text-violet-700"><AmountText amount={inventoryValue} hideCurrency parenNegative /></span>
+                    </div>
+                  )}
                 </div>
               );
             })()}

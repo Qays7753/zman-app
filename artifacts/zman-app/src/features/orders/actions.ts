@@ -292,41 +292,46 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       // المكوّنات الحالية). الحل: عكس البيع → تعديل المكوّنات → إعادة التحويل.
       // لا حاجة لمنع تعديل الحقول الأخرى (الاسم/الهاتف/الملاحظات) على المُسلَّم —
       // فقط المكوّنات. نقارن لقطة موجزة عبر JSON.stringify.
-      if (existing.status === "delivered") {
-        const existingComponents = await tx
-          .select({
-            catalogComponentId: orderComponent.catalogComponentId,
-            name: orderComponent.name,
-            costCents: orderComponent.costCents,
-            quantity: orderComponent.quantity,
-          })
-          .from(orderComponent)
-          .where(eq(orderComponent.orderId, id));
+      //
+      // D6 fix (SA3): نُحوِّل فحص componentsChanged لمستوى أعلى (خارج فرع
+      // "delivered") لاستعماله أيضاً في تخطّي DELETE+re-INSERT غير المشروط على
+      // السطر ~502. هذا يمنع إعادة إنشاء order_component (وكسر FK على
+      // catalog_movement.order_component_id) عند تعديل حقل غير المكوّنات (مثل
+      // اسم العميل أو الهاتف) على طلب مُسلَّم.
+      const existingComponents = await tx
+        .select({
+          catalogComponentId: orderComponent.catalogComponentId,
+          name: orderComponent.name,
+          costCents: orderComponent.costCents,
+          quantity: orderComponent.quantity,
+        })
+        .from(orderComponent)
+        .where(eq(orderComponent.orderId, id));
 
-        const existingKey = JSON.stringify(
-          existingComponents.map((c) => ({
-            catalogComponentId: c.catalogComponentId ?? null,
-            name: c.name,
-            costCents: c.costCents,
-            quantity: c.quantity,
-          })),
-        );
-        const newKey = JSON.stringify(
-          (components ?? []).map((c) => ({
-            catalogComponentId: c.catalogComponentId ?? null,
-            name: c.name,
-            costCents: c.costCents,
-            quantity: c.quantity,
-          })),
-        );
+      const existingComponentsKey = JSON.stringify(
+        existingComponents.map((c) => ({
+          catalogComponentId: c.catalogComponentId ?? null,
+          name: c.name,
+          costCents: c.costCents,
+          quantity: c.quantity,
+        })),
+      );
+      const newComponentsKey = JSON.stringify(
+        (components ?? []).map((c) => ({
+          catalogComponentId: c.catalogComponentId ?? null,
+          name: c.name,
+          costCents: c.costCents,
+          quantity: c.quantity,
+        })),
+      );
+      const componentsChanged = existingComponentsKey !== newComponentsKey;
 
-        if (existingKey !== newKey) {
-          return {
-            status: "error",
-            message:
-              "لتعديل مكوّنات طلب مُسلَّم، استخدم reverseSale أولاً ثم عدّل ثم أعد التحويل.",
-          };
-        }
+      if (existing.status === "delivered" && componentsChanged) {
+        return {
+          status: "error",
+          message:
+            "لتعديل مكوّنات طلب مُسلَّم، استخدم reverseSale أولاً ثم عدّل ثم أعد التحويل.",
+        };
       }
 
       // 6. تحديث الطلب مع شروط الأمان والتزامن المتفائل
@@ -498,19 +503,28 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
         void transformedMov;
       }
 
-      // 7. تحديث المكونات الفرعية: حذف القديم وإعادة إدخال الجديد داخل المعاملة
-      await tx.delete(orderComponent).where(eq(orderComponent.orderId, id));
-      if (components.length > 0) {
-        await tx.insert(orderComponent).values(
-          components.map((c) => ({
-            orderId: id,
-            name: c.name,
-            costCents: c.costCents,
-            quantity: c.quantity,
-            // Phase 1: الربط المفقود — معرّف صنف الكتالوج إن وُجد، null للنص حر.
-            catalogComponentId: c.catalogComponentId ?? null,
-          })),
-        );
+      // 7. تحديث المكونات الفرعية: حذف القديم وإعادة إدخال الجديد داخل المعاملة.
+      //
+      // D6 fix (SA3): لا نُنفِّذ DELETE+re-INSERT إلا إذا تغيّرت المكوّنات فعلاً
+      // (componentsChanged === true). هذا يمنع إعادة إنشاء order_component بـ UUIDs
+      // جديدة عند تعديل حقل غير المكوّنات (اسم العميل، الهاتف، الملاحظات...)،
+      // ممّا كان يكسر FK على catalog_movement.order_component_id ويُنتِج يتامى
+      // (احتاج تنظيف في migration 0023). السلوك الجديد يحافِظ على UUIDs الأصلية
+      // وعلى created_at الأصلي، ويتسق مع نمط "no-op when nothing changed".
+      if (componentsChanged) {
+        await tx.delete(orderComponent).where(eq(orderComponent.orderId, id));
+        if (components.length > 0) {
+          await tx.insert(orderComponent).values(
+            components.map((c) => ({
+              orderId: id,
+              name: c.name,
+              costCents: c.costCents,
+              quantity: c.quantity,
+              // Phase 1: الربط المفقود — معرّف صنف الكتالوج إن وُجد، null للنص حر.
+              catalogComponentId: c.catalogComponentId ?? null,
+            })),
+          );
+        }
       }
 
       revalidatePath("/orders");

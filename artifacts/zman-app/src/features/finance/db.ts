@@ -55,6 +55,14 @@ export const purchase = pgTable(
       () => catalogComponent.id,
       { onDelete: "restrict" },
     ),
+    // Phase 3-revised (D4 fix) — علم رأسمَلة المخزون. يُضبَط تلقائياً على true
+    // إن كان linkedCatalogComponentId يشير لصنف متتبَّع (tracked=true). عند true،
+    // تُستبعَد حركة الصندوق (sourceType='purchase') من operatingPurchasesCents في
+    // computeOperatingPnl (الشراء يُرأسمَل كمخزون، لا يخفض الربح التشغيلي)؛
+    // التكلفة تُخصَم عند البيع عبر COGS محسوب من catalog_movement out. أنموذج
+    // is_capital_asset من Phase 2 هو النمط المُتَّبع هنا (افتراضي false،
+    // COALESCE في PnL لمعالجة الصفوف القديمة).
+    isTrackedInventory: boolean("is_tracked_inventory").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

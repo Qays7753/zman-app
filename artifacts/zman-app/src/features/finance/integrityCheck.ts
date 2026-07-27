@@ -906,76 +906,81 @@ async function checkIC11OpeningBalanceMatchesCashMovements(): Promise<IntegrityC
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// IC-12 — دفتر المخزون (catalog_movement) — Phase 3 — WARN فقط
+// IC-12 — دفتر المخزون (catalog_movement) — Phase 3-revised — WARN فقط
 // ─────────────────────────────────────────────────────────────────────────
 //
-// الهدف: عرض معلومات تشغيلية عن دفتر المخزون (لا فحص سلامة مالي فعلي).
-// المخزون لا يدخل P&L ولا الميزانية ولا حقوق الملكية (INV-19a). هذا الفحص
-// يعرض فقط: عدد الأصناف المتتبَّعة، مجموع الحركات، القيمة التقديرية للرصيد
-// (defaultCostCents × balance).
+// الهدف: عرض قيمة دفترية فعلية للمخزون المتتبَّع. Phase 3-revised (D4 fix)
+// غيّر النموذج: قيمة المخزون الآن = Σ(in qty × unit_cost_cents) − Σ(out qty × unit_cost_cents)
+// من catalog_movement (وليست defaultCostCents × balance كما كان قبل D4). هذا
+// الرقم يُستعمل فعلاً في الميزانية (totalAssets) وIC-1، فهو لم يعد مجرد
+// «تقدير تشغيلي». ومع ذلك، الفحص يبقى WARN (معلومي) لأنه لا يفحص شرطاً
+// مالياً قابلاً للفشل — فقط يعرض القيمة للمراجعة.
 //
-// status = WARN دائماً (معلومة، لا خطأ). لن يُصبح FAIL أبداً — هذا التصميم
-// مقصود: المخزون ليس قيد سلامة مالية.
+// status = WARN دائماً (معلومة، لا FAIL). SA4 (D5) سيناقش ما إذا كان يجب
+// تخفيضه إلى PASS لأن القيمة الآن فعلية — لكن نُبقيه WARN في هذه المرحلة.
 // ─────────────────────────────────────────────────────────────────────────
 
 async function checkIC12CatalogLedgerConsistency(
   asOfDate: string,
 ): Promise<IntegrityCheckResult> {
-  // رصيد كل صنف متتبَّع = Σ(in) − Σ(out) حتى asOfDate.
-  // JOIN مع catalog_component لجلب defaultCostCents والفلترة على tracked=true.
-  // LEFT JOIN كي يشمل الأصناف المتتبَّعة بلا حركات (balance=0).
-  const rows = await db
+  // قيمة المخزون المتتبَّع = Σ(in qty × coalesce(unit_cost_cents, 0))
+  //                       − Σ(out qty × coalesce(unit_cost_cents, 0))
+  // لكل صف في catalog_movement نشط (deletedAt IS NULL) بتاريخ <= asOfDate.
+  // لا حاجة لـ JOIN catalog_component لأن catalog_movement لا يحوي صفوف إلا
+  // للأصناف المتتبَّعة (deductForDelivery و createPurchase يتخطّون غير المتتبَّعة).
+  // coalesce على unit_cost_cents يعالج الحركات الافتتاحية/اليدوية بلا سعر.
+  const [valRow] = await db
     .select({
-      catalogComponentId: catalogComponent.id,
-      name: catalogComponent.name,
-      defaultCostCents: catalogComponent.defaultCostCents,
-      balance: sql<number>`coalesce(sum(
+      inventoryValueCents: sql<number>`coalesce(sum(
+        case when ${catalogMovement.direction} = 'in'
+             then ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)
+             else -(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+        end
+      ), 0)::bigint`,
+      totalStockUnits: sql<number>`coalesce(sum(
         case when ${catalogMovement.direction} = 'in' then ${catalogMovement.quantity}
              else -${catalogMovement.quantity} end
       ), 0)::bigint`,
     })
-    .from(catalogComponent)
-    .leftJoin(
-      catalogMovement,
+    .from(catalogMovement)
+    .where(
       and(
-        eq(catalogMovement.catalogComponentId, catalogComponent.id),
         isNull(catalogMovement.deletedAt),
         sql`${catalogMovement.date} <= ${asOfDate}`,
       ),
-    )
+    );
+
+  const inventoryValueCents = Number(valRow?.inventoryValueCents) || 0;
+  const totalStockUnits = Number(valRow?.totalStockUnits) || 0;
+
+  // عدد الأصناف المتتبَّعة النشطة (للعرض فقط).
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(catalogComponent)
     .where(
       and(
         eq(catalogComponent.tracked, true),
         isNull(catalogComponent.deletedAt),
       ),
-    )
-    .groupBy(
-      catalogComponent.id,
-      catalogComponent.name,
-      catalogComponent.defaultCostCents,
     );
+  const totalCatalogs = Number(countRow?.count) || 0;
 
-  const totalCatalogs = rows.length;
-  const totalMovements = rows.reduce((sum, r) => sum + Math.abs(r.balance), 0);
-  const totalEstimatedValueCents = rows.reduce(
-    (sum, r) => sum + r.balance * r.defaultCostCents,
-    0,
-  );
-
-  const formattedValue = (totalEstimatedValueCents / 1000).toFixed(3);
+  const formattedValue = (inventoryValueCents / 1000).toFixed(3);
 
   return {
     id: "IC-12",
     invariantId: "INV-20",
     status: "WARN",
-    titleAr: "دفتر المخزون (معلومة تشغيلية)",
+    titleAr: "دفتر المخزون (قيمة دفترية فعلية)",
     descriptionAr:
       `عدد الأصناف المتتبَّعة: ${totalCatalogs}. ` +
-      `مجموع الحركات (|in|+|out| بتراكم الرصيد): ${totalMovements}. ` +
-      `القيمة التقديرية للرصيد (defaultCostCents × balance): ${formattedValue} د.أ. ` +
-      `المخزون لا يدخل P&L ولا الميزانية — معلومة تشغيلية فقط.`,
+      `إجمالي الوحدات في المخزون (in − out): ${totalStockUnits}. ` +
+      `القيمة الدفترية للمخزون (Σ in×unit_cost − Σ out×unit_cost من catalog_movement): ${formattedValue} د.أ. ` +
+      `Phase 3-revised (D4 fix): المخزون المتتبَّع مُرأسمَل في الميزانية (totalAssets) ` +
+      `والقيمة فعلية وليست تقدير defaultCostCents كما كانت قبل D4. الفحص يبقى ` +
+      `WARN (معلومي) لأنه لا يفحص شرطاً مالياً قابلاً للفشل. موثَّق في INV-22/INV-23.`,
     count: totalCatalogs,
-    driftCents: totalEstimatedValueCents,
+    driftCents: inventoryValueCents,
     suggestedFixAr: undefined,
   };
 }

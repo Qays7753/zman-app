@@ -5,6 +5,11 @@ import { db } from "@/lib/db/client";
 import type { ActionResponse } from "../finance/actions";
 import { expense, purchase, sale, account, cashMovement, ownerTransaction, openingBalance } from "../finance/db";
 import { order } from "../orders/db";
+// Phase 3-revised (D4 fix) — catalogMovement لحساب inventoryValueCents و
+// cogsCentsToDate في getFinancialPosition. لا حاجة لـ JOIN catalog_component لأن
+// catalog_movement لا يحوي صفوف إلا للأصناف المتتبَّعة (deductForDelivery و
+// createPurchase يتخطّان الأصناف غير المتتبَّعة صامتةً).
+import { catalogMovement } from "../inventory/db";
 import { mapDbError } from "@/lib/db/errors";
 import { computeOperatingPnl } from "../finance/pnl";
 
@@ -593,6 +598,12 @@ export type FinancialPositionData = {
   assets: {
     cashCents: number;
     bankCents: number;
+    /**
+     * Phase 3-revised (D4 fix) — قيمة المخزون المتتبَّع على الطريقة `in qty × unit_cost − out qty × unit_cost`
+     * من catalog_movement (deletedAt IS NULL، date <= asOfDate). قيمة دفترية فعلية
+     * (وليست تقدير defaultCostCents كما كانت قبل D4). تُضاف لـ totalCents.
+     */
+    inventoryValueCents: number;
     totalCents: number;
   };
   liabilities: {
@@ -615,6 +626,12 @@ export type FinancialPositionData = {
   equityDriftCents: number;
   pnlAsOfDateNetCents: number;
   pnlReconciliationCents: number;
+  /**
+   * Phase 3-revised (D4 fix) — COGS التراكمي حتى asOfDate (تكلفة البضاعة المباعة
+   * من كتالوج حركات out لـ order_delivery). مُخصوم من retainedProfitCents
+   * كتعديل غير نقدي لمطابقة الإيراد بالتكلفة. موثَّق في INV-23.
+   */
+  cogsCentsToDate: number;
   ledgerPnlNetCents: number;
   sourceTablePnlNetCents: number;
   pnlSourceReconciliationCents: number;
@@ -678,7 +695,31 @@ export async function getFinancialPosition(
         totalBankCents += (entry.in - entry.out);
       }
 
-      const totalAssets = totalCashCents + totalBankCents;
+      // Phase 3-revised (D4 fix) — قيمة المخزون المتتبَّع من catalog_movement.
+      // = Σ(in qty × coalesce(unit_cost_cents, 0)) − Σ(out qty × coalesce(unit_cost_cents, 0))
+      // لكل صف نشط (deletedAt IS NULL) بتاريخ <= asOfDate. الأصناف غير المتتبَّعة لا
+      // تُنشئ حركات أصلاً (deductForDelivery و createPurchase يتخطّونها)، فلا حاجة
+      // لـ JOIN catalog_component. coalesce على unit_cost_cents يعالج الحركات
+      // الافتتاحية/اليدوية بلا سعر (تعامل كتكلفتها 0 — مخزون مجاني).
+      const [inventoryValRow] = await tx
+        .select({
+          inventoryValueCents: sql<number>`coalesce(sum(
+            case when ${catalogMovement.direction} = 'in'
+                 then ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)
+                 else -(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+            end
+          ), 0)::bigint`,
+        })
+        .from(catalogMovement)
+        .where(
+          and(
+            isNull(catalogMovement.deletedAt),
+            sql`${catalogMovement.date} <= ${asOfDate}`,
+          ),
+        );
+      const inventoryValueCents = Number(inventoryValRow?.inventoryValueCents) || 0;
+
+      const totalAssets = totalCashCents + totalBankCents + inventoryValueCents;
 
       // 2. التزامات عربون العملاء غير الموصلة (Customer deposits deferred)
       const [depositsRes] = await tx
@@ -773,9 +814,10 @@ export async function getFinancialPosition(
       const salesCashInCents = Number(salesCashInRes?.total) || 0;
 
       // Phase 2 — استدعِ computeOperatingPnl لكل الفترة حتى asOfDate (لا حدّ أدنى).
-      // نأخذ منها: operatingExpensesCents، operatingPurchasesCents، capitalAdditionsCents.
-      // salesCents من الدالة != salesCashInCents هنا (الأولى source='sale' فقط،
-      // الثانية source IN ('sale','deposit')) — نُبقي salesCashInCents كما هي.
+      // نأخذ منها: operatingExpensesCents، operatingPurchasesCents، capitalAdditionsCents،
+      // cogsCents (Phase 3-revised — D4 fix). salesCents من الدالة != salesCashInCents
+      // هنا (الأولى source='sale' فقط، الثانية source IN ('sale','deposit')) — نُبقي
+      // salesCashInCents كما هي.
       const operatingPnl = await computeOperatingPnl({
         endDate: asOfDate,
         tx,
@@ -784,8 +826,19 @@ export async function getFinancialPosition(
       const operatingPurchasesCashOutCents = operatingPnl.operatingPurchasesCents;
       const operatingCashOutCents = operatingExpensesCashOutCents + operatingPurchasesCashOutCents;
       const capitalAdditionsCents = operatingPnl.capitalAdditionsCents;
+      // Phase 3-revised (D4 fix) — COGS التراكمي حتى asOfDate (من computeOperatingPnl
+      // بـ range:"all" — startDate=undefined يجعله يُرجِع تراكم كل التاريخ حتى endDate).
+      // cogsCents من computeOperatingPnl في وضع range:"all" = تراكم حتى asOfDate.
+      const cogsCentsToDate = operatingPnl.cogsCents;
 
-      const retainedProfitCents = salesCashInCents - depositsCents - operatingCashOutCents;
+      // Phase 3-revised (D4 fix) — retainedProfitCents يطرح COGS التراكمي (تعديل
+      // غير نقدي لمطابقة الإيراد بالتكلفة). operatingPurchasesCents لا يضم المشتريات
+      // المُرأسمَلة كمخزون (is_tracked_inventory=true مُستبعَدة) — فلا تُخصَم من
+      // retained في شهر الشراء، بل تُرأسمَل في inventoryValueCents (المضافة لـ
+      // totalAssets أعلاه). عند البيع: Cash يزيد بـ salesCashInCents، COGS يُخصم
+      // من retainedProfitCents، inventoryValueCents يقل تلقائياً (لأن الحركة out
+      // لها unit_cost_cents) — فتبقى IC-1 = 0. موثَّق في INV-22 / INV-23.
+      const retainedProfitCents = salesCashInCents - depositsCents - operatingCashOutCents - cogsCentsToDate;
 
       // حساب إجمالي حقوق الملكية — Option A: capitalAdditions سطر طرح منفصل.
       // هذا يُحافظ على IC-1 (equityDriftCents == 0) رغم أن retained لم يعد يطرح
@@ -800,7 +853,9 @@ export async function getFinancialPosition(
 
       // Check 2: retained profit (cash-basis, all time, OPERATING) vs cash-basis
       // P&L (all time, OPERATING). Both sides exclude capital → drift should stay 0.
-      const pnlAsOfDateNetCents = salesCashInCents - operatingCashOutCents;
+      // Phase 3-revised (D4 fix): cogsCentsToDate يُخصم من الطرفين معاً (retainedProfitCents
+      // أعلاه طرحه، وpnlAsOfDateNetCents نطرحه هنا) ليظل pnlReconciliationCents = 0.
+      const pnlAsOfDateNetCents = salesCashInCents - operatingCashOutCents - cogsCentsToDate;
       const pnlReconciliationCents = pnlAsOfDateNetCents - (retainedProfitCents + depositsCents);
 
       // F-05: real reconciliation between ledger (cash_movement) and source tables (sale, purchase, expense, order deposits).
@@ -877,6 +932,7 @@ export async function getFinancialPosition(
           assets: {
             cashCents: totalCashCents,
             bankCents: totalBankCents,
+            inventoryValueCents,
             totalCents: totalAssets,
           },
           liabilities: {
@@ -897,6 +953,7 @@ export async function getFinancialPosition(
           equityDriftCents,
           pnlAsOfDateNetCents,
           pnlReconciliationCents,
+          cogsCentsToDate,
           ledgerPnlNetCents,
           sourceTablePnlNetCents,
           pnlSourceReconciliationCents,

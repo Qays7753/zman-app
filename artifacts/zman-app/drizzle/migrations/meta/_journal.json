@@ -162,6 +162,13 @@
       "when": 1785108038977,
       "tag": "0022_capital_assets",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785183749759,
+      "tag": "0023_inventory_capitalization",
+      "breakpoints": true
     }
   ]
 }

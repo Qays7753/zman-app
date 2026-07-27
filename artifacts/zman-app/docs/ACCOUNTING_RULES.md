@@ -23,6 +23,19 @@ ZMAN ورشة صغيرة. صاحبها يريد أن يعرف «كم نقدًا 
 **لا تُحوّل النظام أبدًا إلى أساس استحقاق أو هجين.** رؤية خطّ الطلبات المتوقّعة
 تنتمي لنظام الطلبات (مُسمّاة «متوقّع»)، لا للنظام المالي.
 
+**استثناء مقصود للأصناف المتتبَّعة (Phase 3-revised):** الشراء لصنف متتبَّع
+(`catalog_component.tracked = true`) يُرأسمَل كمخزون (لا يخفض الربح التشغيلي
+في شهر الشراء)؛ التكلفة تُخصَم عند البيع عبر تعديل غير نقدي محسوب عند القراءة
+(مثل الإهلاك في §10). هذا **لا يكسر** الأساس النقدي للصندوق — النقد خرج فعلاً
+عند الشراء وحُسب في الـ cash_movement، والمخزون يظهر كأصل في الميزانية بجانب
+النقد. بل يُحسِّن مطابقة الإيراد بالتكلفة: تُخصَم تكلفة البضاعة المباعة (COGS)
+من الربح في نفس شهر البيع، لا في شهر الشراء. الأصناف غير المتتبَّعة
+(`tracked = false`) تبقى تشغيلية بحتة كما في INV-1 الأصلي. موثَّق في §9 (INV-22 /
+INV-23). معادلة IC-1 (totalAssets = totalLiab + totalEquity) تبقى متوازنة جبرياً:
+الشراء المُرأسمَل ينقل مبلغاً من Cash إلى Inventory (الأصول ثابتة)، والبيع
+يزيد Cash بـ saleCents ويُخصم COGS من retainedProfitCents ويُقلِّل Inventory
+بنفس المقدار — فتبقى المعادلة متوازنة (راجع التطبيق العملي في §9).
+
 ---
 
 ## 1. الدفتر المركزي
@@ -150,35 +163,68 @@ ZMAN ورشة صغيرة. صاحبها يريد أن يعرف «كم نقدًا 
 
 ---
 
-## 9. دفتر المخزون (المرحلة 3 — تشغيلي، لا مالي)
+## 9. دفتر المخزون (المرحلة 3-revised — تشغيلي للأصناف غير المتتبَّعة، مُرأسمَل للمتتبَّعة)
 
-> **`catalog_movement` هو دفتر مستقل لتسجيل الحركة الفيزيائية للمخزون.**
-> منفصل تماماً عن `cash_movement`. لا يدخل P&L، لا الميزانية، لا حقوق الملكية.
-> معلومة تشغيلية تساعد صاحب العمل على معرفة «كم عندي من كل صنف متتبَّع» قبل
-> البيع، ولا تُغيّر أي رقم مالي.
+> **`catalog_movement` هو دفتر مستقل لتسجيل الحركة الفيزيائية للمخزون (in/out).**
+> منفصل تماماً عن `cash_movement`. سلوكه يعتمد على نوع الصنف:
+>
+> - **الأصناف غير المتتبَّعة** (`tracked = false`): لا تُنشئ حركة مخزون إطلاقاً
+>   (الشراء يبقى تشغيلياً بحتاً، يخفض الربح في شهر الشراء — INV-1 الأصلي).
+> - **الأصناف المتتبَّعة** (`tracked = true`): الشراء يُرأسمَل كمخزون (لا يخفض
+>   الربح التشغيلي)، والتكلفة تُخصَم عند البيع عبر COGS (تعديل غير نقدي محسوب
+>   عند القراءة، مثل الإهلاك). هذا الاستثناء مقصود لمطابقة الإيراد بالتكلفة،
+>   ويُحاكي أنموذج Phase 4 (INV-21). موثَّق في INV-22 / INV-23.
 
 | # | القاعدة | يفرضها الفحص |
 |---|---|---|
-| INV-19 | دفتر المخزون (`catalog_movement`) منفصل عن الدفتر النقدي (`cash_movement`). لا يدخل P&L، الميزانية، أو الـ equity. معلومة تشغيلية فقط. الأصناف غير المتتبَّعة (`tracked=false`) لا تُنشئ حركة مخزون إطلاقاً. | مراجعة يدوية + IC-12 (WARN) |
+| INV-19 | دفتر المخزون (`catalog_movement`) منفصل عن الدفتر النقدي (`cash_movement`) — لا حركة `cash_movement` مرتبطة بحركة `catalog_movement`. كلٌّ في دفتره. الأصناف غير المتتبَّعة (`tracked=false`) لا تُنشئ حركة مخزون إطلاقاً (الشراء تشغيلي بحت). الأصناف المتتبَّعة (`tracked=true`) تُنشئ حركة `in` عند الشراء و`out` عند التحويل لبيع. | مراجعة يدوية + IC-12 (WARN) |
 | INV-20 | خصم المخزون يحدث **فقط** في `convertOrderToSale` (لحظة التحويل، داخل نفس transaction إدراج المبيعة وحركات الصندوق). يُسترجَع في `reverseSale` (soft-delete للحركات الأصلية). كلاهما محميّ بـ `idempotencyKey` على مستوى الـ transaction. الـ atomicity مضمونة: فشل الخصم = rollback كامل (لا مبيعة، لا حركة نقدية، لا تغيير حالة). السالب مسموح (§6 سيناريو 1) — يُسجَّل في `notes` لكن لا يُمنع. | مراجعة يدوية + IC-12 (WARN) |
-| IC-12 | **WATCH فقط، لا FAIL.** يعرض إجمالي حركات المخزون (`totalMovements` = Σ\|balance\|) والقيمة التقديرية للرصيد (`totalEstimatedValueCents` = Σ balance × defaultCostCents) للأصناف المتتبَّعة. القيمة تقديرية (defaultCostCents من الكتالوج، وليس سعر الشراء الفعلي). المخزون ليس قيد سلامة مالية — هذا الفحص معلومي بحت. | IC-12 |
+| INV-22 | **رأسمَلة المخزون المتتبَّع (Phase 3-revised / D4 fix).** الشراء لصنف متتبَّع (`purchase.is_tracked_inventory = true`) يُستبعَد من `operatingPurchasesCents` في `computeOperatingPnl` (لا يخفض الربح التشغيلي في شهر الشراء). يُرأسمَل كمخزون بالتكلفة التاريخية (`floor(totalCents / quantity)` للوحدة، يُخزَّن في `catalog_movement.unit_cost_cents` للحركة `in`). حركة الصندوق `out` تُدرَج كالمعتاد (النقد خرج فعلاً)، لكنها تُوسم بـ `is_tracked_inventory = true` ليُستبعَد مبلغها من P&L. `createPurchase`/`updatePurchase` يضبطان `is_tracked_inventory` تلقائياً عند `linked_catalog_component_id` يشير لصنف متتبَّع. الأصناف غير المتتبَّعة تبقى تشغيلية بحتة (`is_tracked_inventory = false`). | مراجعة يدوية + IC-12 (WARN) + IC-13 |
+| INV-23 | **COGS عند البيع (Phase 3-revised / D4 fix).** عند `convertOrderToSale`، يُحسَب التكلفة الوسطية المرجَّحة للوحدة من `catalog_movement in` النشطة: `Σ(in_qty × coalesce(unit_cost_cents, 0)) / Σ(in_qty)`. تُخزَّن على الحركة `out` (`unit_cost_cents`) لتكون COGS غير قابلة للتعديل لاحقاً (immutable). `computeOperatingPnl` يخصم `cogsCents = Σ(out_qty × unit_cost_cents)` للفترة من `operatingNetCents` كتعديل غير نقدي (مثل الإهلاك — لا حركة `cash_movement`). `getFinancialPosition` يخصم `cogsCentsToDate` من `retainedProfitCents` ويُضيف `inventoryValueCents = Σ(in_qty × unit_cost) − Σ(out_qty × unit_cost)` إلى `totalAssets` (Cash + Inventory) — IC-1 يبقى 0 جبرياً. `reverseSale` يُعاكَس بـ soft-delete للحركة `out` (COGS يُعاكَس تلقائياً عند القراءة — لا حاجة لكتابة إضافية). | مراجعة يدوية + IC-12 (WARN) + IC-13 |
+| IC-12 | **WARN فقط، لا FAIL.** يعرض القيمة الدفترية الفعلية للمخزون (`inventoryValueCents = Σ(in_qty × unit_cost) − Σ(out_qty × unit_cost)` من `catalog_movement`، وليست تقدير `defaultCostCents × balance` كما كانت قبل D4). المخزون المتتبَّع الآن جزء فعلي من `totalAssets` وIC-1، لكن الفحص يبقى WARN (معلومي) لأنه لا يفحص شرطاً مالياً قابلاً للفشل — فقط يعرض القيمة للمراجعة. | IC-12 |
 
 **قواعد إضافية للتعديلات المستقبلية في هذه المرحلة:**
 
 **افعل:**
-- قبل تعديل `convertOrderToSale` أو `reverseSale`، اقرأ INV-20. أي خصم/استرجاع مخزون يجب أن يبقى داخل نفس الـ transaction، وأن يُستدعى قبل تحديث `order.status`.
-- عند تعديل `createPurchase`/`updatePurchase`، احرص على مزامنة `catalog_movement` (`source_type='purchase'`) داخل نفس الـ transaction. `updatePurchase` يحذف ناعماً الحركة القديمة قبل إدراج الجديدة (نمط re-derive).
-- عند تعديل `updateOrder` للطلبات المُسلَّمة، امنع تعديل المكوّنات (لأن الكميات المُخصومة في `catalog_movement` تعتمد على لقطة المكوّنات وقت التسليم). الرسالة: «استخدم reverseSale أولاً ثم عدّل ثم أعد التحويل».
+- قبل تعديل `convertOrderToSale` أو `reverseSale`، اقرأ INV-20 + INV-23. أي خصم/استرجاع مخزون يجب أن يبقى داخل نفس الـ transaction، وأن يُستدعى قبل تحديث `order.status`. وللأصناف المتتبَّعة، تأكّد أن `unit_cost_cents` يُحسَب ويُخزَّن على الحركة `out` (COGS غير قابل للتعديل).
+- عند تعديل `createPurchase`/`updatePurchase`، احرص على مزامنة `catalog_movement` (`source_type='purchase'`) داخل نفس الـ transaction، وعلى ضبط `is_tracked_inventory` تلقائياً بناءً على `tracked` للصنف المرتبط. `updatePurchase` يحذف ناعماً الحركة القديمة قبل إدراج الجديدة (نمط re-derive).
+- عند تعديل `computeOperatingPnl` أو `getFinancialPosition`، احرص على معالجة COGS كتعديل غير نقدي (لا حركة `cash_movement`)، وعلى بقاء IC-1 = 0 (راجع المعادلة في INV-23).
+- عند تعديل `updateOrder` للطلبات المُسلَّمة، امنع تعديل المكوّنات (لأن الكميات المُخصومة في `catalog_movement` تعتمد على لقطة المكوّنات وقت التسليم). الرسالة: «استخدم reverseSale أولاً ثم عدّل ثم أعد التحويل». **D6 fix (SA3):** لا تُنفِّذ DELETE+re-INSERT على `order_component` إلا إذا تغيّرت المكوّنات فعلاً — هذا يحمي FK على `catalog_movement.order_component_id` من اليتم.
 - عند إضافة `source_type` جديد على `catalog_movement`، حدّث CHECK constraint في `db.ts` و migration + Zod + IC-12 معاً.
 - جميع حركات المخزون تُسجّل بـ `quantity > 0` (CHECK constraint). السالب يُمثَّل بـ `direction='out'`، لا بكمية سالبة.
 
 **لا تفعل أبداً:**
-- لا تُضمِّن قيمة `catalog_movement.balance` في أي حساب مالي: لا `retainedProfitCents`، لا `totalAssets`، لا `totalEquity`، لا `computeOperatingPnl`. المخزون تشغيلي بحت.
+- لا تُضمِّن قيمة `catalog_movement.balance` في أي حساب مالي **للأصناف غير المتتبَّعة** — المخزون التشغيلي لا يؤثر على الأرقام المالية. (الاستثناء: الأصناف المتتبَّعة المُرأسمَلة عبر INV-22 / INV-23 — راجع `inventoryValueCents` و`cogsCents`.)
 - لا تُنشئ حركة `cash_movement` مرتبطة بحركة `catalog_movement`. الدفتران منفصلان تماماً (INV-19). الشراء يُدرج حركة صندوق `out` (مالية) + حركة مخزون `in` (تشغيلية) — كلٌّ في دفتره.
 - لا تمنع السالب في `deductForDelivery` (§6 سيناريو 1). التحويل يكتمل، يُخصم الرصيد، ويُسجَّل التحذير في `notes`. الـ transaction لا تفشل بسبب السالب.
-- لا تُعدّل `linked_catalog_component_id` على `purchase` دون مزامنة `catalog_movement`. الحركة القديمة تُحذف ناعماً والجديدة تُدرج في نفس الـ transaction.
+- لا تُعدّل `linked_catalog_component_id` على `purchase` دون مزامنة `catalog_movement` وضبط `is_tracked_inventory`. الحركة القديمة تُحذف ناعماً والجديدة تُدرج في نفس الـ transaction.
 - لا تُفعِّل `tracked=true` على صنف له رصيد > 0 دون تأكيد المستخدم صراحةً (§6 سيناريو 4 / SA1 NOTE-3). UI يجب أن يُظهر تحذيراً قبل الإلغاء.
 - لا تُسقط الـ trigger `set_updated_at` على `catalog_movement` (مُرفَق في migration 0020). الحفاظ على `updated_at` تلقائياً يتسق مع باقي الجداول.
+- لا تُسقط FK على `catalog_movement.order_component_id` (مُضاف في migration 0023 كجزء من D6 fix). الـ FK يحمي من إعادة إنشاء `order_component` بطريقة تُيتم الحركات المرتبطة.
+- لا تُخصَم COGS مرتين: مرة في `computeOperatingPnl.cogsCents` ومرة في `getFinancialPosition.retainedProfitCents`. الأولى يُخصَم من `operatingNetCents` (للعرض)، والثانية يُخصَم من `retainedProfitCents` (للميزانية). الفرق بينهما = 0 (كلاهما يطرح نفس المبلغ، فلا ازدواج).
+
+### مثال تطبيقي: شراء 100 وحدة @ 10 د.أ، بيع 50 وحدة @ 20 د.أ
+
+> هذا المثال يُوضِّح INV-22 / INV-23. الأسعار بالـ fils (10 د.أ = 10,000 fils).
+
+| المرحلة | الحدث | Cash | Inventory | P&L | Equity | IC-1 |
+|---|---|---|---|---|---|---|
+| 1 | شراء 100 وحدة @ 10,000 fils (إجمالي 1,000,000 fils) | −1,000,000 | +1,000,000 | 0 (شراء مُرأسمَل، لا يخفض الربح) | 0 (Cash ↓1M، Inventory ↑1M، المجموع ثابت) | ✓ |
+| 2 | بيع 50 وحدة @ 20,000 fils (إيراد 1,000,000 fils، COGS 50×10,000 = 500,000 fils) | +1,000,000 | −500,000 (50 × 10,000) | +500,000 (1,000,000 saleCents − 500,000 COGS) | +500,000 (retained يزيد بـ 500,000) | ✓ |
+| 3 | بعد العمليتين | 0 (−1M + 1M) | +500,000 (50 وحدة متبقية × 10,000) | +500,000 | +500,000 | ✓ (totalAssets 500,000 = totalEquity 500,000 + totalLiab 0) |
+
+**التحقق من IC-1 بعد المرحلة 2:**
+- `totalAssets` = Cash + Inventory = 0 + 500,000 = 500,000 fils.
+- `totalLiabilities` = 0 (لا عربونات نشطة).
+- `retainedProfitCents` = salesCashInCents (1,000,000) − deposits (0) − operatingExpenses (0) − operatingPurchases (0، الشراء المُرأسمَل مُستبعَد) − cogsCentsToDate (500,000) = 500,000 fils.
+- `totalEquity` = opening (0) + injections (0) − drawings (0) + retained (500,000) − capitalAdditions (0) = 500,000 fils.
+- `equityDriftCents` = totalAssets − totalLiab − totalEquity = 500,000 − 0 − 500,000 = **0** ✓.
+
+**التحقق من LOCKED-6 (IC-13) بعد المرحلة 2:** كل من `dashboard.summary.netProfit`،
+`reports.pnl.netCents`، و`dashboard.monthlyProfit` تُنداء `computeOperatingPnl` التي
+تُرجِع `operatingNetCents = salesCents (1,000,000) − operatingExpensesCents (0) −
+operatingPurchasesCents (0، الشراء المُرأسمَل مُستبعَد) − cogsCents (500,000) −
+monthlyDepreciationCents (0) = 500,000 fils`. التطابق مضمون بالبناء (LOCKED-6 محفوظ).
 
 ---
 

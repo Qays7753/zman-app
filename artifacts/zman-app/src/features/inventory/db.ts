@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   check,
   date,
   index,
@@ -48,6 +49,13 @@ export const catalogMovement = pgTable(
     orderComponentId: uuid("order_component_id").references(() => orderComponent.id, {
       onDelete: "restrict",
     }),
+    // Phase 3-revised (D4 fix) — سعر الوحدة بالـ fils لكل وحدة عند تسجيل الحركة.
+    // للحركة `in` من purchase: unit_cost_cents = floor(purchase.totalCents / quantity).
+    // للحركة `out` من order_delivery: unit_cost_cents = التكلفة الوسطية المرجَّحة
+    // لحظة البيع (مجموع (qty×unit_cost) لكل الحركات in النشطة ÷ مجموع الكميات).
+    // nullable — يستعمل فقط للأصناف المتتبَّعة. الأصناف غير المتتبَّعة تتركه NULL.
+    // وضع `mode: "number"` يُرجِع JS number (القيم صغيرة genug لـ safe integer).
+    unitCostCents: bigint("unit_cost_cents", { mode: "number" }),
     notes: text("notes").notNull().default(""),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
