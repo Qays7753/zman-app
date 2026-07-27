@@ -259,14 +259,14 @@ export function ExpenseForm({
               >
                 طبيعة التكلفة
               </label>
-              <select
+              {/* SA3: استبدال <select> الخام بمكوّن <Select> المشترك لمطابقة SA2 baseline §2.5. */}
+              <Select
                 id={`${formId}-cost-nature`}
                 {...register("costNature")}
-                className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink text-start focus:outline-none focus:ring-2 focus:ring-ink"
               >
                 <option value="variable">متغيّرة (خامات، تغليف، وقود)</option>
                 <option value="fixed">ثابتة (إيجار، اشتراك، رواتب)</option>
-              </select>
+              </Select>
             </div>
           )}
 
@@ -279,7 +279,7 @@ export function ExpenseForm({
               <button
                 type="button"
                 onClick={() => setAdvancedClassification((v) => !v)}
-                className="flex items-center gap-2 text-xs text-info hover:underline min-h-[40px] px-1 -my-1"
+                className="flex items-center gap-2 text-xs text-info hover:underline min-h-[44px] px-1 -my-1"
                 aria-expanded={advancedClassification}
               >
                 <Settings2 className="w-3.5 h-3.5" />

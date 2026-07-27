@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Calculator, Clock, TrendingDown } from "lucide-react";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { Button } from "@/components/shared/Button";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { formatFilsToJod } from "@/lib/money";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -56,12 +57,27 @@ export function DepreciationPromptModal({
   const [selected, setSelected] = useState<SelectedOption>(null);
   const [usefulLifeMonths, setUsefulLifeMonths] = useState<string>("12");
 
+  // SA3: إعادة ضبط الاختيار والعمر النافع عند فتح المودال لأصل جديد. بدون هذا،
+  // يبقى اختيار المستخدم السابق («spread» + عدد الأشهر) ظاهراً عند فتح المودال
+  // لأصل مختلف — مُربكاً. ResponsiveModal يُعيد null عند الإغلاق فيُلغى عرض
+  // الـ JSX، لكن حالة الـ DepreciationPromptModal نفسها تبقى محفوظة لأن المكوّن
+  // لا يُفكَّك (parent يبقيه مُركَّباً دائماً مع isOpen متغيّر).
+  useEffect(() => {
+    if (isOpen) {
+      setSelected(null);
+      setUsefulLifeMonths("12");
+    }
+  }, [isOpen]);
+
   const lifeNum = Number.parseInt(usefulLifeMonths, 10);
   const isLifeValid =
     Number.isInteger(lifeNum) && lifeNum >= 1 && lifeNum <= 600;
   const monthlyDepCents = isLifeValid
     ? Math.floor(purchaseAmountCents / lifeNum)
     : 0;
+  // SA3: الإجمالي الفعلي عبر عمر الأصل = قيمة الشراء بالضبط (قاعدة D13 — الشهر
+  // الأخير يُكلِّف الباقي ليصل netBookValue لصفر). لا فاقد من Math.floor.
+  const totalDepreciationCents = isLifeValid ? purchaseAmountCents : 0;
 
   const handleConfirm = () => {
     if (selected === "deduct_once") {
@@ -196,7 +212,7 @@ export function DepreciationPromptModal({
               </p>
             )}
             {isLifeValid && (
-              <div className="text-xs text-info-deep bg-info-soft/50 rounded-md p-2.5 space-y-1">
+              <div className="text-xs text-info bg-info-soft/50 rounded-md p-2.5 space-y-1">
                 <div className="flex items-center justify-between">
                   <span>الإهلاك الشهري:</span>
                   <strong className="font-bold" dir="ltr">
@@ -206,16 +222,16 @@ export function DepreciationPromptModal({
                 <div className="flex items-center justify-between">
                   <span>الإجمالي بعد {lifeNum} شهراً:</span>
                   <strong className="font-bold" dir="ltr">
-                    {formatFilsToJod(monthlyDepCents * lifeNum)}
+                    {formatFilsToJod(totalDepreciationCents)}
                   </strong>
                 </div>
-                {monthlyDepCents * lifeNum < purchaseAmountCents && (
-                  <p className="text-[10px] text-ink-3 italic">
-                    ملاحظة: قد يقل الإجمالي عن قيمة الشراء بفعل تقريب
-                    Math.floor للأقرب فلس. الفرق يُفقد عند انقضاء العمر (مقبول
-                    للأصول منخفضة القيمة).
-                  </p>
-                )}
+                {/* SA3: الملاحظة القديمة كانت تقول إن الإجمالي قد يقل عن قيمة الشراء
+                    بفعل Math.floor — هذا لم يعد صحيحاً بعد إصلاح D13 (قاعدة الشهر
+                    الأخير يُكلِّف الباقي). أُعيدت صياغتها لتوضيح السلوك الفعلي. */}
+                <p className="text-[10px] text-ink-3 leading-relaxed">
+                  الشهر الأخير يُكلِّف الفرق المتبقي ليصل إجمالي الإهلاك لقيمة الشراء
+                  بالضبط — لا فاقد من تقريب الأشهر السابقة.
+                </p>
               </div>
             )}
           </div>
@@ -243,10 +259,17 @@ export function DepreciationPromptModal({
           </Button>
         </div>
 
+        {/* SA3: أُزيلت إشارات INV-22/D10 (جَيغون مطوّرين) من النص الظاهر للمستخدم.
+            النص الجديد يشرح بوضوح الفرق بين الربح التشغيلي والصندوق، مع InfoTooltip
+            يوضّح المفهوم للمالك غير المحاسبي. مطابقة SA2 baseline §2.13 (InfoTooltip). */}
         <p className="text-[11px] text-ink-3 text-center leading-relaxed">
-          الإهلاك غير نقدي — لا يؤثر على الصندوق ولا على الميزانية. يُخصَم من
-          الربح التشغيلي فقط (لمطابقة مفهوم «تكلفة الأصل» بذهن صاحب العمل —
-          INV-22 بعد إعادة الترقيم D10).
+          الإهلاك غير نقدي — لا يُخصَم من الصندوق ولا يظهر في الميزانية. يُخصَم فقط
+          من{" "}
+          <span className="inline-flex items-center gap-1 align-baseline">
+            الربح التشغيلي
+            <InfoTooltip text="الربح التشغيلي = مبيعات − تكاليف تشغيلية − إهلاك. يختلف عن «الصندوق» (النقد المتاح) لأن الإهلاك غير نقدي — يُخصَم من الربح التشغيلي فقط لا من الصندوق. الفرق بين الرقمين = إهلاك الفترة. ترى الصندوق في «تركيبة الكاش» والربح التشغيلي في «لوحة المقارنة» على لوحة القيادة." />
+          </span>{" "}
+          ليعكس استهلاك الأصل عبر الزمن.
         </p>
       </div>
     </ResponsiveModal>

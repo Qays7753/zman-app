@@ -10,6 +10,8 @@ import { MoneyInput } from "@/components/shared/MoneyInput";
 import { Button } from "@/components/shared/Button";
 import { Select } from "@/components/shared/Select";
 import { TextArea } from "@/components/shared/TextArea";
+// SA3 — formatFilsToJod لعرض سعر القطعة الواحدة بدل toLocaleString الخام.
+import { formatFilsToJod } from "@/lib/money";
 import { purchaseInputSchema } from "../schema";
 import type { NewPurchase, Purchase } from "../types";
 import { usePurchaseItemCatalog } from "../hooks";
@@ -342,14 +344,14 @@ export function PurchaseForm({
               >
                 طبيعة التكلفة
               </label>
-              <select
+              {/* SA3: استبدال <select> الخام بمكوّن <Select> المشترك لمطابقة SA2 baseline §2.5. */}
+              <Select
                 id={`${formId}-cost-nature`}
                 {...register("costNature")}
-                className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink text-start focus:outline-none focus:ring-2 focus:ring-ink"
               >
                 <option value="variable">متغيّرة (خامات، تغليف، وقود)</option>
                 <option value="fixed">ثابتة (إيجار، اشتراك، رواتب)</option>
-              </select>
+              </Select>
             </div>
           )}
 
@@ -361,7 +363,7 @@ export function PurchaseForm({
               <button
                 type="button"
                 onClick={() => setAdvancedClassification((v) => !v)}
-                className="flex items-center gap-2 text-xs text-info hover:underline min-h-[40px] px-1 -my-1"
+                className="flex items-center gap-2 text-xs text-info hover:underline min-h-[44px] px-1 -my-1"
                 aria-expanded={advancedClassification}
               >
                 <Settings2 className="w-3.5 h-3.5" />
@@ -392,17 +394,17 @@ export function PurchaseForm({
             <PackageCheck className="w-4 h-4 text-info" />
             ربط بصنف كتالوج متتبَّع (اختياري — يزيد رصيد المخزون)
           </label>
+          {/* SA3: استبدال <select> الخام بمكوّن <Select> المشترك لمطابقة SA2 baseline §2.5. */}
           <Controller
             control={control}
             name="linkedCatalogComponentId"
             render={({ field }) => (
-              <select
+              <Select
                 id={`${formId}-linked-catalog`}
                 value={field.value ?? ""}
                 onChange={(e) =>
                   field.onChange(e.target.value === "" ? null : e.target.value)
                 }
-                className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink text-start focus:outline-none focus:ring-2 focus:ring-ink"
               >
                 <option value="">— لا ربط (نص حر فقط) —</option>
                 {trackedItems.map((c) => (
@@ -410,7 +412,7 @@ export function PurchaseForm({
                     {c.name} ({c.unit})
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           />
           {trackedItems.length === 0 && (
@@ -420,7 +422,7 @@ export function PurchaseForm({
           )}
           {/* معاينة تأثير الربط على المخزون */}
           {linkedItem && (
-            <div className="p-2.5 rounded-md bg-info-soft text-info-deep text-xs flex items-center justify-between gap-2">
+            <div className="p-2.5 rounded-md bg-info-soft text-info text-xs flex items-center justify-between gap-2">
               <span>
                 سيُضاف <strong className="font-bold">{watchQty || 0}</strong>{" "}
                 {linkedItem.unit} للمخزون عند الحفظ.
@@ -505,23 +507,17 @@ export function PurchaseForm({
           />
         </div>
 
-        {/* سعر القطعة الواحدة — محسوب للعرض فقط، بدقّة عالية (حتى 6 منازل) */}
+        {/* سعر القطعة الواحدة — محسوب للعرض فقط. SA3: تنسيق عبر formatFilsToJod
+            لمطابقة SA2 baseline §4 (money convention) بدل toLocaleString الخام + " د.أ". */}
         <div className="p-3.5 bg-canvas/30 rounded-lg border border-hairline flex items-center justify-between">
           <span className="text-sm font-bold text-ink-2">سعر القطعة الواحدة:</span>
-          <span className="text-lg font-extrabold text-info" dir="ltr">
-            {watchQty > 0 ? (
-              <>
-                {(watchTotal / watchQty / 1000)
-                  .toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 6,
-                  })}{" "}
-                د.أ
-              </>
-            ) : (
-              <span className="text-ink-3">—</span>
-            )}
-          </span>
+          {watchQty > 0 ? (
+            <strong className="text-lg font-extrabold text-info" dir="ltr">
+              {formatFilsToJod(Math.floor(watchTotal / watchQty))}
+            </strong>
+          ) : (
+            <span className="text-lg font-extrabold text-ink-3" dir="ltr">—</span>
+          )}
         </div>
 
         {/* ملاحظات */}

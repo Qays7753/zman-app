@@ -309,15 +309,19 @@ export function ExpensesTab() {
                     <span className="px-2.5 py-1 bg-canvas rounded-full text-ink/80 text-[10px] font-bold">
                       {item.category}
                     </span>
-                    {/* Phase 2 — شارة التصنيف: رأس مال (amber) / ثابتة (blue) / متغيّرة (canvas). */}
+                    {/* Phase 2 — شارة التصنيف: رأس مال (warn) / ثابتة (info) / متغيّرة (canvas).
+                        SA3: استبدال ألوان Tailwind الخام (amber-100/blue-100) برموز النظام
+                        (warn-soft/warn-deep، info-soft/info) لمطابقة SA2 baseline §1.2. */}
                     {item.isCapitalAsset ? (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] rounded-full font-bold">رأس مال</span>
+                      <span className="px-2 py-0.5 bg-warn-soft text-warn-deep text-[10px] rounded-full font-bold">رأس مال</span>
                     ) : item.costNature === "fixed" ? (
-                      <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full font-bold">ثابتة</span>
+                      <span className="px-2 py-0.5 bg-info-soft text-info text-[10px] rounded-full font-bold">ثابتة</span>
                     ) : (
                       <span className="px-2 py-0.5 bg-canvas text-ink-3 text-[10px] rounded-full font-bold">متغيّرة</span>
                     )}
-                    {/* D7 fix — زر «إيقاف الإهلاك» على الصفوف التي لها capital_asset نشط. */}
+                    {/* D7 fix — زر «إيقاف الإهلاك» على الصفوف التي لها capital_asset نشط.
+                        SA3: استبدال amber-* الخام برموز warn، وتكبير الهدف اللمسي (min-h + min-w)
+                        لمطابقة SA2 baseline §3.6 (tap targets ≥ 44px). */}
                     {item.activeCapitalAssetId && (
                       <button
                         type="button"
@@ -325,7 +329,7 @@ export function ExpensesTab() {
                           e.stopPropagation();
                           setStopDepreciationAssetId(item.activeCapitalAssetId!);
                         }}
-                        className="px-2 py-0.5 bg-amber-50 text-amber-900 text-[10px] rounded-full font-bold border border-amber-300 hover:bg-amber-100 transition-colors"
+                        className="min-h-[28px] min-w-[44px] px-2.5 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors"
                         title="إيقاف الإهلاك — لن يُخصَم من الربح التشغيلي مستقبلاً"
                       >
                         إيقاف الإهلاك
