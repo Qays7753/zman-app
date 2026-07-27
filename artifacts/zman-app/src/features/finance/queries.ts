@@ -14,6 +14,8 @@ import { db } from "@/lib/db/client";
 import { expense, purchase, sale } from "./db";
 import type { Expense, Purchase, Sale } from "./types";
 import { order } from "@/features/orders/db";
+// D7 fix — capital_asset لإظهار زر «إيقاف الإهلاك» على الصفوف التي لها أصل نشط.
+import { capitalAsset } from "../depreciation/db";
 
 export interface GetFinanceFilters {
   cursor?: string;
@@ -84,6 +86,16 @@ export async function getPurchases(filters: GetPurchasesFilters) {
       deletedAt: purchase.deletedAt,
       createdAt: purchase.createdAt,
       updatedAt: purchase.updatedAt,
+      // D7 fix — معرّف capital_asset النشط المرتبط (إن وُجد)، لعرض زر «إيقاف
+      // الإهلاك» في PurchasesTab. scalar subquery بدل LEFT JOIN لأننا نحتاج
+      // المعرّف فقط لا بقية الأعمدة، ولا نريد تغيير cardinality النتائج.
+      activeCapitalAssetId: sql<string | null>`(
+        select ${capitalAsset.id} from ${capitalAsset}
+        where ${capitalAsset.sourceType} = 'purchase'
+          and ${capitalAsset.sourceId} = ${purchase.id}
+          and ${capitalAsset.deletedAt} is null
+        limit 1
+      )`,
     })
     .from(purchase)
     .where(and(...conditions))
@@ -151,6 +163,15 @@ export async function getExpenses(filters: GetExpensesFilters) {
       deletedAt: expense.deletedAt,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
+      // D7 fix — معرّف capital_asset النشط المرتبط (إن وُجد)، لعرض زر «إيقاف
+      // الإهلاك» في ExpensesTab.
+      activeCapitalAssetId: sql<string | null>`(
+        select ${capitalAsset.id} from ${capitalAsset}
+        where ${capitalAsset.sourceType} = 'expense'
+          and ${capitalAsset.sourceId} = ${expense.id}
+          and ${capitalAsset.deletedAt} is null
+        limit 1
+      )`,
     })
     .from(expense)
     .where(and(...conditions))

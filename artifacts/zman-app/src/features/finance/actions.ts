@@ -30,6 +30,10 @@ import {
 import { catalogComponent } from "../catalog/db";
 // Phase 3 — catalogMovement للحذف الناعم في deletePurchase.
 import { catalogMovement } from "../inventory/db";
+// D7 fix — capital_asset لتنظيف الأصول المرتبطة عند حذف/تعديل expense/purchase.
+// لا FK بين capital_asset وexpense/purchase (تصميم مقصود) — التنظيف يتم هنا
+// ضمن نفس الـ transaction لضمان اتساق IC-14 (لا أصول يتيمة).
+import { capitalAsset } from "../depreciation/db";
 // Phase 3 — inventory: deductForDelivery داخل convertOrderToSale، restoreForReverse
 // داخل reverseSale. استيراد دوال فقط (لا DB type) — لا دورة استيراد لأن
 // inventory/actions.ts يستورد من finance/db.ts و orders/db.ts (value imports)،
@@ -451,6 +455,38 @@ export async function updatePurchase(
         });
       }
 
+      // D7 fix — تحديث capital_asset المرتبط (إن وُجد نشط) ليُعكس المبلغ الجديد.
+      // بدون هذا، تعديل المبلغ لا ينتشر لـ monthly_depreciation_cents (الفشل 2
+      // من review D7). نحافظ على useful_life_months وstarted_at الأصليين.
+      // monthly_dep = floor(newTotalCents / usefulLifeMonths) — نفس صيغة addCapitalAsset.
+      const [existingCapAssetPurchase] = await tx
+        .select({
+          id: capitalAsset.id,
+          usefulLifeMonths: capitalAsset.usefulLifeMonths,
+        })
+        .from(capitalAsset)
+        .where(
+          and(
+            eq(capitalAsset.sourceType, "purchase"),
+            eq(capitalAsset.sourceId, id),
+            isNull(capitalAsset.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (existingCapAssetPurchase) {
+        const newMonthlyDep = Math.floor(
+          updatedPurchase.totalCents / existingCapAssetPurchase.usefulLifeMonths,
+        );
+        await tx
+          .update(capitalAsset)
+          .set({
+            purchaseAmountCents: updatedPurchase.totalCents,
+            monthlyDepreciationCents: newMonthlyDep,
+            updatedAt: new Date(),
+          })
+          .where(eq(capitalAsset.id, existingCapAssetPurchase.id));
+      }
+
       revalidatePath("/finance");
       return { status: "ok", data: updatedPurchase };
     });
@@ -538,6 +574,20 @@ export async function deletePurchase(
             eq(catalogMovement.sourceId, id),
             isNull(catalogMovement.deletedAt)
           )
+        );
+
+      // D7 fix — حذف ناعم لأي capital_asset نشط مرتبط بهذه الفاتورة. بدون هذا،
+      // الإهلاك يستمر بخصم الربح التشغيلي بعد حذف الفاتورة الأصلية. لا FK بين
+      // الجدولين (تصميم مقصود) — التنظيف يتم هنا ضمن نفس الـ transaction.
+      await tx
+        .update(capitalAsset)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(capitalAsset.sourceType, "purchase"),
+            eq(capitalAsset.sourceId, id),
+            isNull(capitalAsset.deletedAt),
+          ),
         );
 
       revalidatePath("/finance");
@@ -750,6 +800,38 @@ export async function updateExpense(
         });
       }
 
+      // D7 fix — تحديث capital_asset المرتبط (إن وُجد نشط) ليُعكس المبلغ الجديد.
+      // بدون هذا، تعديل المبلغ لا ينتشر لـ monthly_depreciation_cents (الفشل 2
+      // من review D7). نحافظ على useful_life_months وstarted_at الأصليين.
+      // monthly_dep = floor(newAmount / usefulLifeMonths) — نفس صيغة addCapitalAsset.
+      const [existingCapAssetExpense] = await tx
+        .select({
+          id: capitalAsset.id,
+          usefulLifeMonths: capitalAsset.usefulLifeMonths,
+        })
+        .from(capitalAsset)
+        .where(
+          and(
+            eq(capitalAsset.sourceType, "expense"),
+            eq(capitalAsset.sourceId, id),
+            isNull(capitalAsset.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (existingCapAssetExpense) {
+        const newMonthlyDep = Math.floor(
+          updatedExpense.amountCents / existingCapAssetExpense.usefulLifeMonths,
+        );
+        await tx
+          .update(capitalAsset)
+          .set({
+            purchaseAmountCents: updatedExpense.amountCents,
+            monthlyDepreciationCents: newMonthlyDep,
+            updatedAt: new Date(),
+          })
+          .where(eq(capitalAsset.id, existingCapAssetExpense.id));
+      }
+
       revalidatePath("/finance");
       return { status: "ok", data: updatedExpense };
     });
@@ -823,6 +905,23 @@ export async function deleteExpense(
             eq(cashMovement.sourceId, id),
             isNull(cashMovement.deletedAt)
           )
+        );
+
+      // D7 fix — حذف ناعم لأي capital_asset نشط مرتبط بهذا المصروف. بدون هذا،
+      // الإهلاك يستمر بخصم الربح التشغيلي بعد حذف المصروف الأصلي (الفشل 1 من
+      // review D7). لا FK بين الجدولين (تصميم مقصود للحفاظ على السجل التاريخي)
+      // لذا التنظيف يتم هنا ضمن نفس الـ transaction. الإهلاك المحسوب سابقاً يبقى
+      // في P&L التاريخي — الحذف الناعم يوقف الإهلاك المستقبلي فقط (computeOperatingPnl
+      // وgetCapitalAssetValuation كلاهما يفلتر deleted_at IS NULL).
+      await tx
+        .update(capitalAsset)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(capitalAsset.sourceType, "expense"),
+            eq(capitalAsset.sourceId, id),
+            isNull(capitalAsset.deletedAt),
+          ),
         );
 
       revalidatePath("/finance");

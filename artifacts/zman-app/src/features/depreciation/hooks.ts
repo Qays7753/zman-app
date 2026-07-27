@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { addCapitalAsset } from "./actions";
+import { addCapitalAsset, deleteCapitalAsset } from "./actions";
 
 // ─────────────────────────────────────────────────────────────────────────
 // depreciation/hooks — React Query hooks لاستدعاء addCapitalAsset (Phase 4)
@@ -12,6 +12,10 @@ import { addCapitalAsset } from "./actions";
 // لأن computeOperatingPnl يتأثر (يخصم الإهلاك من operatingNetCents).
 //
 // namespace منفصل: ["capital-assets"] (لا يتدخّل مع ["inventory"] أو ["reports"]).
+//
+// D7 fix (SA4) — useDeleteCapitalAsset لزر «إيقاف الإهلاك» على صفوف
+// ExpensesTab/PurchasesTab. يُبطل استعلامات finance/reports/dashboard لأن
+// حذف capital_asset ناعماً يوقف الإهلاك فيُتأثر operatingNetCents.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const capitalAssetKeys = {
@@ -34,6 +38,23 @@ export function useAddCapitalAsset() {
     onSuccess: (res) => {
       if (res.status === "ok") {
         // الإهلاك يُخصَم من computeOperatingPnl → كل من dashboard و reports يتأثران.
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        queryClient.invalidateQueries({ queryKey: capitalAssetKeys.all });
+      }
+    },
+  });
+}
+
+export function useDeleteCapitalAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteCapitalAsset(id),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        // إيقاف الإهلاك يُلغي خصم monthly_dep من operatingNetCents في كل قراءة
+        // مستقبلية → يجب إبطال كل من finance/reports/dashboard.
+        queryClient.invalidateQueries({ queryKey: ["finance"] });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         queryClient.invalidateQueries({ queryKey: capitalAssetKeys.all });

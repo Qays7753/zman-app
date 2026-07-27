@@ -23,7 +23,7 @@ import { PurchaseForm } from "./PurchaseForm";
 import { FinanceCatalogModal } from "./FinanceCatalogModal";
 // Phase 4 — مودال سؤال الإهلاك (خلف toggle «تصنيف متقدّم»).
 import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
-import { useAddCapitalAsset } from "@/features/depreciation/hooks";
+import { useAddCapitalAsset, useDeleteCapitalAsset } from "@/features/depreciation/hooks";
 import { formatFilsToJod } from "@/lib/money";
 
 // معلومات الصف الرأسمالي المُنشَأ مؤخراً لاستخدامها في مودال الإهلاك.
@@ -45,10 +45,13 @@ export function PurchasesTab() {
   const newPurchase = searchParams.get("newPurchase") === "true";
   const editId = searchParams.get("editPurchase");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  // D7 fix — إيقاف الإهلاك لصف capital_asset نشط.
+  const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
   // Phase 4 — معلومات الصف الرأسمالي المُنشَأ مؤخراً + إظهار مودال الإهلاك.
   const [pendingCapitalAsset, setPendingCapitalAsset] =
     useState<PendingCapitalAsset | null>(null);
   const capitalAssetMutation = useAddCapitalAsset();
+  const deleteCapitalAssetMutation = useDeleteCapitalAsset();
 
   // هوك جلب البيانات اللانهائي (§10.1)
   const {
@@ -226,6 +229,20 @@ export function PurchasesTab() {
     }
   };
 
+  // D7 fix — تأكيد إيقاف الإهلاك: استدعاء deleteCapitalAsset للمعرّف المُخزَّن.
+  // الفشل 3 من review D7: كانت deleteCapitalAsset بلا مستدعٍ. الآن لها زر واضح.
+  const handleConfirmStopDepreciation = async () => {
+    if (!stopDepreciationAssetId) return;
+    const res = await deleteCapitalAssetMutation.mutateAsync(stopDepreciationAssetId);
+    if (res.status === "ok") {
+      toast.success("تم إيقاف الإهلاك. لن يُخصَم من الربح التشغيلي مستقبلاً.");
+      setStopDepreciationAssetId(null);
+      refetch();
+    } else {
+      toast.error(res.message ?? "تعذّر إيقاف الإهلاك");
+    }
+  };
+
   return (
     <div className="space-y-4 flex-1 flex flex-col pb-24">
 
@@ -277,6 +294,20 @@ export function PurchasesTab() {
                       <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] rounded-full font-bold shrink-0">ثابتة</span>
                     ) : (
                       <span className="px-2 py-0.5 bg-canvas text-ink-3 text-[10px] rounded-full font-bold shrink-0">متغيّرة</span>
+                    )}
+                    {/* D7 fix — زر «إيقاف الإهلاك» على الصفوف التي لها capital_asset نشط. */}
+                    {item.activeCapitalAssetId && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStopDepreciationAssetId(item.activeCapitalAssetId!);
+                        }}
+                        className="px-2 py-0.5 bg-amber-50 text-amber-900 text-[10px] rounded-full font-bold border border-amber-300 hover:bg-amber-100 transition-colors shrink-0"
+                        title="إيقاف الإهلاك — لن يُخصَم من الربح التشغيلي مستقبلاً"
+                      >
+                        إيقاف الإهلاك
+                      </button>
                     )}
                   </div>
                   <span className="font-bold text-ink text-base">
@@ -348,6 +379,16 @@ export function PurchasesTab() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmOpen(false)}
         isLoading={deleteMutation.isPending}
+      />
+
+      {/* D7 fix — تأكيد إيقاف الإهلاك. */}
+      <ConfirmDialog
+        isOpen={stopDepreciationAssetId !== null}
+        title="تأكيد إيقاف الإهلاك"
+        message="سيوقف هذا الإهلاك عن تخفيض الربح التشغيلي. الإهلاك المُتراكم حتى الآن سيبقى في الأرقام التاريخية. هل أنت متأكد؟"
+        onConfirm={handleConfirmStopDepreciation}
+        onCancel={() => setStopDepreciationAssetId(null)}
+        isLoading={deleteCapitalAssetMutation.isPending}
       />
 
       {/* Phase 4 — مودال سؤال الإهلاك بعد حفظ صف رأسمالي (خلف toggle «تصنيف متقدّم»). */}

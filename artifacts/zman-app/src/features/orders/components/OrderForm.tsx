@@ -580,7 +580,8 @@ interface ComponentLike {
   catalogComponentId?: string | null;
   quantity?: number;
   name?: string;
-  unit?: string;
+  // D12 fix: حذفنا `unit?: string` — لم يكن يُستعمل في TrackedStockBanner ولا
+  // يُخزَّن على order_component. الـ UI يصل للوحدة عبر catalog_component JOIN.
 }
 
 function TrackedStockBanner({

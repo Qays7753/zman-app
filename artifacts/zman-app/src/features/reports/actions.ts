@@ -14,12 +14,16 @@ import { mapDbError } from "@/lib/db/errors";
 import { computeOperatingPnl } from "../finance/pnl";
 
 import { formatFilsToJod } from "@/lib/money";
+// D8 fix — getAmmanMonthBounds لضمان أن نطاق «month» مُعتمِد على توقيت عمّان.
+import { getAmmanMonthBounds, getAmmanDate } from "@/lib/utils";
 
 function rangeStartDate(range?: "all" | "month" | "30d"): string | null {
   if (range === "month") {
-    const ammanToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
-    const [year, month] = ammanToday.split("-");
-    return `${year}-${month}-01`;
+    // D8 fix — Amman-anchored month start. نأخذ `.toISOString().slice(0, 10)`
+    // من التاريخ المُرجَع من getAmmanMonthBounds لأنه Date.UTC(year, month-1, 1)
+    // (UTC midnight of 1st of current Amman month) — toISOString يُرجِع YYYY-MM-DD.
+    const { start } = getAmmanMonthBounds();
+    return start.toISOString().slice(0, 10);
   }
   if (range === "30d") {
     const now = new Date();
@@ -31,13 +35,12 @@ function rangeStartDate(range?: "all" | "month" | "30d"): string | null {
 
 function rangeEndDate(range?: "all" | "month" | "30d"): string | null {
   if (range === "month") {
-    const ammanToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
-    const [year, month] = ammanToday.split("-");
-    const lastDayNum = new Date(Number(year), Number(month), 0).getDate();
-    return `${year}-${month}-${String(lastDayNum).padStart(2, "0")}`;
+    // D8 fix — Amman-anchored month end.
+    const { end } = getAmmanMonthBounds();
+    return end.toISOString().slice(0, 10);
   }
   if (range === "30d") {
-    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
+    return getAmmanDate();
   }
   return null;
 }
@@ -60,8 +63,10 @@ export async function computeCashBasisPnl(
   // هذا يضمن أن reports.pnl == dashboard.summary.netProfit == monthlyProfit
   // (LOCKED-6) — يحرسه IC-13. الربح الآن تشغيلي: يطرح المصاريف والمشتريات
   // التشغيلية فقط، والرأسمالي يظهر سطراً منفصلاً (capitalAdditionsCents).
+  // D8 fix — endDate fallback يستعمل getAmmanDate() لتفادي bare new Date()
+  // (server-local) عند تحديد «نهاية الفترة» على استضافة UTC.
   const startDate = rangeStartDate(range) ?? undefined;
-  const endDate = rangeEndDate(range) ?? new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
+  const endDate = rangeEndDate(range) ?? getAmmanDate();
 
   const pnl = await computeOperatingPnl({ startDate, endDate, tx });
 
@@ -192,7 +197,7 @@ export async function downloadReport(
 > التي اختار المستخدم توزيعها على عمرها النافع (خيار γ — محسوب عند القراءة).
 > قيمة الإهلاك تتغيّر بطول الفترة المختارة (D2 fix): شهر → حصة شهر واحد،
 > كل التاريخ → تراكمي منذ بدء الأصل. لا يؤثر على الميزانية (يبقى cash-basis
-> صرفاً) — راجع INV-21 و§10.
+> صرفاً) — راجع INV-22 و§10.
 
 ---
 *تم إنشاء هذا التقرير تلقائياً بواسطة نظام Zman الداخلي لإدارة الورش والمخازن.*
@@ -629,7 +634,7 @@ export type FinancialPositionData = {
   /**
    * Phase 3-revised (D4 fix) — COGS التراكمي حتى asOfDate (تكلفة البضاعة المباعة
    * من كتالوج حركات out لـ order_delivery). مُخصوم من retainedProfitCents
-   * كتعديل غير نقدي لمطابقة الإيراد بالتكلفة. موثَّق في INV-23.
+   * كتعديل غير نقدي لمطابقة الإيراد بالتكلفة. موثَّق في INV-24.
    */
   cogsCentsToDate: number;
   ledgerPnlNetCents: number;
@@ -837,7 +842,7 @@ export async function getFinancialPosition(
       // retained في شهر الشراء، بل تُرأسمَل في inventoryValueCents (المضافة لـ
       // totalAssets أعلاه). عند البيع: Cash يزيد بـ salesCashInCents، COGS يُخصم
       // من retainedProfitCents، inventoryValueCents يقل تلقائياً (لأن الحركة out
-      // لها unit_cost_cents) — فتبقى IC-1 = 0. موثَّق في INV-22 / INV-23.
+      // لها unit_cost_cents) — فتبقى IC-1 = 0. موثَّق في INV-23 / INV-24.
       const retainedProfitCents = salesCashInCents - depositsCents - operatingCashOutCents - cogsCentsToDate;
 
       // حساب إجمالي حقوق الملكية — Option A: capitalAdditions سطر طرح منفصل.

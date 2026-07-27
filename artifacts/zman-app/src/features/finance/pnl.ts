@@ -9,8 +9,8 @@ import { account, cashMovement, expense, purchase } from "./db";
 // catalog_movement.date = تاريخ البيع (يُضبط في addCatalogMovement).
 import { catalogMovement } from "../inventory/db";
 // Phase 4 — capital_asset للإهلاك (محسوب عند القراءة، خيار γ). لا FK إلى
-// cash_movement (الإهلاك غير نقدي — INV-21). نستورد من depreciation/queries
-// لأن استعلام الإهلاك موحَّد هناك ويُستخدَم أيضاً من IC-14.
+// cash_movement (الإهلاك غير نقدي — INV-22 بعد إعادة الترقيم D10). نستورد من
+// depreciation/queries لأن استعلام الإهلاك موحَّد هناك ويُستخدَم أيضاً من IC-14.
 import { getDepreciationForPeriodCents } from "../depreciation/queries";
 
 /**
@@ -43,7 +43,7 @@ import { getDepreciationForPeriodCents } from "../depreciation/queries";
  *                              المحسوب = SUM(Δmonths_elapsed × monthly_dep) لكل
  *                              صف في capital_asset نشط. غير نقدي — لا حركة في
  *                              cash_movement. لـ range:"all" → تراكمي حتى endDate.
- *                              INV-21 يستثني صراحةً INV-1 لهذا التعديل.
+ *                              INV-22 يستثني صراحةً INV-1 لهذا التعديل.
  *  - operatingNetCents:        = salesCents − operatingExpensesCents
  *                                − operatingPurchasesCents
  *                                − monthlyDepreciationCents.
@@ -91,7 +91,7 @@ export interface OperatingPnlResult {
    * لحركات catalog_movement `out` بـ source_type='order_delivery' نشطة (deletedAt IS NULL)
    * ضمن [startDate, endDate]. غير نقدي — تعديل محسوب عند القراءة (مثل الإهلاك).
    * عكس الشراء المُرأسمَل (is_tracked_inventory=true) الذي لم يُخصَم من P&L عند الشراء.
-   * COGS يُخصَم عند البيع لمطابقة الإيراد بالتكلفة. INV-23.
+   * COGS يُخصَم عند البيع لمطابقة الإيراد بالتكلفة. INV-24.
    */
   cogsCents: number;
   operatingNetCents: number;
@@ -229,7 +229,7 @@ export async function computeOperatingPnl({
   // لا تغيير على هذه الصيغة — راجع depreciation/queries.ts.
   //
   // ⚠️ الإهلاك غير نقدي: لا يُدرَج أي حركة في cash_movement. هو تعديل محسوب
-  // يُخصم من operatingNetCents فقط. INV-21 يستثني صراحةً INV-1 لهذا التعديل.
+  // يُخصم من operatingNetCents فقط. INV-22 يستثني صراحةً INV-1 لهذا التعديل.
   //
   // التأثير على getFinancialPosition (IC-1, IC-6):
   //   getFinancialPosition لا يستعمل operatingNetCents مباشرة — يبني retainedProfit
@@ -239,7 +239,7 @@ export async function computeOperatingPnl({
   //   الفرق بين dashboard.netProfit (يضم الإهلاك) و retainedProfitCents (لا يضمه)
   //   = monthlyDepreciationCents (= إهلاك الفترة). هذا فصل مقصود بين «الربح
   //   التشغيلي المُعدَّل» (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية).
-  //   موثَّق في INV-21 و§10. تُعالَج تسمية البطاقتين في DashboardClient (D3 fix).
+  //   موثَّق في INV-22 و§10. تُعالَج تسمية البطاقتين في DashboardClient (D3 fix).
   // ─────────────────────────────────────────────────────────────────────────
   const monthlyDepreciationCents = await getDepreciationForPeriodCents(
     { startDate: startDate ?? null, endDate },
@@ -273,7 +273,7 @@ export async function computeOperatingPnl({
   // لا يدخل operatingPurchasesCents)، لكن inventoryValueCents يزيد بنفس المقدار
   // فتبقى totalAssets كما كانت. عند البيع: Cash يزيد بـ salesCashInCents،
   // inventoryValueCents يقل بـ COGS، retainedProfitCents يقل بـ COGS، فتبقى
-  // المعادلة متوازنة. موثَّق في INV-22 / INV-23 و§9 من ACCOUNTING_RULES.md.
+  // المعادلة متوازنة. موثَّق في INV-23 / INV-24 و§9 من ACCOUNTING_RULES.md.
   // ─────────────────────────────────────────────────────────────────────────
   const cogsConds = [
     eq(catalogMovement.direction, "out"),

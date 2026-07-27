@@ -62,14 +62,15 @@ export function ComponentsEditor({
   const handleSelectCatalogItem = (item: CatalogComponent) => {
     // Phase 1: سجّل معرّف صنف الكتالوج مع snapshot الاسم/التكلفة. المعرّف
     // هو «الرابط المفقود» الذي سيُتيح خصم المخزون في convertOrderToSale
-    // (المرحلة 3).snapshot الاسم/التكلفة يبقى للأرشيف حتى لو حُذف الصنف.
-    // Phase 3 (card 3.K): snapshot الوحدة أيضاً للعرض في بطاقة المكوّن.
+    // (المرحلة 3). snapshot الاسم/التكلفة يبقى للأرشيف حتى لو حُذف الصنف.
+    // D12 fix: حذفنا حقل `unit` من الـ schema — كان يُلتقط هنا لكنه لم يُpersist
+    // على order_component. الـ UI يصل للوحدة عبر catalogItems map (lookup
+    // بـ catalogComponentId) عند الحاجة للعرض — راجع `componentUnitLabel` أدناه.
     append({
       name: item.name,
       costCents: item.defaultCostCents,
       quantity: 1,
       catalogComponentId: item.id,
-      unit: item.unit,
     });
     toast.success(`تمت إضافة "${item.name}" من المكوّنات`);
   };
@@ -112,7 +113,13 @@ export function ComponentsEditor({
             const nameError = errors?.components?.[index]?.name?.message;
             const costError = errors?.components?.[index]?.costCents?.message;
             const qtyError = errors?.components?.[index]?.quantity?.message;
-            const componentUnit = getValues(`components.${index}.unit`) as string | undefined;
+            // D12 fix: الوحدة لم تعد مخزَّنة على حقل form مستقل. نصل لها عبر
+            // lookup في catalogItems map بـ catalogComponentId. هذا يضمن عرض
+            // الوحدة المُحدَّثة دائماً (لو عُدِّلت في صفحة المكوّنات لاحقاً).
+            const componentCatalogId = getValues(`components.${index}.catalogComponentId`) as string | undefined;
+            const componentUnit = componentCatalogId
+              ? catalogItems.find((c) => c.id === componentCatalogId)?.unit
+              : undefined;
 
             return (
               <div

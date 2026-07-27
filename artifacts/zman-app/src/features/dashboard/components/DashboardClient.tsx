@@ -487,7 +487,7 @@ export function DashboardClient() {
                 هذا الرقم جزء من totalAssets (Cash + Inventory)، ويُعاد توازنه
                 مع retainedProfitCents الذي يطرح COGS. الشراء لمخزون متتبَّع لا
                 يخفض الربح التشغيلي (يُرأسمَل هنا)؛ التكلفة تُخصَم عند البيع عبر
-                COGS (INV-22 / INV-23). */}
+                COGS (INV-23 / INV-24). */}
             {position && (position.assets.inventoryValueCents ?? 0) > 0 && (
               <div className="bg-violet-50/60 rounded-lg border border-violet-200 shadow-sm p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
@@ -495,7 +495,7 @@ export function DashboardClient() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <h3 className="text-xs font-bold text-ink">قيمة المخزون</h3>
-                      <InfoTooltip text="قيمة دفترية للمخزون المتتبَّع من catalog_movement (الوارد × سعر الوحدة − المُصرف × سعر الوحدة). الشراء لصنف متتبَّع لا يُسجَّل كخسارة في الشهر — يُرأسمَل هنا كمخزون. التكلفة تُخصَم من الربح عند البيع عبر COGS (تعديل غير نقدي محسوب عند القراءة، مثل الإهلاك). راجع ACCOUNTING_RULES.md §9 (INV-22 / INV-23)." />
+                      <InfoTooltip text="قيمة دفترية للمخزون المتتبَّع من catalog_movement (الوارد × سعر الوحدة − المُصرف × سعر الوحدة). الشراء لصنف متتبَّع لا يُسجَّل كخسارة في الشهر — يُرأسمَل هنا كمخزون. التكلفة تُخصَم من الربح عند البيع عبر COGS (تعديل غير نقدي محسوب عند القراءة، مثل الإهلاك). راجع ACCOUNTING_RULES.md §9 (INV-23 / INV-24)." />
                     </div>
                     <p className="text-[10px] text-ink/50 mt-0.5">جزء من إجمالي الأصول</p>
                   </div>

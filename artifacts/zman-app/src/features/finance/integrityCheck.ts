@@ -11,7 +11,7 @@ import {
   sale,
   openingBalance,
 } from "./db";
-import { order } from "../orders/db";
+import { order, orderComponent } from "../orders/db";
 // Phase 3 — IC-12 يجمع رصيد catalog_movement مع defaultCostCents من catalog_component.
 import { catalogComponent } from "../catalog/db";
 import { catalogMovement } from "../inventory/db";
@@ -22,8 +22,12 @@ import { catalogMovement } from "../inventory/db";
 import { getFinancialSummary, getMonthlyProfit } from "../dashboard/queries";
 import { computeCashBasisPnl } from "../reports/actions";
 // Phase 4 — IC-14 يعرض القيمة الدفترية المتبقية للأصول الرأسمالية المُهلَكة.
-// WARN فقط (معلومة، لا FAIL). يستعين بـ getCapitalAssetValuation من depreciation/queries.
+// PASS/WARN/FAIL حقيقي بعد D5 fix. يستعين بـ getCapitalAssetValuation من
+// depreciation/queries.
 import { getCapitalAssetValuation } from "../depreciation/queries";
+// D8 fix — getAmmanMonthBounds لضمان أن IC-13 وeffectiveDate مُعتمِدان على
+// توقيت عمّان، لا على bare new Date() (server-local على Vercel UTC).
+import { getAmmanMonthBounds, getAmmanDate } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────
 // فحص السلامة المالية (Financial Integrity Check)
@@ -59,7 +63,10 @@ export interface IntegrityReport {
 export async function runFinancialIntegrityCheck(
   asOfDate?: string,
 ): Promise<IntegrityReport> {
-  const effectiveDate = asOfDate ?? new Date().toLocaleDateString("en-CA");
+  // D8 fix — effectiveDate مُعتمِد على توقيت عمّان، لا على bare toLocaleDateString
+  // (الذي بدوره يستعمل server-local). على Vercel (UTC) كان يعطي تاريخاً صحيحاً
+  // 21 ساعة في اليوم لكنه يخالف getMonthlyProfit لمدة 3 ساعات عند منتصف الشهر.
+  const effectiveDate = asOfDate ?? getAmmanDate();
 
   const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14] =
     await Promise.all([
@@ -906,18 +913,26 @@ async function checkIC11OpeningBalanceMatchesCashMovements(): Promise<IntegrityC
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// IC-12 — دفتر المخزون (catalog_movement) — Phase 3-revised — WARN فقط
+// IC-12 — دفتر المخزون (catalog_movement) — Phase 3-revised — PASS/WARN/FAIL
 // ─────────────────────────────────────────────────────────────────────────
 //
-// الهدف: عرض قيمة دفترية فعلية للمخزون المتتبَّع. Phase 3-revised (D4 fix)
-// غيّر النموذج: قيمة المخزون الآن = Σ(in qty × unit_cost_cents) − Σ(out qty × unit_cost_cents)
-// من catalog_movement (وليست defaultCostCents × balance كما كان قبل D4). هذا
-// الرقم يُستعمل فعلاً في الميزانية (totalAssets) وIC-1، فهو لم يعد مجرد
-// «تقدير تشغيلي». ومع ذلك، الفحص يبقى WARN (معلومي) لأنه لا يفحص شرطاً
-// مالياً قابلاً للفشل — فقط يعرض القيمة للمراجعة.
+// الهدف: عرض قيمة دفترية فعلية للمخزون المتتبَّع، وفحص سلامة دفتر
+// catalog_movement. Phase 3-revised (D4 fix) غيّر النموذج: قيمة المخزون
+// الآن = Σ(in qty × unit_cost_cents) − Σ(out qty × unit_cost_cents) من
+// catalog_movement (وليست defaultCostCents × balance كما كان قبل D4). هذا
+// الرقم يُستعمل فعلاً في الميزانية (totalAssets) وIC-1.
 //
-// status = WARN دائماً (معلومة، لا FAIL). SA4 (D5) سيناقش ما إذا كان يجب
-// تخفيضه إلى PASS لأن القيمة الآن فعلية — لكن نُبقيه WARN في هذه المرحلة.
+// D5 fix (SA4): status لم يعد hardcoded WARN. المنطق:
+//   - FAIL: catalog_movement.order_component_id يشير لصف order_component غير
+//     موجود (orphan). مع FK من SA3 (migration 0023) + D6 fix، هذا شبه مستحيل
+//     لكن الفحص هو شبكة الأمان.
+//   - WARN: أي صنف متتبَّع له رصيد سالب حالي (Σ in − Σ out < 0) — مسموح
+//     به تشغيلياً (§9 سيناريو 1) لكن يستحق الإشارة.
+//   - PASS: لا أيتام ولا أرصدة سالبة (أو لا أصناف متتبَّعة أصلاً).
+//
+// الحقول المعلوماتية (inventoryValueCents, totalStockUnits, totalMovementsCount,
+// itemsCount) تبقى في الوصف للعرض. الـ status يعكس السلامة لا «يوجد بيانات».
+// INV-20 (الفصل بين دفتر المخزون والدفتر النقدي) بعد إعادة الترقيم D10.
 // ─────────────────────────────────────────────────────────────────────────
 
 async function checkIC12CatalogLedgerConsistency(
@@ -926,9 +941,9 @@ async function checkIC12CatalogLedgerConsistency(
   // قيمة المخزون المتتبَّع = Σ(in qty × coalesce(unit_cost_cents, 0))
   //                       − Σ(out qty × coalesce(unit_cost_cents, 0))
   // لكل صف في catalog_movement نشط (deletedAt IS NULL) بتاريخ <= asOfDate.
-  // لا حاجة لـ JOIN catalog_component لأن catalog_movement لا يحوي صفوف إلا
-  // للأصناف المتتبَّعة (deductForDelivery و createPurchase يتخطّون غير المتتبَّعة).
   // coalesce على unit_cost_cents يعالج الحركات الافتتاحية/اليدوية بلا سعر.
+  // totalMovementsCount = count(catalog_movement.id) — عدد الحركات الفعلية
+  // (D13 fix: تمييز عن totalStockUnits الذي كان يُسمَّى خطأً «مجموع الحركات»).
   const [valRow] = await db
     .select({
       inventoryValueCents: sql<number>`coalesce(sum(
@@ -941,6 +956,7 @@ async function checkIC12CatalogLedgerConsistency(
         case when ${catalogMovement.direction} = 'in' then ${catalogMovement.quantity}
              else -${catalogMovement.quantity} end
       ), 0)::bigint`,
+      totalMovementsCount: sql<number>`count(*)::int`,
     })
     .from(catalogMovement)
     .where(
@@ -952,6 +968,7 @@ async function checkIC12CatalogLedgerConsistency(
 
   const inventoryValueCents = Number(valRow?.inventoryValueCents) || 0;
   const totalStockUnits = Number(valRow?.totalStockUnits) || 0;
+  const totalMovementsCount = Number(valRow?.totalMovementsCount) || 0;
 
   // عدد الأصناف المتتبَّعة النشطة (للعرض فقط).
   const [countRow] = await db
@@ -965,23 +982,96 @@ async function checkIC12CatalogLedgerConsistency(
     );
   const totalCatalogs = Number(countRow?.count) || 0;
 
+  // D5 fix — كشف الأيتام: catalog_movement.order_component_id يشير لصف
+  // order_component غير موجود. FK من SA3 (migration 0023) يمنع هذا مستقبلاً،
+  // لكن الفحص متبقٍّ لأي صفوف قديمة قد تكون يتيمة قبل تطبيق الـ migration.
+  // نستعمل LEFT JOIN على order_component ونعدّ الصفوف حيث order_component.id
+  // IS NULL (لا تطابق). order_component_id نفسه قد يكون NULL (حركة غير مرتبطة
+  // بطلب) — هذه ليست يتيمة.
+  const orphanRows = await db
+    .select({ id: catalogMovement.id })
+    .from(catalogMovement)
+    .leftJoin(
+      orderComponent,
+      eq(catalogMovement.orderComponentId, orderComponent.id),
+    )
+    .where(
+      and(
+        isNull(catalogMovement.deletedAt),
+        sql`${catalogMovement.orderComponentId} IS NOT NULL`,
+        sql`${orderComponent.id} IS NULL`,
+      ),
+    )
+    .limit(11);
+  const orphanCount = orphanRows.length;
+  const orphanIds = orphanRows.slice(0, 10).map((r) => r.id);
+
+  // D5 fix — WARN: أي صنف متتبَّع له رصيد سالب حالي. نحسب الرصيد لكل صنف على
+  // حدة (لا المجموع الكلي) لأن المجموع قد يكون موجباً بينما بعض الأصناف سالبة.
+  // §9 سيناريو 1: السالب مسموح به تشغيلياً، لكن يستحق الإشارة.
+  const negativeStockRows = await db
+    .select({
+      catalogComponentId: catalogMovement.catalogComponentId,
+      balance: sql<number>`coalesce(sum(
+        case when ${catalogMovement.direction} = 'in' then ${catalogMovement.quantity}
+             else -${catalogMovement.quantity} end
+      ), 0)::bigint`,
+    })
+    .from(catalogMovement)
+    .where(
+      and(
+        isNull(catalogMovement.deletedAt),
+        sql`${catalogMovement.date} <= ${asOfDate}`,
+      ),
+    )
+    .groupBy(catalogMovement.catalogComponentId)
+    .having(sql`coalesce(sum(
+      case when ${catalogMovement.direction} = 'in' then ${catalogMovement.quantity}
+           else -${catalogMovement.quantity} end
+    ), 0) < 0`)
+    .limit(11);
+  const negativeStockCount = negativeStockRows.length;
+
+  // تحديد الـ status حسب D5 fix.
+  let status: IntegrityCheckStatus;
+  let suggestedFixAr: string | undefined;
+  if (orphanCount > 0) {
+    status = "FAIL";
+    suggestedFixAr =
+      `يوجد ${orphanCount} صف في catalog_movement order_component_id يشير لصف ` +
+      `order_component غير موجود. هذا خرق لـ FK المُضاف في migration 0023 — ` +
+      `يجب تنظيف هذه الصفوف (UPDATE order_component_id = NULL أو حذف ناعم للحركة).`;
+  } else if (negativeStockCount > 0) {
+    status = "WARN";
+    suggestedFixAr =
+      `${negativeStockCount} صنف متتبَّع له رصيد سالب حالي. السالب مسموح به ` +
+      `تشغيلياً (§9 سيناريو 1) لكن يستحق المراجعة — قد يكون مؤشراً على خصم ` +
+      `مكرر أو شراء غير مُسجَّل.`;
+  } else {
+    status = "PASS";
+    suggestedFixAr = undefined;
+  }
+
   const formattedValue = (inventoryValueCents / 1000).toFixed(3);
 
   return {
     id: "IC-12",
     invariantId: "INV-20",
-    status: "WARN",
+    status,
     titleAr: "دفتر المخزون (قيمة دفترية فعلية)",
     descriptionAr:
       `عدد الأصناف المتتبَّعة: ${totalCatalogs}. ` +
       `إجمالي الوحدات في المخزون (in − out): ${totalStockUnits}. ` +
+      `عدد الحركات الفعلية: ${totalMovementsCount}. ` +
       `القيمة الدفترية للمخزون (Σ in×unit_cost − Σ out×unit_cost من catalog_movement): ${formattedValue} د.أ. ` +
       `Phase 3-revised (D4 fix): المخزون المتتبَّع مُرأسمَل في الميزانية (totalAssets) ` +
-      `والقيمة فعلية وليست تقدير defaultCostCents كما كانت قبل D4. الفحص يبقى ` +
-      `WARN (معلومي) لأنه لا يفحص شرطاً مالياً قابلاً للفشل. موثَّق في INV-22/INV-23.`,
+      `والقيمة فعلية وليست تقدير defaultCostCents كما كانت قبل D4. ` +
+      `D5 fix: status = ${status} بناءً على فحص الأيتام (FAIL) والأرصدة السالبة (WARN). ` +
+      `موثَّق في INV-20/INV-23/INV-24 (بعد إعادة الترقيم D10).`,
     count: totalCatalogs,
     driftCents: inventoryValueCents,
-    suggestedFixAr: undefined,
+    offendingIds: orphanIds.length > 0 ? orphanIds : undefined,
+    suggestedFixAr,
   };
 }
 
@@ -1021,13 +1111,16 @@ async function checkIC13PnlSourcesConsistency(
   _asOfDate: string,
 ): Promise<IntegrityCheckResult> {
   // ═══ الفترة (A): الشهر الحالي ═══
-  // بصيغة YYYY-MM-DD للنقطة (1)، و"month" range للنقطة (2)، والشهر الأحدث
-  // للنقطة (3) — كلها تغطي نفس الفترة.
-  const ammanToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Amman" });
-  const [yearStr, monthStr] = ammanToday.split("-");
-  const monthStart = `${yearStr}-${monthStr}-01`;
-  const lastDayNum = new Date(Number(yearStr), Number(monthStr), 0).getDate();
-  const monthEnd = `${yearStr}-${monthStr}-${String(lastDayNum).padStart(2, "0")}`;
+  // D8 fix — getAmmanMonthBounds لضمان أن الشهر «الحالي» مُعتمِد على توقيت عمّان
+  // (UTC+3)، لا على bare new Date() (server-local). بدون هذا، على Vercel (UTC)
+  // يكون هناك نافذة 3 ساعات عند كل منتصف شهر يختلف فيها IC-13 عن getMonthlyProfit
+  // فينتج FAIL وهمي. الناتج `start`/`end` هي Date.UTC(year, month-1, 1)/(lastDay)
+  // (UTC midnight of 1st/last day of current Amman month).
+  const { start: monthStartDate, end: monthEndDate } = getAmmanMonthBounds();
+  const monthStart = monthStartDate.toISOString().slice(0, 10);
+  const monthEnd = monthEndDate.toISOString().slice(0, 10);
+  // ammanToday يبقى مطلوباً للفترة (B).
+  const ammanToday = getAmmanDate();
 
   // (1) dashboard.summary.netProfit — الشهر الحالي
   const summaryMonth = await getFinancialSummary(monthStart, monthEnd);
@@ -1087,7 +1180,7 @@ async function checkIC13PnlSourcesConsistency(
 
   return {
     id: "IC-13",
-    invariantId: "INV-19",
+    invariantId: "INV-19a",
     status: drift === 0 ? "PASS" : "FAIL",
     titleAr: "تطابق مصادر الربح التشغيلي (LOCKED-6) — شهر حالي + كل التاريخ",
     descriptionAr,
@@ -1100,28 +1193,30 @@ async function checkIC13PnlSourcesConsistency(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// IC-14 — القيمة الدفترية للأصول الرأسمالية المُهلَكة (Phase 4) — WARN فقط
+// IC-14 — القيمة الدفترية للأصول الرأسمالية المُهلَكة (Phase 4) — PASS/WARN/FAIL
 // ─────────────────────────────────────────────────────────────────────────
 //
 // الهدف: عرض ملخص قيمة الأصول الأصلية، الإهلاك المُتراكم حتى asOfDate، والقيمة
-// الدفترية المتبقية (netBookValue). معلومة فقط — لا FAIL إطلاقاً. الإهلاك تقدير
-// يعتمد على useful_life_months (حكم تقديري من المستخدم)، وليس قيد سلامة مالية.
+// الدفترية المتبقية (netBookValue). وفحص سلامة دورة حياة capital_asset.
 //
-// الآلية: يستعين بـ getCapitalAssetValuation(asOfDate) من depreciation/queries.ts
-// التي تُنفِّذ استعلاماً واحدً على capital_asset مع:
-//   - totalOriginalCents = SUM(purchase_amount_cents) WHERE deleted_at IS NULL.
-//   - totalDepreciatedToDateCents = SUM(months_elapsed × monthly_dep) حيث
-//     months_elapsed ≤ useful_life_months (الأصول المُستهلَكة بالكامل تُساهم
-//     بـ useful_life_months × monthly_dep، لا أكثر).
-//   - months_elapsed يُحسَب بالصيغة الصحيحة EXTRACT(YEAR FROM age) * 12 +
-//     EXTRACT(MONTH FROM age) — راجع CRITICAL-NOTE-4.
+// D5 fix (SA4): status لم يعد hardcoded WARN. المنطق:
+//   - FAIL: أي صف capital_asset نشط مصدره (expense أو purchase) مفقود أو
+//     محذوف ناعماً (orphan). مع منطق التنظيف في deleteExpense/deletePurchase
+//     (D7 fix)، هذا يجب أن يكون 0 دائماً — لكن الفحص هو شبكة الأمان.
+//   - WARN: أي أصل مُستهلَك بالكامل (months_elapsed >= useful_life_months) —
+//     معلومة لا خطأ.
+//   - PASS: لا أيتام ولا أصول مُستهلَكة بالكامل (أو لا أصول أصلاً).
 //
-// النتيجة:
-//   - status: WARN دائماً (معلومة، لا FAIL).
-//   - invariantId: "INV-21" (الإهلاك غير النقدي — Phase 4 §10).
-//   - count: عدد الأصول النشطة (activeCount).
-//   - driftCents: يُعاد استخدام الحقل لعرض netBookValueCents (موجب دائماً).
-//     UI يتعامل مع الـ label الخاص عبر `r.id === "IC-14"` (مثل IC-12).
+// D13 fix (SA4):
+//   - activeCount مُقيَّد بالأصول التي تُستهلِك فعلاً (started_at <= asOfDate
+//     AND months_elapsed < useful_life_months). الأصول المُستهلَكة بالكامل
+//     أو مستقبلية البدء لا تدخل في activeCount.
+//   - fullyDepreciatedCount وpendingCount يُعاد عرضها لعرض منفصل في الوصف.
+//   - netBookValueCents يصل لـ 0 بالضبط عند انقضاء العمر النافع بفضل قاعدة
+//     «الشهر الأخير يُكلِّف الباقي» في getCapitalAssetValuation.
+//
+// الحقول المعلوماتية تبقى في الوصف للعرض. الـ status يعكس السلامة لا
+// «يوجد بيانات». INV-22 (الإهلاك غير النقدي) بعد إعادة الترقيم D10.
 // ─────────────────────────────────────────────────────────────────────────
 
 async function checkIC14CapitalAssetValuation(
@@ -1132,28 +1227,58 @@ async function checkIC14CapitalAssetValuation(
     totalDepreciatedToDateCents,
     netBookValueCents,
     activeCount,
+    fullyDepreciatedCount,
+    pendingCount,
+    orphanCount,
   } = await getCapitalAssetValuation(asOfDate);
 
   const formattedOriginal = (totalOriginalCents / 1000).toFixed(3);
   const formattedDepreciated = (totalDepreciatedToDateCents / 1000).toFixed(3);
   const formattedNetBook = (netBookValueCents / 1000).toFixed(3);
 
+  // تحديد الـ status حسب D5 fix.
+  let status: IntegrityCheckStatus;
+  let suggestedFixAr: string | undefined;
+  if (orphanCount > 0) {
+    status = "FAIL";
+    suggestedFixAr =
+      `يوجد ${orphanCount} أصل رأسمالي نشط (capital_asset.deleted_at IS NULL) ` +
+      `مصدره (expense أو purchase) مفقود أو محذوف ناعماً. يجب تنظيف هذه الأصول ` +
+      `(حذف ناعم لـ capital_asset) لوقف خصم الإهلاك. لو حدث هذا بعد D7 fix، ` +
+      `فهناك خلل في deleteExpense/deletePurchase يجب مراجعته.`;
+  } else if (fullyDepreciatedCount > 0) {
+    status = "WARN";
+    suggestedFixAr =
+      `${fullyDepreciatedCount} أصل مُستهلَك بالكامل (months_elapsed >= useful_life_months). ` +
+      `هذه معلومة لا خطأ — الإهلاك توقّف تلقائياً. ضع في الحسبان تنظيف الأصول ` +
+      `القديمة يدوياً إن رغبت.`;
+  } else {
+    status = "PASS";
+    suggestedFixAr = undefined;
+  }
+
   return {
     id: "IC-14",
-    invariantId: "INV-21",
-    status: "WARN",
+    invariantId: "INV-22",
+    status,
     titleAr: "تقييم الأصول الرأسمالية (معلومة — إهلاك محسوب)",
     descriptionAr:
-      `عدد الأصول النشطة: ${activeCount}. ` +
+      `عدد الأصول قيد الإهلاك فعلاً: ${activeCount}. ` +
+      `أصول مُستهلَكة بالكامل: ${fullyDepreciatedCount}. ` +
+      `أصول مستقبلية البدء: ${pendingCount}. ` +
+      `أصول يتيمة (مصدر محذوف): ${orphanCount}. ` +
       `إجمالي القيمة الأصلية: ${formattedOriginal} د.أ. ` +
       `الإهلاك المُتراكم حتى ${asOfDate}: ${formattedDepreciated} د.أ. ` +
       `القيمة الدفترية المتبقية: ${formattedNetBook} د.أ. ` +
       `الإهلاك تقدير محسوب عند القراءة (خيار γ) — غير نقدي، لا يدخل cash_movement. ` +
-      `يُخصَم شهرياً من الربح التشغيلي عبر computeOperatingPnl.`,
+      `يُخصَم شهرياً من الربح التشغيلي عبر computeOperatingPnl. ` +
+      `D5 fix: status = ${status} (FAIL إن وُجدت أصول يتيمة، WARN إن وُجدت أصول ` +
+      `مُستهلَكة بالكامل). D13 fix: activeCount مُقيَّد بالأصول قيد الإهلاك فعلاً، ` +
+      `netBookValue يصل لـ 0 عند انقضاء العمر النافع. INV-22 (الإهلاك غير النقدي).`,
     count: activeCount,
     // نُعيد استخدام driftCents كحقل «القيمة الدفترية المتبقية» (موجبة دائماً).
     // UI يتعامل مع الـ label الخاص عبر `r.id === "IC-14"` (نمط IC-12).
     driftCents: netBookValueCents,
-    suggestedFixAr: undefined,
+    suggestedFixAr,
   };
 }

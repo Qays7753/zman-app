@@ -3,6 +3,10 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { capitalAsset } from "./db";
+// D7 fix — expense وpurchase لكشف الأصول اليتيمة في getCapitalAssetValuation.
+// capital_asset لا يملك FK إلى expense/purchase (تصميم مقصود — راجع db.ts)،
+// لكن IC-14 يفحص وجود المصدر عبر LEFT JOIN ويُعدّ الأصول اليتيمة (FAIL).
+import { expense, purchase } from "../finance/db";
 
 // ─────────────────────────────────────────────────────────────────────────
 // depreciation/queries — دوال قراءة الإهلاك (محسوبة عند العرض، خيار γ)
@@ -126,56 +130,154 @@ export async function getDepreciationForPeriodCents(
  * حساب إجمالي قيمة الأصول والمُهلَك حتى asOfDate (لـ IC-14).
  *
  * يُرجِع:
- *   - totalOriginalCents: SUM(purchase_amount_cents) WHERE deleted_at IS NULL.
- *   - totalDepreciatedToDateCents: SUM(months_elapsed × monthly_dep) لكل أصل
- *     حيث months_elapsed <= useful_life_months (الأصول المُستهلَكة بالكامل
- *     تُساهم بـ useful_life_months × monthly_dep = purchase_amount تقريباً،
- *     قد يقل بفعل Math.floor في monthly_dep).
- *   - netBookValueCents: totalOriginalCents - totalDepreciatedToDateCents.
+ *   - totalOriginalCents: SUM(purchase_amount_cents) WHERE deleted_at IS NULL
+ *     — مُقيَّد بالأصول التي بدأت (started_at::date <= asOfDate::date) فقط.
+ *     الأصول ذات started_at مستقبلي لا تُحتسَب في activeCount ولا في الإهلاك.
+ *   - totalDepreciatedToDateCents: SUM(depreciationForAsset) لكل أصل حيث
+ *     depreciationForAsset =
+ *       إن months_elapsed >= useful_life_months → purchase_amount_cents
+ *       (الشهر الأخير يُكلِّف الباقي ليصل الأصل لصفر بدل ترك residual صغير
+ *       من floor؛ D13 fix).
+ *       وإلا → months_elapsed × monthly_dep.
+ *   - netBookValueCents: totalOriginalCents - totalDepreciatedToDateCents
+ *     (يصل لـ 0 بالضبط عند انقضاء العمر النافع، بفضل قاعدة الشهر الأخير).
+ *   - activeCount: عدد الأصول التي تُستهلِك فعلاً الآن
+ *     (started_at <= asOfDate AND months_elapsed < useful_life_months).
+ *   - fullyDepreciatedCount: عدد الأصول المُستهلَكة بالكامل
+ *     (started_at <= asOfDate AND months_elapsed >= useful_life_months). تُساهم
+ *     بـ purchase_amount_cents في totalDepreciated (لا residual).
+ *   - pendingCount: عدد الأصول مستقبلية البدء (started_at > asOfDate) — نادرة
+ *     لكن ممكنة إذا عدّل المستخدم التاريخ. لا تُساهم في الإهلاك ولا في active.
  *
- * months_elapsed يُحسَب بالصيغة الصحيحة (EXTRACT، راجع NOTE-4 أعلاه).
- * الأصول التي started_at > asOfDate (لم تبدأ بعد) تُساهم بـ 0 في totalDepreciated.
- *
+ * months_elapsed يُحسَب بصيغة EXTRACT الصحيحة (CRITICAL-NOTE-4 — لا تغيير).
  * الأصول المحذوفة ناعماً (deleted_at IS NOT NULL) مستثناة بالكامل.
+ *
+ * D13 fix — activeCount مُقيَّد الآن بالأصول التي تُستهلِك فعلاً (بدلاً من
+ * `count(*)` على كل صف غير محذوف، الذي كان يشمل future-started وfully-depreciated).
+ * D13 fix — قاعدة «الشهر الأخير يُكلِّف الباقي» تضمن netBookValueCents = 0 عند
+ * انقضاء العمر النافع، بدل ترك residual صغير من floor(amount/life) للأبد.
  */
 export async function getCapitalAssetValuation(asOfDate: string, tx: Tx = db): Promise<{
   totalOriginalCents: number;
   totalDepreciatedToDateCents: number;
   netBookValueCents: number;
   activeCount: number;
+  fullyDepreciatedCount: number;
+  pendingCount: number;
+  orphanCount: number;
 }> {
+  // D7 fix — كشف الأصول اليتيمة: capital_asset نشط لكن مصدره (expense أو purchase)
+  // غير موجود أو محذوف ناعماً. مع وجود منطق التنظيف في deleteExpense/deletePurchase
+  // (يحذف ناعماً capital_asset المرتبط)، يجب أن يكون orphanCount دائماً 0 — لكن
+  // الفحص هو شبكة الأمان. نستعمل LEFT JOIN ونعدّ الصفوف حيث source.id IS NULL.
+  // expense.id وpurchase.id كلاهما uuid NOT NULL، فـ IS NULL يعني «لا صف مطابق»
+  // (إما محذوف ناعماً بـ deletedAt IS NOT NULL، أو غير موجود أصلاً).
+  // ملاحظة: نُفرِق هذا الاستعلام عن استعلام IC-14 نفسه — هذا aggregation على
+  // capital_asset، و IC-14 يستعمله. الفصل يبقي IC-14 بسيطاً.
   const [row] = await tx
     .select({
-      totalOriginal: sql<number>`coalesce(sum(${capitalAsset.purchaseAmountCents}), 0)::bigint`,
+      totalOriginal: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
+             then ${capitalAsset.purchaseAmountCents}
+             else 0 end
+      ), 0)::bigint`,
       totalDepreciated: sql<number>`coalesce(sum(
         case
+          -- الأصل لم يبدأ بعد asOfDate → 0
           when ${capitalAsset.startedAt}::date > ${asOfDate}::date then 0
+          -- الأصل مُستهلَك بالكامل (months_elapsed >= useful_life): نُكلِّف كامل
+          -- purchase_amount ليصل netBookValue إلى صفر. D13 fix: قاعدة «الشهر
+          -- الأخير يُكلِّف الباقي». الصيغة الجبرية: مجموع الإهلاك عبر عمر الأصل
+          -- = (life−1) × monthly_dep + (amount − (life−1) × monthly_dep) = amount.
+          -- فبدل أن نترك residual صغير من floor(amount/life) للأبد في netBookValue،
+          -- نضمن أن الصفر المُطلق يُحقَّق عند انقضاء العمر النافع.
           when (
             EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
             + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
           ) >= ${capitalAsset.usefulLifeMonths}
-            then ${capitalAsset.usefulLifeMonths} * ${capitalAsset.monthlyDepreciationCents}
+            then ${capitalAsset.purchaseAmountCents}
           else (
             EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
             + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
           ) * ${capitalAsset.monthlyDepreciationCents}
         end
       ), 0)::bigint`,
-      activeCount: sql<number>`count(*)::bigint`,
+      activeCount: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
+              and (
+                EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
+                + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
+              ) < ${capitalAsset.usefulLifeMonths}
+             then 1 else 0 end
+      ), 0)::bigint`,
+      fullyDepreciatedCount: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
+              and (
+                EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
+                + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
+              ) >= ${capitalAsset.usefulLifeMonths}
+             then 1 else 0 end
+      ), 0)::bigint`,
+      pendingCount: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date > ${asOfDate}::date
+             then 1 else 0 end
+      ), 0)::bigint`,
     })
     .from(capitalAsset)
     .where(isNull(capitalAsset.deletedAt));
+
+  // D7 fix — كشف الأصول اليتيمة (capital_asset نشط لكن مصدره محذوف/غير موجود).
+  // استعلام منفصل لأنه يحتاج LEFT JOIN على expense/purchase (وليس aggregation
+  // بسيط على capital_asset). source_type ∈ {'expense','purchase'} (CHECK).
+  const orphanRows = await tx
+    .select({
+      id: capitalAsset.id,
+      sourceType: capitalAsset.sourceType,
+      sourceId: capitalAsset.sourceId,
+    })
+    .from(capitalAsset)
+    .leftJoin(
+      expense,
+      and(
+        eq(capitalAsset.sourceType, "expense"),
+        eq(capitalAsset.sourceId, expense.id),
+        isNull(expense.deletedAt),
+      ),
+    )
+    .leftJoin(
+      purchase,
+      and(
+        eq(capitalAsset.sourceType, "purchase"),
+        eq(capitalAsset.sourceId, purchase.id),
+        isNull(purchase.deletedAt),
+      ),
+    )
+    .where(
+      and(
+        isNull(capitalAsset.deletedAt),
+        // الأصل يتيم إن لم يطابق أي من الـ JOINs: أي expense.id AND purchase.id
+        // كلاهما NULL (لأن capital_asset.source_type ∈ {'expense','purchase'} فقط،
+        // فالصف يطابق JOIN واحد على الأكثر — والآخر NULL تلقائياً).
+        sql`(${expense.id} IS NULL AND ${purchase.id} IS NULL)`,
+      ),
+    );
 
   const totalOriginalCents = Number(row?.totalOriginal) || 0;
   const totalDepreciatedToDateCents = Number(row?.totalDepreciated) || 0;
   const netBookValueCents = totalOriginalCents - totalDepreciatedToDateCents;
   const activeCount = Number(row?.activeCount) || 0;
+  const fullyDepreciatedCount = Number(row?.fullyDepreciatedCount) || 0;
+  const pendingCount = Number(row?.pendingCount) || 0;
+  const orphanCount = orphanRows.length;
 
   return {
     totalOriginalCents,
     totalDepreciatedToDateCents,
     netBookValueCents,
     activeCount,
+    fullyDepreciatedCount,
+    pendingCount,
+    orphanCount,
   };
 }
 

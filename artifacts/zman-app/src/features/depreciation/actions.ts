@@ -16,7 +16,7 @@ import { getCapitalAssetForSource } from "./queries";
 //
 // الدالة addCapitalAsset تُنشئ صف capital_asset واحد. لا تُعدِّل expense/purchase
 // (هذه تظل is_capital_asset=true منفصلة عن capital_asset). الإهلاك غير نقدي:
-// لا تُدرَج أي حركة في cash_movement (INV-21 يستثني صراحةً INV-1).
+// لا تُدرَج أي حركة في cash_movement (INV-22 يستثني صراحةً INV-1).
 //
 // النتيجة: الصف المُنشأ (يعرض monthlyDepreciationCents للعميل).
 // ─────────────────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ interface AddCapitalAssetInput {
  *      Math.floor (لا Math.round) لتفادي إهلاك أكثر من 100% من قيمة الأصل.
  *   4. إدراج الصف. started_at = now() افتراضياً (تاريخ بداية الإهلاك = اليوم).
  *
- * لا تُدرَج حركة cash_movement. الإهلاك غير نقدي (INV-21).
+ * لا تُدرَج حركة cash_movement. الإهلاك غير نقدي (INV-22).
  *
  * @returns الصف المُنشأ مع monthlyDepreciationCents للعرض في الـ UI.
  */
@@ -156,14 +156,17 @@ export async function addCapitalAsset(
 }
 
 /**
- * حذف ناعم لصف capital_asset (إلغاء الإهلاك مستقبلاً). الإهلاك المُحسَب سابقاً
- * يبقى في P&L التاريخي (لا أثر رجعي — حساب عند القراءة يعني أن الإهلاك يُعاد
- * حسابه في كل قراءة، فالحذف الناعم يوقف الإهلاك من تاريخ deleted_at فصاعداً
- * فقط من حيث المبدأ، لكن لأن حسابنا يستخدم started_at + useful_life_months
- * كحدّ زمني وليس deleted_at كحدّ أعلى، فإن الحذف الناعم يوقف الإهلاك بأكمله
- * بأثر رجعي — راجع INV-5).
+ * حذف ناعم لصف capital_asset (إيقاف الإهلاك مستقبلاً). الإهلاك المُحسَب سابقاً
+ * يبقى في P&L التاريخي (لا أثر رجعي — حساب عند القراءة يعني أن الحذف الناعم
+ * يوقف الإهلاك من تاريخ deleted_at فصاعداً فقط من حيث المبدأ، لكن لأن حسابنا
+ * يستخدم started_at + useful_life_months كحدّ زمني وليس deleted_at كحدّ أعلى،
+ * فإن الحذف الناعم يوقف الإهلاك بأكمله بأثر رجعي — راجع INV-22).
  *
- * حالياً لا UI يستدعي هذه الدالة. محفوظة للاستخدام المستقبلي.
+ * D7 fix (SA4): يُستدعى الآن من ExpensesTab/PurchasesTab عبر زر «إيقاف الإهلاك»
+ * على الصفوف التي لها capital_asset نشط. كما يُستدعى ضمنياً داخل deleteExpense
+ * وdeletePurchase (في finance/actions.ts) لتنظيف الأصول اليتيمة عند حذف المصدر.
+ * يُستعمل أيضاً لتفعيل ميزة «التراجع عن قرار التوزيع الشهري» التي كانت مفقودة
+ * في Phase 4 (الفشل 3 من review D7).
  */
 export async function deleteCapitalAsset(id: string): Promise<{
   status: "ok" | "error";

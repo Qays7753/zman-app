@@ -5,6 +5,10 @@ import { expense, purchase, sale, cashMovement, account } from "@/features/finan
 import { order } from "@/features/orders/db";
 import { db } from "@/lib/db/client";
 import { computeOperatingPnl } from "@/features/finance/pnl";
+// D8 fix — getAmmanMonthBounds لضمان أن حلقة آخر N أشهر مُعتمَدة على توقيت عمّان
+// (UTC+3)، لا على توقيت الخادم المحلي. بدون هذا، على Vercel (UTC) نحصل على
+// فشل وهمي في IC-13 لمدة 3 ساعات عند منتصف كل شهر.
+import { getAmmanMonthBounds } from "@/lib/utils";
 
 export interface FinancialSummary {
   sales: number;
@@ -563,21 +567,32 @@ const AR_MONTHS_SHORT = [
  * مقبول للوحة من 6 أشهر — انظر SA1 NOTE + بطاقة 2.F.
  */
 export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfit[]> {
-  const now = new Date();
+  // D8 fix — Amman-anchored current month. بدون هذا، على Vercel (UTC) نحصل على
+  // شهر خاطئ لمدة 3 ساعات عند كل منتصف شهر (مثلاً 21:00 UTC في 31 يناير =
+  // 00:00 عمّان في 1 فبراير). الناتج `start` هو Date.UTC(year, month-1, 1)
+  // (UTC midnight of 1st of current Amman month) — نطرح الأشهر منه بالـ UTC
+  // getters لضمان عدم التسريب إلى server-local.
+  const { start: currentStart } = getAmmanMonthBounds();
 
   // آخر N أشهر، الأحدث أولاً — نملأ الأشهر بلا حركة بصفر لاستمرارية العرض.
   const result: MonthlyProfit[] = [];
   for (let i = 0; i < months; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    // إنقاص i أشهر من بداية الشهر الحالي (UTC). JS يتعامل مع الشهور السالبة
+    // بالالتفاف إلى السنة السابقة تلقائياً.
+    const d = new Date(
+      Date.UTC(currentStart.getUTCFullYear(), currentStart.getUTCMonth() - i, 1),
+    );
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
     // بداية ونهاية الشهر بصيغة YYYY-MM-DD. نمرّرها لـ computeOperatingPnl.
-    const lastDayNum = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    const lastDayNum = new Date(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0),
+    ).getUTCDate();
     const monthStart = `${key}-01`;
     const monthEnd = `${key}-${String(lastDayNum).padStart(2, "0")}`;
     const pnl = await computeOperatingPnl({ startDate: monthStart, endDate: monthEnd });
     result.push({
       month: key,
-      label: `${AR_MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`,
+      label: `${AR_MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
       netProfitCents: pnl.operatingNetCents,
     });
   }

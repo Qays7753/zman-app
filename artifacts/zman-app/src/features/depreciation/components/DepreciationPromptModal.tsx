@@ -246,7 +246,7 @@ export function DepreciationPromptModal({
         <p className="text-[11px] text-ink-3 text-center leading-relaxed">
           الإهلاك غير نقدي — لا يؤثر على الصندوق ولا على الميزانية. يُخصَم من
           الربح التشغيلي فقط (لمطابقة مفهوم «تكلفة الأصل» بذهن صاحب العمل —
-          INV-21).
+          INV-22 بعد إعادة الترقيم D10).
         </p>
       </div>
     </ResponsiveModal>

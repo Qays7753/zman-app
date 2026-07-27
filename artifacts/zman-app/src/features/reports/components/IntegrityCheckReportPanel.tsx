@@ -120,15 +120,17 @@ export function IntegrityCheckReportPanel() {
                 {r.driftCents !== undefined && r.driftCents !== 0 && (
                   <p className="text-xs font-mono">
                     {r.id === "IC-12" ? (
-                      // IC-12 يستعمل driftCents كحقل «القيمة التقديرية للمخزون» (موجبة
-                      // دائماً). الـ label يختلف عن باقي الفحوصات التي تعرض الانحراف.
+                      // D13 fix: IC-12 يستعمل driftCents كحقل «القيمة الدفترية
+                      // للمخزون» (موجبة دائماً). الـ label يختلف عن باقي الفحوصات
+                      // التي تعرض الانحراف. القيمة فعلية الآن (D4 fix) وليست
+                      // تقدير defaultCostCents.
                       <>
-                        القيمة التقديرية للمخزون:{" "}
+                        القيمة الدفترية للمخزون:{" "}
                         <AmountText amount={Math.abs(r.driftCents)} />
                       </>
                     ) : r.id === "IC-14" ? (
-                      // IC-14 يستعمل driftCents كحقل «القيمة الدفترية المتبقية» (موجبة
-                      // دائماً). الـ label يختلف عن باقي الفحوصات (نمط IC-12).
+                      // IC-14 يستعمل driftCents كحقل «القيمة الدفترية المتبقية»
+                      // (موجبة دائماً). الـ label يختلف عن باقي الفحوصات (نمط IC-12).
                       <>
                         القيمة الدفترية المتبقية للأصول:{" "}
                         <AmountText amount={Math.abs(r.driftCents)} />
@@ -147,7 +149,8 @@ export function IntegrityCheckReportPanel() {
                     {r.id === "IC-12"
                       ? `عدد الأصناف المتتبَّعة: ${r.count}`
                       : r.id === "IC-14"
-                        ? `عدد الأصول الرأسمالية النشطة: ${r.count}`
+                        // D13 fix: activeCount مُقيَّد بالأصول قيد الإهلاك فعلاً.
+                        ? `عدد الأصول قيد الإهلاك فعلاً: ${r.count}`
                         : `عدد المخالفات: ${r.count}`}
                   </p>
                 )}
