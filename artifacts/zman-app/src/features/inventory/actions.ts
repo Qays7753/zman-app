@@ -50,6 +50,17 @@ interface AddCatalogMovementInput {
    * اختياري — يُترك NULL للأصناف غير المتتبَّعة وللتسويات اليدوية (adjustStock).
    */
   unitCostCents?: number;
+  /**
+   * SA1 (A1 fix) — إجمالي قيمة الحركة بالـ fils (integer، لا تقريب).
+   * - للحركة `in` من purchase: totalValueCents = purchase.totalCents (مطابقاً
+   *   لمبلغ الصندوق المخصوم) لتفادي equityDrift من كسور الـ fils.
+   * - للحركة `out` من order_delivery / manual_out: totalValueCents = quantity × unitCostCents
+   *   (= COGS للحركة، مطابقاً للقيمة المخصومة من المخزون).
+   * - للحركات الافتتاحية/اليدوية بلا سعر: NULL — صيغة القراءة coalesce إلى
+   *   `qty × coalesce(unit_cost_cents, 0)` (= 0). لا حاجة لتمريره صراحةً.
+   * اختياري — يُترك NULL عند عدم التمرير. الاستعلامات تتعامل مع NULL عبر COALESCE.
+   */
+  totalValueCents?: number;
 }
 
 /**
@@ -80,6 +91,7 @@ export async function addCatalogMovement(
     date,
     requestId,
     unitCostCents,
+    totalValueCents,
   } = input;
 
   if (quantity <= 0) {
@@ -139,6 +151,7 @@ export async function addCatalogMovement(
       orderComponentId: orderComponentId ?? null,
       notes: notes ?? "",
       unitCostCents: unitCostCents ?? null,
+      totalValueCents: totalValueCents ?? null,
     })
     .returning({ id: catalogMovement.id });
 
@@ -263,6 +276,12 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
     // مجاني). إن لم تكن هناك حركات in إطلاقاً، التكلفة = 0 (لا COGS). القيمة
     // تُخزَّن على الحركة out (unit_cost_cents) لتكون COGS غير قابلة للتعديل
     // لاحقاً (immutable) — النموذج الموحَّد للقيمة الدفترية للمخزون.
+    //
+    // SA1 (A1 fix) — نُخزِّن أيضاً total_value_cents = requiredQty × unitCostCents
+    // على الحركة out. هذا يُطابِق القيمة المخصومة من المخزون (في inventoryValueCents)
+    // مع COGS المخصوم من retainedProfitCents — فلا يظهر equityDrift حتى لو
+    // floor(totalCents/qty) ترك كسراً. الـ fallback في الاستعلامات يضمن أن
+    // الحركات القديمة (قبل 0024) بلا total_value_cents تُعامَل بـ qty × unit_cost.
     const [costRow] = await tx
       .select({
         totalQty: sql<number>`coalesce(sum(${catalogMovement.quantity}), 0)::bigint`,
@@ -280,6 +299,7 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
     const totalQty = Number(costRow?.totalQty) || 0;
     const totalCost = Number(costRow?.totalCost) || 0;
     const unitCostCents = totalQty > 0 ? Math.floor(totalCost / totalQty) : 0;
+    const totalValueCents = requiredQty * unitCostCents;
 
     const result = await addCatalogMovement({
       tx,
@@ -291,6 +311,7 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
       orderComponentId: c.id,
       notes,
       unitCostCents,
+      totalValueCents,
       // requestId نفسه لكل حركة ضمن الـ transaction نفسها — لكن idempotency_key
       // مفتاحه الأساسي requestId، فلا يمكن تكراره. نُمرّر undefined لتجنب التضارب
       // مع المفتاح الذي سجّله convertOrderToSale نفسه. convertOrderToSale مسؤول
@@ -416,6 +437,37 @@ export async function adjustStock(
         };
       }
 
+      // SA1 (A2 fix) — للحركة `out` (manual_out / adjustment)، احسب التكلفة
+      // الوسطية المرجَّحة من كل الحركات `in` النشطة (نفس منطق deductForDelivery)
+      // ومرِّرها كـ unitCostCents. كذلك احسب total_value_cents = qty × unitCostCents.
+      // هذا يضمن أن قيمة المخزون تُخصَم من الميزانية (inventoryValueCents) عند
+      // الصرف اليدوي — لا الكمية فقط. قبل هذا الإصلاح، unit_cost_cents كان NULL
+      // → coalesce(unit_cost_cents, 0) = 0 → القيمة لا تُخصَم → الأصول مُضخَّمة.
+      //
+      // Edge case: لا حركات in (صنف متتبَّع بلا مخزون، ثم صرف يدوي) → unitCostCents = 0،
+      // totalValueCents = 0 → لا قيمة لخصمها — صحيح (لا تكلُّفة دفترية).
+      let unitCostCents: number | undefined;
+      let totalValueCents: number | undefined;
+      if (direction === "out") {
+        const [costRow] = await tx
+          .select({
+            totalQty: sql<number>`coalesce(sum(${catalogMovement.quantity}), 0)::bigint`,
+            totalCost: sql<number>`coalesce(sum(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)), 0)::bigint`,
+          })
+          .from(catalogMovement)
+          .where(
+            and(
+              eq(catalogMovement.catalogComponentId, catalogComponentId),
+              eq(catalogMovement.direction, "in"),
+              isNull(catalogMovement.deletedAt),
+            ),
+          );
+        const totalQty = Number(costRow?.totalQty) || 0;
+        const totalCost = Number(costRow?.totalCost) || 0;
+        unitCostCents = totalQty > 0 ? Math.floor(totalCost / totalQty) : 0;
+        totalValueCents = quantity * unitCostCents;
+      }
+
       const result = await addCatalogMovement({
         tx,
         catalogComponentId,
@@ -424,6 +476,8 @@ export async function adjustStock(
         sourceType: effectiveSourceType,
         notes: reason ?? "",
         requestId,
+        unitCostCents,
+        totalValueCents,
       });
 
       return { status: "ok", data: { id: result.id } };

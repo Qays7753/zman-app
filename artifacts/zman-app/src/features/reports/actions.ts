@@ -706,12 +706,21 @@ export async function getFinancialPosition(
       // تُنشئ حركات أصلاً (deductForDelivery و createPurchase يتخطّونها)، فلا حاجة
       // لـ JOIN catalog_component. coalesce على unit_cost_cents يعالج الحركات
       // الافتتاحية/اليدوية بلا سعر (تعامل كتكلفتها 0 — مخزون مجاني).
+      //
+      // SA1 (A1 fix) — نُفضِّل total_value_cents (العدد الصحيح الأصلي للحركة) على
+      // `qty × unit_cost_cents` لتفادي انحراف كسور الـ fils. للحركة `in` من purchase،
+      // total_value_cents = purchase.totalCents (= مبلغ الصندوق المخصوم بالضبط)،
+      // فلا يظهر equityDrift عند الكميات غير القابلة للقسمة. للحركة `out` من
+      // order_delivery / manual_out، total_value_cents = qty × unit_cost_cents
+      // (= COGS، مطابقاً للقيمة المخصومة من المخزون). الـ fallback إلى
+      // `qty × coalesce(unit_cost_cents, 0)` يحافظ على التوافق مع الحركات القديمة
+      // (قبل migration 0024) التي لا تملك total_value_cents.
       const [inventoryValRow] = await tx
         .select({
           inventoryValueCents: sql<number>`coalesce(sum(
             case when ${catalogMovement.direction} = 'in'
-                 then ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)
-                 else -(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+                 then coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+                 else -(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)))
             end
           ), 0)::bigint`,
         })

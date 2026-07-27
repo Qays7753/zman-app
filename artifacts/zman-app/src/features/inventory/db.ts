@@ -56,6 +56,21 @@ export const catalogMovement = pgTable(
     // nullable — يستعمل فقط للأصناف المتتبَّعة. الأصناف غير المتتبَّعة تتركه NULL.
     // وضع `mode: "number"` يُرجِع JS number (القيم صغيرة genug لـ safe integer).
     unitCostCents: bigint("unit_cost_cents", { mode: "number" }),
+    // SA1 (A1 fix) — إجمالي قيمة الحركة بالـ fils (integer، لا تقريب). يُستخدَم
+    // في getFinancialPosition.inventoryValueCents و computeOperatingPnl.cogsCents
+    // بدل `qty × unit_cost_cents` لتفادي انحراف كسور الـ fils عند الشراء بكمية
+    // لا تقبل القسمة على totalCents. مثال: 3 وحدات بـ 1000 fils → floor(1000/3)=333
+    // لكل وحدة، لكن total_value_cents = 1000 بالضبط (العدد الصحيح الأصلي).
+    // - للحركة `in` من purchase: total_value_cents = purchase.totalCents (مطابقاً
+    //   لمبلغ الصندوق المخصوم)، فلا يظهر equityDrift.
+    // - للحركة `out` من order_delivery أو manual_out: total_value_cents =
+    //   qty × unit_cost_cents (COGS لتلك الحركة، مطابقاً للقيمة المخصومة من المخزون).
+    // - للحركات الافتتاحية/اليدوية بلا سعر: NULL — صيغة القراءة coalesce إلى
+    //   `qty × coalesce(unit_cost_cents, 0)` (= 0).
+    // السماح بـ NULL عمداً: الحركات القديمة (قبل migration 0024) تُترك NULL
+    // وتعتمد على الـ fallback `qty × coalesce(unit_cost_cents, 0)`. هذا يُبقي
+    // التراجع متاحاً ويُعامِل الحركات التاريخية بنفس صيغة ما قبل الإصلاح.
+    totalValueCents: bigint("total_value_cents", { mode: "number" }),
     notes: text("notes").notNull().default(""),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

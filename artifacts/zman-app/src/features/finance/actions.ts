@@ -252,6 +252,9 @@ export async function createPurchase(
           notes: `إضافة من فاتورة شراء: ${newPurchase.item} (الكمية: ${newPurchase.quantity})`,
           date: newPurchase.date,
           unitCostCents: unitCostCentsForMovement,
+          // SA1 (A1 fix) — total_value_cents = totalCents (العدد الصحيح الأصلي)
+          // لتفادي equityDrift عند الكميات غير القابلة للقسمة على totalCents.
+          totalValueCents: newPurchase.totalCents,
           // requestId لا يُمرَّر: المفتاح مُستخدَم بالفعل من create_purchase.
           // convertOrderToSale يضمن idempotency على مستوى transaction كاملاً.
         });
@@ -452,6 +455,8 @@ export async function updatePurchase(
           notes: `إضافة من فاتورة شراء: ${updatedPurchase.item} (الكمية: ${updatedPurchase.quantity})`,
           date: updatedPurchase.date,
           unitCostCents: unitCostCentsForMovement,
+          // SA1 (A1 fix) — total_value_cents = totalCents (العدد الصحيح الأصلي).
+          totalValueCents: updatedPurchase.totalCents,
         });
       }
 

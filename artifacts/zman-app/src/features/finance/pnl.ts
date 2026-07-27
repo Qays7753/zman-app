@@ -249,7 +249,7 @@ export async function computeOperatingPnl({
   // ─────────────────────────────────────────────────────────────────────────
   // 4.5. COGS (تكلفة البضاعة المباعة) للفترة — Phase 3-revised (D4 fix).
   //
-  // COGS = Σ (catalog_movement.quantity × coalesce(unit_cost_cents, 0))
+  // COGS = Σ coalesce(total_value_cents, quantity × coalesce(unit_cost_cents, 0))
   //        WHERE direction = 'out' AND source_type = 'order_delivery'
   //              AND deleted_at IS NULL AND date ∈ [startDate, endDate]
   //
@@ -259,6 +259,12 @@ export async function computeOperatingPnl({
   // unit_cost_cents يعالج الحالات النادرة التي قد لا تحتوي على cost (مخزون
   // افتتاحي بلا سعر، أو adjustStock يدوي).
   //
+  // SA1 (A1 fix) — نُفضِّل total_value_cents (= qty × unit_cost_cents المخزَّن عند
+  // إنشاء الحركة) على حساب `qty × unit_cost_cents` وقت القراءة. هذا يضمن أن
+  // COGS المخصوم من retainedProfitCents يطابق القيمة المخصومة من inventoryValueCents
+  // (التي تستعمل total_value_cents أيضاً) — فلا يظهر equityDrift. الـ fallback
+  // يحافظ على التوافق مع الحركات القديمة (قبل migration 0024) بلا total_value_cents.
+  //
   // ⚠️ COGS تعديل غير نقدي (مثل الإهلاك): لا يُدرَج أي حركة في cash_movement.
   // النقد دخل بالكامل في salesCents (المتبقي + العربون المحوَّل). COGS يُخصم
   // من operatingNetCents لمطابقة الإيراد بالتكلفة في نفس الفترة.
@@ -267,7 +273,7 @@ export async function computeOperatingPnl({
   //   retainedProfitCents = salesCashInCents − depositsLiability
   //                         − operatingExpensesCents − operatingPurchasesCents
   //                         − cogsCentsToDate
-  //   inventoryValueCents = Σ(in qty × unit_cost) − Σ(out qty × unit_cost)
+  //   inventoryValueCents = Σ(in total_value_cents) − Σ(out total_value_cents)
   //   totalAssets = Cash + inventoryValueCents
   // توازن IC-1 محفوظ: Cash يقل بمقدار trackedPurchasesCents (الشراء المُرأسمَل
   // لا يدخل operatingPurchasesCents)، لكن inventoryValueCents يزيد بنفس المقدار
@@ -285,7 +291,7 @@ export async function computeOperatingPnl({
 
   const [cogsRow] = await tx
     .select({
-      total: sql<number>`coalesce(sum(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)), 0)::bigint`,
+      total: sql<number>`coalesce(sum(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))), 0)::bigint`,
     })
     .from(catalogMovement)
     .where(and(...cogsConds));

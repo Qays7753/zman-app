@@ -169,6 +169,13 @@
       "when": 1785183749759,
       "tag": "0023_inventory_capitalization",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785190949540,
+      "tag": "0024_catalog_movement_total_value_cents",
+      "breakpoints": true
     }
   ]
 }

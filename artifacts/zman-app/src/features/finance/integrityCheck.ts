@@ -944,12 +944,18 @@ async function checkIC12CatalogLedgerConsistency(
   // coalesce على unit_cost_cents يعالج الحركات الافتتاحية/اليدوية بلا سعر.
   // totalMovementsCount = count(catalog_movement.id) — عدد الحركات الفعلية
   // (D13 fix: تمييز عن totalStockUnits الذي كان يُسمَّى خطأً «مجموع الحركات»).
+  //
+  // SA1 (A1 fix) — نُفضِّل total_value_cents (العدد الصحيح الأصلي للحركة) على
+  // `qty × unit_cost_cents` لتفادي انحراف كسور الـ fils (مطابقاً مع
+  // getFinancialPosition.inventoryValueCents و computeOperatingPnl.cogsCents).
+  // الـ fallback إلى `qty × coalesce(unit_cost_cents, 0)` يحافظ على التوافق
+  // مع الحركات القديمة (قبل migration 0024) التي لا تملك total_value_cents.
   const [valRow] = await db
     .select({
       inventoryValueCents: sql<number>`coalesce(sum(
         case when ${catalogMovement.direction} = 'in'
-             then ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)
-             else -(${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+             then coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+             else -(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)))
         end
       ), 0)::bigint`,
       totalStockUnits: sql<number>`coalesce(sum(
