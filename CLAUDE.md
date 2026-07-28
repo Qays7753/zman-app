@@ -52,13 +52,47 @@ git push origin main
 git push qays main
 ```
 
-⚠️ **تنبيه حالي:** دمج الترقية تمّ ورُفع إلى **Qays7753** فقط (بيئة العمل الآلي كانت تراه باسم `origin`). أي أن `balqeesemad1996` **متأخّر 17 كومت**. أول أمر تنفّذه على جهازك:
+⚠️ **تنبيه حالي:** دمج الترقية تمّ ورُفع إلى **Qays7753** فقط (بيئة العمل الآلي كانت تراه باسم `origin`). أي أن `balqeesemad1996` **متأخّر 18 كومت**. أول أمر تنفّذه على جهازك:
 
 ```bash
 git fetch qays && git merge --ff-only qays/main && git push origin main
 ```
 
 السبب: Vercel مربوط بـ `Qays7753`، والمستودع الأساسي للمالك هو `balqeesemad1996`.
+
+### تنظيف الفروع (مطلوب — لم يُنفَّذ)
+
+بعد الدمج، أربعة فروع على `Qays7753` صارت زائدة. حذفها محجوب من بيئة العمل الآلي (`HTTP 403` على حذف المراجع)، فهي مهمة يدوية من `github.com/Qays7753/zman-app/branches` أو:
+
+```bash
+git push origin --delete zman-finance-upgrade
+git push origin --delete claude/bottom-bar-disappearing-2ll603
+git push origin --delete v0/qayskhalid1992-6233-0ea53be0
+git push origin --delete v0/dashboard-feedback-a062cf00
+```
+
+| الفرع | الحالة | آخر كومت (للاسترجاع) |
+|---|---|---|
+| `zman-finance-upgrade` | مطابق لـ`main` تماماً بعد الدمج | `915e7cc` |
+| `claude/bottom-bar-disappearing-2ll603` | مدموج بالكامل | `315450e` |
+| `v0/qayskhalid1992-6233-0ea53be0` | مدموج بالكامل | `36342e7` |
+| `v0/dashboard-feedback-a062cf00` | **غير مدموج — لا تدمجه** ⚠️ | `52e5b28` |
+
+### 🔴 `v0/dashboard-feedback-a062cf00` — لا يُدمج إطلاقاً
+
+كومته الوحيدة (`52e5b28` — «add mock data for empty database scenarios») تحقن **أرقاماً مالية مُفبرَكة** في `dashboard/queries.ts`:
+
+```ts
+const MOCK_FINANCIAL_SUMMARY = { sales: 450000, netProfit: 145000, ... };
+
+if (sales === 0 && expenses === 0 && purchases === 0) return MOCK_FINANCIAL_SUMMARY;
+...
+} catch (error) { return MOCK_FINANCIAL_SUMMARY; }   // ← أي خطأ في قاعدة البيانات
+```
+
+أثره: **عند انقطاع الاتصال بقاعدة البيانات يُعرَض ربح 145 ديناراً مفبركاً كأنه حقيقي** — بلا أي تحذير. وأي شهر جديد بلا حركة يُظهر أرقاماً وهمية.
+
+هذا نقيض هدف المشروع كلّه (رقم واحد يثق به المالك). **إن رأيت هذا الفرع، أو PR مفتوحاً عليه، أو كوداً مشابهاً في أي مكان — احذفه ولا تدمجه.** لا توجد حالة يكون فيها عرض رقم مالي مُختلَق مقبولاً في هذا النظام، ولا حتى «للعرض التجريبي».
 
 ---
 
