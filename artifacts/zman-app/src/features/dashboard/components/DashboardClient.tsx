@@ -953,13 +953,18 @@ function TrackedInventoryPanel() {
         </div>
       ) : (
         <>
+          {/* SA3 (Round 4 — B-1 fix): كل صف له pe-16 (64px) على الجهة End (يسار في RTL)
+              لإبعاد عمود الرصيد عن بصمة الزر العائم الثابت (FAB 56×56 على end-4 = x16-72).
+              بدون هذا، عند تمرير اللوحة إلى أسفل الشاشة على 360px، يغطّي الزر العائم
+              رقم الرصيد لآخر صنف. الحشو على <li> وحده (لا على <ul>) كي تبقى حدود divide-y
+              بعرض اللوحة الكامل. */}
           <ul className="divide-y divide-hairline">
             {visibleItems.map((item) => {
               const isNegative = item.balance < 0;
               return (
                 <li
                   key={item.catalogComponentId}
-                  className="py-2.5 flex items-center justify-between gap-3"
+                  className="py-2.5 flex items-center justify-between gap-3 pe-16"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">

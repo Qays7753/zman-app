@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/shared/Button";
 import { AmountText } from "@/components/shared/AmountText";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { runFinancialIntegrityCheckAction } from "@/features/finance/actions";
 import type {
   IntegrityReport,
@@ -64,6 +65,9 @@ export function IntegrityCheckReportPanel() {
           <h3 className="text-base font-bold text-ink flex items-center gap-1.5">
             <ShieldCheck className="h-5 w-5 text-info" />
             الفحص المالي الدوري
+            {/* SA3 (Round 4 — B-5): InfoTooltip يشرح معنى الحالات الثلاث (PASS/WARN/FAIL)
+                وما الذي يجب على المالك فعله لكل حالة. */}
+            <InfoTooltip text="«سليم» (أخضر): الحسابات متوازنة ولا إجراء مطلوب. «تحذير» (أصفر): يوجد فرق بسيط لكنه لا يكسر التوازن — راجعه عند فراغك. «خطأ» (أحمر): اختلال في التوازن المحاسبي يحتاج إصلاحاً — عادةً ما يكون بسبب حركة مالية مفقودة أو مكررة. الفحص آمن ولا يُغيّر أي أرقام — يقرأ فقط." />
           </h3>
           <p className="text-xs text-ink/50 mt-0.5">
             فحص آمن لسلامة الحسابات المالية. اضغط للاطّلاع على تقرير فوري.

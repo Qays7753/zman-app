@@ -8,6 +8,7 @@ import { MoneyInput } from "@/components/shared/MoneyInput";
 import { Button } from "@/components/shared/Button";
 import { Select } from "@/components/shared/Select";
 import { TextArea } from "@/components/shared/TextArea";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { expenseInputSchema } from "../schema";
 import type { Expense, NewExpense } from "../types";
 import { useExpenseCategoryCatalog } from "../hooks";
@@ -234,30 +235,37 @@ export function ExpenseForm({
 
         {/* Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر). */}
         <div className="space-y-3 p-3.5 bg-canvas/30 rounded-lg border border-hairline">
-          {/* بُعد 1: رأسمالي؟ */}
-          <div className="flex items-center gap-3">
+          {/* بُعد 1: رأسمالي؟
+              SA3 (Round 4 — B-2 fix): input + label ملفوفان في <label> واحد بـ min-h-[44px]
+              ليكون الصف بأكمله قابلاً للنقر بهدف لمسي ≥ 44px (بدل 20×13px السابق).
+              SA3 (Round 4 — B-5): InfoTooltip يشرح للمالك ما الذي يجعل الشيء رأسمالياً
+              وما الذي يحدث للأرقام (لا يُخصم من الربح التشغيلي). */}
+          <label
+            htmlFor={`${formId}-capital`}
+            className="flex items-center gap-3 min-h-[44px] cursor-pointer"
+          >
             <input
               type="checkbox"
               id={`${formId}-capital`}
               {...register("isCapitalAsset")}
-              className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info"
+              className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info shrink-0"
             />
-            <label
-              htmlFor={`${formId}-capital`}
-              className="text-sm font-bold text-ink/75 cursor-pointer"
-            >
+            <span className="text-sm font-bold text-ink/75">
               أصل رأسمالي (يُهلَك عبر الزمن، لا يُخصم من الربح التشغيلي)
-            </label>
-          </div>
+            </span>
+            <InfoTooltip text="الأصل الرأسمالي هو آلة أو أثاث أو معدات تخدم المشروع لسنوات (مثل ثلاجة العرض أو آلة الزراعة). لا يُخصم من الربح التشغيلي في شهر الشراء، بل يظهر كـ«إضافة أصل رأسمالي» في الميزانية. مقابل ذلك، المصروف العادي (إيجار، كهرباء، خيوط) يُخصم من الربح التشغيلي فوراً في الشهر." />
+          </label>
 
-          {/* بُعد 2: الطبيعة (يظهر إن لم يكن رأسمالياً) */}
+          {/* بُعد 2: الطبيعة (يظهر إن لم يكن رأسمالياً)
+              SA3 (Round 4 — B-5): InfoTooltip يشرح الفرق بين الثابت والمتغيّر بمثال. */}
           {!isCapital && (
             <div className="space-y-2 flex flex-col">
               <label
                 htmlFor={`${formId}-cost-nature`}
-                className="text-sm font-bold text-ink/75"
+                className="text-sm font-bold text-ink/75 flex items-center gap-1.5"
               >
                 طبيعة التكلفة
+                <InfoTooltip text="التكلفة المتغيّرة تزيد وتنقص مع حجم العمل (خامات، تغليف، وقود التوصيل). التكلفة الثابتة تبقى كما هي تقريباً كل شهر بغضّ النظر عن المبيعات (إيجار الورشة، اشتراك إنترنت، راتب موظف دائم)." />
               </label>
               {/* SA3: استبدال <select> الخام بمكوّن <Select> المشترك لمطابقة SA2 baseline §2.5. */}
               <Select

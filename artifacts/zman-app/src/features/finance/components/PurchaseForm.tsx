@@ -10,6 +10,7 @@ import { MoneyInput } from "@/components/shared/MoneyInput";
 import { Button } from "@/components/shared/Button";
 import { Select } from "@/components/shared/Select";
 import { TextArea } from "@/components/shared/TextArea";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 // SA3 — formatFilsToJod لعرض سعر القطعة الواحدة بدل toLocaleString الخام.
 import { formatFilsToJod } from "@/lib/money";
 import { purchaseInputSchema } from "../schema";
@@ -101,6 +102,13 @@ export function PurchaseForm({
   // Phase 2 — نراقب isCapitalAsset لإظهار/إخفاء حقل طبيعة التكلفة.
   const isCapital = watch("isCapitalAsset");
 
+  // Phase 3 — نراقب linkedCatalogComponentId لعرض تأثير الربط على المخزون.
+  // (مُعلَن قبل useEffects التالية كي يُمكن استخدامها في حراس A-3).
+  const watchedLinkedCatalogComponentId = watch("linkedCatalogComponentId");
+  const watchQty = watch("quantity") || 0;
+  const watchUnitCost = watch("unitCostCents") || 0;
+  const watchTotal = watch("totalCents") || 0;
+
   // SA1 (A-3 fix — Round 4) — إذا كان الشراء رأسمالياً، أفرغ الربط بصنف متتبَّع
   // تلقائياً. هذا يمنع إرسال (isCapitalAsset=true, linkedCatalogComponentId != null)
   // للخادم، الذي يرفضه الآن صراحةً. الـ UI أيضاً يُخفي picker عند isCapital=true
@@ -115,11 +123,18 @@ export function PurchaseForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCapital]);
 
-  // Phase 3 — نراقب linkedCatalogComponentId لعرض تأثير الربط على المخزون.
-  const watchedLinkedCatalogComponentId = watch("linkedCatalogComponentId");
-  const watchQty = watch("quantity") || 0;
-  const watchUnitCost = watch("unitCostCents") || 0;
-  const watchTotal = watch("totalCents") || 0;
+  // SA3 (Round 4 — A-3 UI guard completion) — الاتجاه المعاكس: إذا اختار المستخدم
+  // صنفاً متتبَّعاً من الـ picker، أفرغ علم «رأسمالي» وعطِّل checkbox الرأسمالية.
+  // هذا يُكمل حارس A-3 (الخادم يرفض الجمع، الـ UI يمنعه من الأساس في كلا الاتجاهين).
+  // بدون هذا، يستطيع المستخدم اختيار صنف متتبَّع ثم تفعيل الرأسمالية — فيُرسل الطلب
+  // ويُرفض من الخادم برسالة خطأ. هذا الإجراء يمنع الـ round-trip ويُوضّح النية.
+  useEffect(() => {
+    if (watchedLinkedCatalogComponentId) {
+      setValue("isCapitalAsset", false);
+    }
+    // watchedLinkedCatalogComponentId فقط.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedLinkedCatalogComponentId]);
 
   // اجلب رصيد الصنف المرتبط حالياً لعرضه أسفل الحقل.
   const { data: linkedStock } = useComponentStock(
@@ -331,32 +346,47 @@ export function PurchaseForm({
         </div>
 
         {/* Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر).
-            Phase 3 — أُضيف حقل «صنف الكتالوج المرتبط» (كان مؤجَّلاً من 2.J). */}
+            Phase 3 — أُضيف حقل «صنف الكتالوج المرتبط» (كان مؤجَّلاً من 2.J).
+            SA3 (Round 4 — B-2): input + label ملفوفان في <label> واحد بـ min-h-[44px].
+            SA3 (Round 4 — A-3): checkbox يُعطَّل عند اختيار صنف متتبَّع (يمنع الجمع
+            المزدوج في الميزانية). نص توضيحي تحت checkbox يشرح سبب التعطيل.
+            SA3 (Round 4 — B-5): InfoTooltip على كلا الاختيارين (رأسمالي + طبيعة التكلفة). */}
         <div className="space-y-3 p-3.5 bg-canvas/30 rounded-lg border border-hairline">
           {/* بُعد 1: رأسمالي؟ */}
-          <div className="flex items-center gap-3">
+          <label
+            htmlFor={`${formId}-capital`}
+            className={`flex items-center gap-3 min-h-[44px] cursor-pointer ${
+              watchedLinkedCatalogComponentId ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
             <input
               type="checkbox"
               id={`${formId}-capital`}
               {...register("isCapitalAsset")}
-              className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info"
+              disabled={!!watchedLinkedCatalogComponentId}
+              className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info shrink-0"
             />
-            <label
-              htmlFor={`${formId}-capital`}
-              className="text-sm font-bold text-ink/75 cursor-pointer"
-            >
+            <span className="text-sm font-bold text-ink/75">
               أصل رأسمالي (آلة، أثاث، معدات — يُهلَك عبر الزمن، لا يُخصم من الربح التشغيلي)
-            </label>
-          </div>
+            </span>
+            <InfoTooltip text="الأصل الرأسمالي هو آلة أو أثاث أو معدات تخدم المشروع لسنوات (مثل ثلاجة العرض أو آلة الزراعة). لا يُخصم من الربح التشغيلي في شهر الشراء، بل يظهر كـ«إضافة أصل رأسمالي» في الميزانية. مقابل ذلك، الشراء العادي للمخزون يُسجَّل كمخزون ثم يُخصم من الربح عند البيع عبر تكلفة البضاعة المباعة. لا يمكن الجمع بين الرأسمالية والربط بصنف متتبَّع — اختر أحدهما." />
+          </label>
+          {watchedLinkedCatalogComponentId && (
+            <p className="text-[11px] text-ink-3 leading-relaxed ps-1">
+              عُطِّل خيار «رأسمالي» لأنك اخترت صنفاً متتبَّعاً — الشراء المرتبط بمخزون
+              لا يمكن أن يكون رأسمالياً في الوقت نفسه (يُحسب مرتين في الميزانية).
+            </p>
+          )}
 
           {/* بُعد 2: الطبيعة (يظهر إن لم يكن رأسمالياً) */}
           {!isCapital && (
             <div className="space-y-2 flex flex-col">
               <label
                 htmlFor={`${formId}-cost-nature`}
-                className="text-sm font-bold text-ink/75"
+                className="text-sm font-bold text-ink/75 flex items-center gap-1.5"
               >
                 طبيعة التكلفة
+                <InfoTooltip text="التكلفة المتغيّرة تزيد وتنقص مع حجم العمل (خامات، تغليف، وقود التوصيل). التكلفة الثابتة تبقى كما هي تقريباً كل شهر بغضّ النظر عن المبيعات (إيجار الورشة، اشتراك إنترنت، راتب موظف دائم)." />
               </label>
               {/* SA3: استبدال <select> الخام بمكوّن <Select> المشترك لمطابقة SA2 baseline §2.5. */}
               <Select

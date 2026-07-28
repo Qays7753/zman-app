@@ -11,6 +11,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { Button } from "@/components/shared/Button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 
 import {
   useCreateExpense,
@@ -258,7 +259,7 @@ export function ExpensesTab() {
   };
 
   return (
-    <div className="space-y-4 flex-1 flex flex-col pb-24">
+    <div className="space-y-4 flex-1 flex flex-col pb-36">
 
       {isLoading ? (
         <SkeletonList />
@@ -279,6 +280,20 @@ export function ExpensesTab() {
         />
       ) : (
         <div className="space-y-3 flex-1 flex flex-col">
+          {/* SA3 (Round 4 — B-5): مفتاح الشارات (legend) مع InfoTooltip واحد يشرح
+              الفرق بين الأنواع الثلاثة. بدل تكرار الـ tooltip على كل صف. */}
+          <div className="flex items-center gap-2 text-[10px] text-ink/50 flex-wrap px-1">
+            <span className="flex items-center gap-1">
+              <span className="px-1.5 py-0.5 bg-warn-soft text-warn-deep rounded-full font-bold">رأس مال</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="px-1.5 py-0.5 bg-info-soft text-info rounded-full font-bold">ثابتة</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="px-1.5 py-0.5 bg-canvas text-ink-3 rounded-full font-bold">متغيّرة</span>
+            </span>
+            <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: مصروف شهري ثابت تقريباً (إيجار، راتب). «متغيّرة»: مصروف يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
+          </div>
           <div className="space-y-3">
             {filteredExpenses.map((item, idx) => (
               // biome-ignore lint/a11y/useSemanticElements: card container is interactive
@@ -321,7 +336,8 @@ export function ExpensesTab() {
                     )}
                     {/* D7 fix — زر «إيقاف الإهلاك» على الصفوف التي لها capital_asset نشط.
                         SA3: استبدال amber-* الخام برموز warn، وتكبير الهدف اللمسي (min-h + min-w)
-                        لمطابقة SA2 baseline §3.6 (tap targets ≥ 44px). */}
+                        لمطابقة SA2 baseline §3.6 (tap targets ≥ 44px).
+                        SA3 (Round 4 — B-2): min-h-[28px] → min-h-[44px] لتحقيق معيار اللمس. */}
                     {item.activeCapitalAssetId && (
                       <button
                         type="button"
@@ -329,7 +345,7 @@ export function ExpensesTab() {
                           e.stopPropagation();
                           setStopDepreciationAssetId(item.activeCapitalAssetId!);
                         }}
-                        className="min-h-[28px] min-w-[44px] px-2.5 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors"
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center px-3 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors"
                         title="إيقاف الإهلاك — لن يُخصَم من الربح التشغيلي مستقبلاً"
                       >
                         إيقاف الإهلاك
