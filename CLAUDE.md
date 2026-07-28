@@ -1,77 +1,354 @@
-# CLAUDE.md — قواعد المشروع
+# CLAUDE.md — قواعد المشروع وحالته
 
-## النشر و git push — قاعدة إلزامية
+> **آخر تحديث:** 28 تموز 2026، بعد دمج ترقية النظام المالي (5 جولات) على `main`.
+> اقرأ §0 «أين نحن الآن» قبل أي شغل — النموذج المالي **تغيّر جوهرياً** عن النسخة السابقة من هذا الملف.
 
-**أي رفع (push) يجب أن يذهب إلى كل المستودعات البعيدة بدون تمييز.** لا تدفع لمستودع واحد وتترك الآخر — المستودعات يجب أن تبقى متطابقة دائماً على نفس الكومت.
+---
 
-المستودعات البعيدة الحالية:
+## 0. أين نحن الآن — ابدأ من هنا
+
+`main` الآن عند `915e7cc`. تحتوي على ترقية مالية كاملة أُنجزت عبر **5 جولات** من العمل الآلي، تلتها في كل جولة **مراجعة مستقلّة بقاعدة بيانات PostgreSQL حيّة ومتصفّح حقيقي**. الترقية دُمجت بـ fast-forward نظيف، وPR #2 أُغلق كمدموج.
+
+### ما الذي حلّته الترقية
+
+المشكلة الأصلية: «ربحي يتأرجح ولم أرَ رقمي الحقيقي أبداً». سببان:
+1. المشتريات الرأسمالية (ماكينة) كانت تنزّل ربح شهر الشراء كاملاً.
+2. لا يوجد مخزون — شراء الخامات يُخصم فوراً، وبيعها لا يُخصم منه شيء، فتظهر تأرجحات وهمية.
+
+### ما بُني (المراحل الأربع + جولتا إصلاح)
+
+| المرحلة | ماذا |
+|---|---|
+| 1 | `order_component.catalog_component_id` — ربط مكوّنات الطلب بالكتالوج |
+| 2 | تصنيف التكاليف بُعدين (رأسمالي؟ / ثابت-متغيّر) + `computeOperatingPnl` كمصدر وحيد للربح + IC-13 |
+| 3 | مخزون انتقائي: `tracked` + `catalog_movement` + خصم عند التسليم + IC-12 |
+| 4 | إهلاك محسوب عند القراءة: `capital_asset` + IC-14 |
+| جولة 4 | رأسملة المخزون المتتبَّع + COGS عند البيع + إصلاح كسور الفلس + دورة حياة الأصول |
+| جولة 5 | حارس مصروف الهدر + إصلاحات موبايل (تلميحات، أهداف لمس، الزر العائم) |
+
+### حالة النشر
+
+| البند | الحالة |
+|---|---|
+| الكود على `main` | ✅ مدموج ومرفوع إلى `Qays7753/zman-app` |
+| المستودع الثاني (`balqeesemad1996`) | ⚠️ **لم يُزامَن** — انظر §1 |
+| migrations على قاعدة الإنتاج | ⚠️ **لم تُطبَّق بعد** — انظر §6 |
+| النشر على Vercel | يتبع `main` — سينشر الكود، لكن **بدون migrations سينكسر** |
+
+**لا تنشر قبل تطبيق الـ migrations.** الكود يتوقّع أعمدة وجداول غير موجودة في قاعدة الإنتاج.
+
+---
+
+## 1. النشر و git push — قاعدة إلزامية
+
+**أي رفع يجب أن يذهب إلى كل المستودعات البعيدة.** المستودعات تبقى متطابقة على نفس الكومت دائماً.
+
+على جهاز المالك:
 - `origin` → https://github.com/balqeesemad1996/zman-app.git
 - `qays` → https://github.com/Qays7753/zman-app.git
 
-عند كل دفعة، نفّذ الدفع لكليهما:
 ```bash
 git push origin main
 git push qays main
 ```
-(وأي remote إضافي يُضاف مستقبلاً يدخل ضمن نفس القاعدة.)
 
-السبب: Vercel مربوط بـ `Qays7753/zman-app`، والمستودع الأساسي للمالك هو `balqeesemad1996/zman-app`. إبقاؤهما متطابقين يضمن أن أي تعديل يُنشر فعلاً ولا يضيع.
+⚠️ **تنبيه حالي:** دمج الترقية تمّ ورُفع إلى **Qays7753** فقط (بيئة العمل الآلي كانت تراه باسم `origin`). أي أن `balqeesemad1996` **متأخّر 17 كومت**. أول أمر تنفّذه على جهازك:
 
-## ملفات لا تُرفع أبداً (مُدرجة في .gitignore)
+```bash
+git fetch qays && git merge --ff-only qays/main && git push origin main
+```
 
-- `.env` و`.env.*` — أسرار قاعدة البيانات (DATABASE_URL, PASSCODE). **لا تُرفع إطلاقاً.**
-- `.next/`, `.open-next/`, `.wrangler/` — مخرجات بناء مؤقتة (سبق أن نفّخت التاريخ لـ 609MB؛ نُظّفت).
+السبب: Vercel مربوط بـ `Qays7753`، والمستودع الأساسي للمالك هو `balqeesemad1996`.
+
+---
+
+## 2. النموذج المالي — القاعدة الأساسية (لا تُخالَف)
+
+> 🔴 **هذا القسم تغيّر جذرياً في ترقية تموز 2026.** النسخة السابقة كانت تقول «صندوق تجميعي بحت، لا مخزون، لا COGS». **لم يعد ذلك صحيحاً.** إن وجدت كوداً أو تعليقاً يناقض ما هنا، فهو بقايا قديمة — لا تُرجِع السلوك للقديم.
+>
+> **المرجع التفصيلي الكامل:** `artifacts/zman-app/docs/ACCOUNTING_RULES.md` — يحوي INV-1..INV-25 و IC-1..IC-14. هو الدستور؛ هذا الملف ملخّصه.
+
+### الأساس: صندوق نقدي + ثلاثة تعديلات غير نقدية
+
+`cash_movement` يبقى المصدر الوحيد للحقيقة النقدية (INV-1). فوقه ثلاثة تعديلات **غير نقدية** تُحسب عند القراءة:
+
+```
+operatingNetCents = salesCents
+                  − operatingExpensesCents      (تستثني الرأسمالي)
+                  − operatingPurchasesCents     (تستثني المخزون المُرأسمَل)
+                  − cogsCents                   (تكلفة البضاعة المباعة)
+                  − inventoryWriteOffCents      (هدر/تلف مخزون)
+                  − monthlyDepreciationCents    (إهلاك الفترة)
+```
+
+هذا التعريف موجود في **مكان واحد فقط**: `src/features/finance/pnl.ts:computeOperatingPnl`.
+
+### الأصول الرأسمالية
+
+المشتريات/المصاريف المُصنّفة `is_capital_asset = true` **لا تُخصم من الربح التشغيلي**. تُعرض سطراً منفصلاً وتُطرح من `totalEquity` للحفاظ على توازن IC-1. يمكن للمالك اختيار توزيعها إهلاكاً شهرياً — و`started_at = purchaseDate` (لا تاريخ اليوم)، فالإدخال المتأخّر يأخذ حصّته الصحيحة.
+
+### المخزون الانتقائي
+
+الأصناف المُعلَّمة `tracked = true` فقط:
+- شراء مرتبط بصنف متتبَّع → **يُرأسمَل مخزوناً** (لا يخصم من الربح) ويظهر أصلاً في الميزانية.
+- عند التسليم (`convertOrderToSale`) → تُخصم الكمية وتُسجَّل تكلفتها COGS بالمتوسط المرجَّح.
+- الأصناف غير المتتبَّعة تبقى مصروفاً مباشراً كما كان.
+
+### هدر المخزون
+
+`adjustStock(direction='out')` يُنشئ صف `expense` بـ `is_inventory_writeoff = true` **بلا حركة نقدية** — خسارة غير نقدية تُخصم من الربح، فتبقى المعادلة متوازنة. **هذه الصفوف محروسة من التعديل والحذف** (انظر §5).
+
+### العربون — الاستثناء
+
+لا يُحسب إيراداً/ربحاً حتى التسليم والتحويل لمبيعة، رغم أن النقد في الصندوق:
+- **يظهر في:** النقد المتاح، «العربون المحتجَز» (التزام)، السيولة المتاحة.
+- **لا يدخل:** الربح، صافي الشهر، التدفّق النقدي الصافي.
+- في `convertOrderToSale` يُسجَّل الإيراد `price − deposit` (المتبقّي فقط) فلا يُحسب مرّتين.
+
+### الربح تراكمي لا فوري
+
+تُشترى كميات كبيرة وتُباع تدريجياً. شهر الشراء قد يبدو خسارة — **هذا صحيح، لا «تُصلحه»**. (مع المخزون المتتبَّع صار هذا أقلّ حدّة، لأن التكلفة تُخصم عند البيع.)
+
+### 🔒 LOCKED-6 — القاعدة التي لا تُكسر
+
+`dashboard.summary.netProfit` == `reports.pnl.netCents` == `dashboard.monthlyProfit[last].netProfitCents`
+
+الثلاثة **تُنادي `computeOperatingPnl`**. لا تعريف inline للربح في أي مكان. `IC-13` يحرس ذلك وقت التشغيل لفترتين (الشهر الحالي وكل التاريخ) ويعطي FAIL عند أي انحراف.
+
+قبل تعديل أي من: `dashboard/queries.ts:getFinancialSummary`, `dashboard/queries.ts:getMonthlyProfit`, `reports/actions.ts:computeCashBasisPnl` — اقرأ هذا.
+
+---
+
+## 3. حمايات مُثبَتة — لا تكسرها
+
+هذه تحقّقت منها مراجعة مستقلّة على PostgreSQL حيّة. أي تعديل يمسّها يحتاج إعادة إثبات:
+
+| # | الحماية | أين |
+|---|---|---|
+| 1 | `equityDriftCents = 0` و`balanced = true` في كل السيناريوهات | `reports/actions.ts:getFinancialPosition` |
+| 2 | معادلة حقوق الملكية: `opening + injections − drawings + retained − capitalAdditions` | `reports/actions.ts` (~888) |
+| 3 | `EXTRACT(YEAR FROM age)*12 + EXTRACT(MONTH FROM age)` — **ممنوع `date_part`** | `depreciation/queries.ts` |
+| 4 | `total_value_cents` يحمل المبلغ الصحيح (لا `qty × floor(unit)`) — يمنع كسور الفلس | `catalog_movement` |
+| 5 | LOCKED-6 (انظر §2) | `finance/pnl.ts` |
+| 6 | `purchase.total_cents` عمود `GENERATED ALWAYS` — **لا يُكتب يدوياً أبداً** | `finance/db.ts` |
+
+---
+
+## 4. مشكلة تسجيل الدخول ⚠️
+
+**العرَض:** تشغّل التطبيق محلياً، تفتحه من الهاتف عبر شبكة الواي فاي (`http://192.168.x.x:3000`)، تُدخل الرمز الصحيح — الصفحة ترجع لتسجيل الدخول بلا رسالة خطأ. حلقة مفرغة.
+
+**السبب (مؤكَّد من الكود):** `src/app/login/actions.ts:14`
+
+```ts
+cookieStore.set("zman_session", passcode, {
+  httpOnly: true,
+  secure: true,        // ← هنا
+  sameSite: "strict",
+  ...
+});
+```
+
+`secure: true` تعني أن المتصفّح **يرفض تخزين الكوكي إلا على HTTPS**. المتصفّحات تستثني `localhost` و`127.0.0.1` فقط. أي عنوان آخر عبر HTTP — ومنه IP الشبكة المحلية الذي تستخدمه لتجربة الهاتف — يُرفض بصمت: الخادم يرسل الكوكي، المتصفّح يرميه، الـ middleware لا يجد جلسة، فيعيد التوجيه لتسجيل الدخول.
+
+**لماذا لا تظهر رسالة:** `loginAction` يُرجِع `{success:true}` فعلاً — الفشل يحدث في المتصفّح لا في الخادم.
+
+**متى لا تظهر المشكلة:** على `localhost` مباشرة، وعلى Vercel (HTTPS). فالإنتاج سليم.
+
+**الحلول (بالترتيب):**
+
+1. **الأفضل — اجعلها مشروطة بالبيئة:**
+   ```ts
+   secure: process.env.NODE_ENV === "production",
+   ```
+   يحفظ الأمان في الإنتاج ويحلّ التطوير المحلي.
+
+2. **بديل بلا تعديل كود:** استخدم نفقاً بـ HTTPS للتجربة على الهاتف (`ngrok http 3000` أو `cloudflared tunnel`).
+
+3. **للفحص الآلي فقط:** ضبط كوكي `zman_session` مباشرة في سياق المتصفّح.
+
+**سبب ثانٍ محتمل — `PASSCODE` غير مضبوط:** الـ middleware «يُغلق بأمان»؛ إن لم يُعيَّن `PASSCODE` في البيئة، **كل** الطلبات تُعاد لتسجيل الدخول ولا أحد يستطيع الدخول إطلاقاً. تأكّد أنه في `.env` محلياً وفي متغيّرات Vercel.
+
+---
+
+## 5. مشاكل متبقّية معروفة
+
+مرتّبة حسب الأثر. لا شيء منها حاجب للنشر، لكن الأولان يغيّران رقماً يقرأه المالك.
+
+### يستحق الإصلاح
+
+**م-1 — استعلام تحقّق مكسور في وثيقة الجولة الخامسة.** الاستعلام الذي يقارن حركة الهدر بصف المصروف يربط على التصنيف فقط بلا مفتاح ربط، فمع أكثر من عملية شطب ينتج ضرب ديكارتي. الفحص صحيح، الاستعلام يحتاج ربطاً فعلياً.
+
+**م-2 — لا توجد طريقة لإيجاد الصفوف غير المُصنَّفة.** فلتر `?nature=` موجود في الكود **بلا أي زر في الواجهة** (يُكتب في الرابط يدوياً)، ويُطبَّق على العميل وعلى الصفحات المُحمَّلة فقط (infinite scroll)، و`variable` يشمل الصفوف الفارغة عمداً — فغير المُصنَّف **لا يمكن تمييزه** عن المُصنَّف متغيّر. مع بيانات شهرين سابقة، هذه العقبة الحقيقية أمام التصنيف الرجعي.
+
+**م-3 — شارة المكوّن لا تميّز المتتبَّع.** في قائمة مكوّنات الطلب، الشارة تقول «مربوط بصنف» أو «نص حر» فقط. مكوّن مربوط بصنف **متتبَّع** ومكوّن مربوط بصنف **غير متتبَّع** يظهران متطابقين — بينما الأول سيُخصم من المخزون والثاني لا. التمييز موجود في منتقي الكتالوج وفي `OrderDetail` بعد التسليم، لكن **ليس في اللحظة التي يقرّر فيها المالك**. الإصلاح سطر: الكود يجلب الصنف أصلاً في نفس الصف (`catalogItems.find(...)` للوحدة)، فحقل `tracked` متاح.
+
+**م-4 — لا يمكن تعديل العمر النافع لأصل رأسمالي بعد إنشائه.** `addCapitalAsset` idempotent على `(source_type, source_id)`، فإعادة الإرسال لا تُحدِّث. لا مسار في الواجهة لتصحيح عمر خاطئ — وهو رقم يغيّر الإهلاك الشهري.
+
+**م-5 — لا يمكن التراجع عن شطب مخزون بالخطأ.** الحارس يمنع حذف صف الهدر (صحيح)، لكن لا توجد ميزة «عكس الشطب» تُعيد الكمية وتحذف المصروف معاً في معاملة واحدة.
+
+### ثانوية
+
+**م-6 — كلفة `pe-16`.** الحل المطبَّق للزر العائم يأخذ 64 بكسل من كل صف في لوحتين، دائماً (18% من شاشة 360px). البديل الأرخص: حشوة سفلية على حاوية التمرير — تغطّي أي لوحة مستقبلية بلا كلفة عرض.
+
+**م-7 — أداة قياس التداخل لا تمرّر الصفحة.** جذر التطبيق `overflow-hidden` والتمرير في حاوية داخلية (`AppShell.tsx:192`)، فأي فحص يستخدم `window.scrollTo` يقيس موضعاً واحداً. نتائج «صفر تداخل» تعني «صفر عند أعلى الشاشة». الإصلاح:
+```js
+const sc = document.querySelector('main .overflow-y-auto');
+sc.scrollTop = step * sc.clientHeight * 0.9;
+```
+
+**م-8 — سلسلة migrations لا تبني المخطط من الصفر.** لا migration يُنشئ `account` أو `cash_movement` أو `owner_transaction` أو `opening_balance`، فـ `0011` و`0014` و`0015` تفشل على قاعدة بِكر. موثَّق في `ACCOUNTING_RULES.md §11.1`. البناء من الصفر يحتاج `drizzle-kit push`.
+
+**م-9 — أنماط N+1** في `useComponentStock` (الكتالوج، محرّر المكوّنات، نموذج الطلب) و`getMonthlyProfit` (6 استعلامات متتالية). غير مؤثّرة بحجم ورشة صغيرة.
+
+---
+
+## 6. تطبيق قاعدة البيانات ⚠️ (لم يُنفَّذ بعد)
+
+قاعدة الإنتاج على **Supabase** (`db/client.ts` مكتوب لـ Supavisor). هناك **9 migrations جديدة** (`0017`–`0025`) لم تُطبَّق.
+
+### لا تستخدم `drizzle-kit push`
+
+أربعة من الملفات تحتوي **تعديلات بيانات** لا مجرد بناء جداول:
+
+| الملف | عمليات UPDATE/INSERT |
+|---|---|
+| `0020_catalog_movement` | 1 |
+| `0022_capital_assets` | 1 |
+| `0023_inventory_capitalization` | 4 |
+| `0024_..._total_value_cents` | 5 |
+
+`push` يزامن **الهيكل فقط** ويتجاهلها → أعمدة فارغة، مشتريات قديمة غير مصنّفة، قيم مخزون غير معبّأة.
+
+### ولا `drizzle-kit migrate`
+
+لا يوجد سكربت `migrate` في المشروع، ولا migration يُنشئ الجداول المحورية — أي أن قاعدتك بُنيت أصلاً بـ `push`. جدول تتبّع الـ migrations ناقص أو فارغ، فـ `migrate` سيحاول البدء من `0000` ويفشل.
+
+### ✅ الطريقة الصحيحة
+
+شغّل الملفات التسعة **يدوياً بالترتيب** من SQL Editor في Supabase، من `0017` إلى `0025`. الملفات في `artifacts/zman-app/drizzle/migrations/`.
+
+جميعها **مُختبَرة على PostgreSQL حقيقي وأُعيد تشغيل كل منها ثلاث مرات بلا خطأ** — كلها محروسة بـ `IF NOT EXISTS` و`DO $$`، فتكرار التشغيل آمن.
+
+**تفاصيل Supabase:**
+- استخدم **SQL Editor** أو الاتصال **المباشر (منفذ 5432)** — لا الـ pooler (6543). وضع transaction في Supavisor يكسر كتل `DO $$`، وأربعة ملفات تحتوي عليها.
+- خذ نسخة احتياطية قبل البدء.
+
+### بعد التطبيق — تحقّق
+
+```sql
+-- المتوقع: صفر صفوف
+SELECT p.id, p.date, p.item, p.quantity, p.total_cents
+FROM purchase p
+WHERE p.is_tracked_inventory = true
+  AND p.deleted_at IS NULL
+  AND p.linked_catalog_component_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM catalog_movement cm
+    WHERE cm.source_type = 'purchase' AND cm.source_id = p.id AND cm.deleted_at IS NULL
+  );
+```
+
+ثم افتح `/reports` واضغط «فحص الآن». المتوقع: الكل PASS أو WARN، **ولا واحد FAIL**. إن ظهر `IC-1 = FAIL` فهناك خلل توازن — أوقف ولا تنشر.
+
+---
+
+## 7. البيانات السابقة — التصنيف الرجعي
+
+المالك يستخدم النظام منذ شهرين ببيانات مُدخَلة بالقواعد القديمة.
+
+### القاعدة: تاريخ فاصل (cut-over)
+
+اختر تاريخاً واحداً (أول الشهر أنظف). ما قبله يُترك كما هو، ما بعده بالنظام الجديد. **لا تُعِد كتابة الشهرين الماضيين** — الكلفة أكبر من الفائدة والخطر أعلى.
+
+### ما يستحق التصحيح الرجعي: الأصول الرأسمالية فقط
+
+أثرها مستمر (إهلاك شهور قادمة)، وتصحيحها رخيص، والنظام يتعامل معها صحيحاً — `started_at = purchaseDate` فتأخذ حصّتها من تاريخ الشراء الفعلي.
+
+### ما لا يستحق: مشتريات الخامات القديمة
+
+ربطها بالمخزون يُدخل **كامل الكمية** بما فيها المُباع، ويسحب تكلفتها من أشهر ماضية فيغيّر أرباحاً تاريخية. وإزالة المُباع بـ«صرف يدوي» تسجّله **هدراً** — أي بضاعة رابحة تُسجَّل خسارة.
+
+### جرد البداية
+
+الطريق المتاح اليوم: فعّل `tracked` وأدخل الجرد الفعلي رصيداً افتتاحياً. يدخل **بتكلفة صفر** — وهذا **صحيح**، لأن تكلفته حُسبت مصروفاً وقت الشراء. إدخاله بقيمة دون قيد مقابل = حساب مرّتين وكسر IC-1.
+
+**الأثر:** الميزانية تُظهر قيمة مخزون أقل من الواقع، وخلال فترة انتقالية يخلط المتوسط المرجَّح وحدات بصفر مع وحدات بتكلفتها فتظهر تكلفة البيع أقل والربح أعلى مؤقتاً. يتصحّح تلقائياً مع نفاد القديم.
+
+**الحل الكامل (غير مبني):** رصيد افتتاحي بتكلفة + **قيد مقابل بتاريخ اليوم** يرفع ربح الفترة الحالية بنفس المقدار. عندها: الميزانية صحيحة، الماضي لا يُمسّ، والمجموع على عمر البضاعة مضبوط. انظر §8.
+
+---
+
+## 8. الجولة القادمة — النطاق المقترح
+
+1. **فلتر «غير مُصنَّف»** في الواجهة + عدّاد «ضلّ N صفاً» (يحلّ م-2). يتطلّب تمييز `NULL` عن `variable` وفلترة على الخادم.
+2. **شارة المكوّن الثلاثية:** «متتبَّع» / «مربوط — غير متتبَّع» / «نص حر» (يحلّ م-3).
+3. **رصيد افتتاحي بتكلفة + قيد مقابل** — من صفّ فاتورة الشراء، مع إدخال **الكمية المتبقّية** لا المشتراة، وحقل مستقل (`sourceType='opening'`) لا مشتقّ من الفاتورة.
+   ⚠️ فخّ: `updatePurchase` يعيد اشتقاق حركة المخزون من كمية الفاتورة عند أي حفظ لاحق — لو خُزّن «المتبقّي» داخل صف الفاتورة سيُمحى بصمت.
+   ⚠️ يجب أن يظهر تأكيد صريح: «سيدخل X مخزوناً ويرتفع ربح هذا الشهر X لمرّة واحدة، لأن تكلفته حُسبت سابقاً.»
+4. **تعديل العمر النافع** لأصل قائم (م-4).
+5. **إصلاح `secure: true`** في تسجيل الدخول (§4).
+6. **تصحيح الاستعلام** (م-1).
+
+---
+
+## 9. ملفات لا تُرفع أبداً (في .gitignore)
+
+- `.env` و`.env.*` — أسرار قاعدة البيانات (`DATABASE_URL`, `PASSCODE`). **لا تُرفع إطلاقاً.**
+- `.next/`, `.open-next/`, `.wrangler/` — مخرجات بناء (سبق أن نفّخت التاريخ لـ 609MB؛ نُظّفت).
 - `.claude/`, `next-env.d.ts`, `GEMINI_*.md` — ملفات محلية/مؤقتة.
+- **سكربتات الفحص والـ seed المؤقتة** — لا تُترك في `artifacts/zman-app/`؛ ملف `.ts` شارد قد يكسر البناء أو يتسرّب للحزمة.
 
-## بنية المشروع
+---
 
-monorepo بإدارة pnpm workspace. التطبيق القابل للنشر هو `artifacts/zman-app` (Next.js 15 App Router، اسم الحزمة `@workspace/zman-app`). Vercel مُعدّ عبر Dashboard (لا يوجد `vercel.json`) — الـ Root Directory مضبوط على `artifacts/zman-app` مباشرة.
+## 10. بنية المشروع
 
-## Financial Model — Core Business Rule (Never Violate)
+monorepo بإدارة pnpm workspace. التطبيق القابل للنشر: `artifacts/zman-app` (Next.js 15 App Router، الحزمة `@workspace/zman-app`). Vercel مُعدّ عبر Dashboard (لا `vercel.json`) — الـ Root Directory على `artifacts/zman-app` مباشرة.
 
-This model is the **source of truth** for any work touching money, orders, the dashboard, or
-reports. Any change that contradicts it is a break in business logic.
+النقود **أعداد صحيحة بالفلس** (1 دينار = 1000 فلس). `formatFilsToJod` هو المنسّق الوحيد. الواجهة عربية RTL — **خصائص منطقية فقط** (`ps-`/`pe-`/`ms-`/`me-`/`start-`/`end-`/`text-start`/`text-end`)، ممنوع `pl-`/`pr-`/`left-`/`right-`/`text-left`/`text-right`.
 
-**ملخص بالعربي:** النظام المالي صندوق بسيط تجميعي (واردات − صادرات) لا يتتبّع المخزون ولا
-تكلفة كل منتج. نظام الطلبات منفصل تماماً وأرقامه تقريبية ولا تدخل المالي. الجسر الوحيد هو
-لحظة التسليم (تحويل الطلب لإيراد كامل). الربح تراكمي لا فوري. العربون لا يُحسب ربحاً/إيراداً
-إلا عند تسليم الطلب وتحويله لمبيعة — قبلها هو نقد والتزام فقط، لا ربح.
+**المستخدم على الهاتف 95% من الوقت.** أي واجهة جديدة تُفحص على 360px و390px — لا تمرير أفقي، لا قصّ، لا تراكب، وأهداف لمس ≥ 44 بكسل.
 
-### Principle: a simple cash box — inflows and outflows only
-The financial system is **purely aggregate**. It does NOT track inventory or per-product cost.
-Profit/Loss = `total sales − total purchases − total expenses`. No COGS, no matching cost to sale.
+---
 
-### Two fully separate systems
-1. **Financial system** = the official truth. Aggregate. It alone determines profit.
-2. **Orders system** = fully separate, for order tracking only. Its prices/costs are
-   **approximate and inaccurate** (a rough per-order profit hint). **Order numbers never enter
-   the financial system** — no financial/profit calculation is built on order component costs.
+## 11. بوابات الفحص — إلزامية قبل أي كومت
 
-### The only bridge = the delivery moment
-When an order is delivered it is converted into the financial system **as full revenue** with no
-cost deducted from it (its cost already entered finance earlier as "purchases" when materials
-were bought). Conversion happens via `convertOrderToSale`.
+```bash
+cd artifacts/zman-app
+pnpm build        # ← البوابة الحقيقية. من artifacts/zman-app لا من الجذر.
+pnpm typecheck
+pnpm drizzle-kit generate    # يجب أن يطبع "No schema changes, nothing to migrate 😴"
+```
 
-### Profit is cumulative, not immediate
-Large quantities are bought at once and sold gradually over months. So buying months look like a
-"loss", and profit appears later when selling from already-paid inventory. The aggregate system
-measures this truthfully over time. **Do NOT "fix" the loss in a buying month — it is correct.**
+⚠️ **لا تشغّل `pnpm build` من جذر الـ monorepo** — يفشل على `artifacts/mockup-sandbox` (`PORT environment variable is required`)، وهي حزمة غير ذات صلة. Vercel يبني من `artifacts/zman-app`.
 
-### The deposit — the only exception (owner's decision)
-A deposit is cash received **before** delivery. Rule: **a deposit is NOT counted as revenue/profit
-until the order is delivered and converted to a sale**, even though the cash is already in the box.
-Therefore:
-- The deposit **appears in**: available cash (real balance), "deposits held" (liability/debt),
-  "available liquidity".
-- The deposit **must NOT enter**: profit / "monthly net" / "net cash flow". Revenue for profit = `sale` only.
-- In `convertOrderToSale`, revenue is recorded as `sale` for `price − deposit` (remainder only),
-  so the deposit is never double-counted. This is correct; do not change it.
-- Reference: `reports/actions.ts` already subtracts deposits from retained profit
-  (`retainedProfit = salesCashIn − deposits − cashOut`). The dashboard must be consistent with this.
+⚠️ **`typecheck` وحده لا يكفي.** جولة سابقة رُفعت وهي لا تبني إطلاقاً لأن الفحص اقتصر عليه — `typecheck` لا يكشف خرق حدود الخادم/العميل (`"use server"` ناقص). **`pnpm build` هو المعيار.**
 
-## pnpm و Vercel — قواعد حرجة
+---
 
-- المشروع يستخدم **pnpm v10**. الإصدار مُثبّت في `package.json` عبر `"packageManager": "pnpm@10.32.1"` — **لا تُزِل هذا الحقل** وإلا سيستخدم Vercel إصدار pnpm قديم ويفشل النشر.
-- **الـ overrides** (esbuild, lightningcss, rollup, إلخ) موجودة في `pnpm-workspace.yaml` (ليس package.json) — هذا خاص بـ pnpm v10. أي تعديل على overrides يتطلب تحديث `pnpm-lock.yaml` عبر `pnpm install`.
-- عند إضافة حزمة جديدة أو تعديل `pnpm-workspace.yaml`، شغّل `pnpm install` محلياً وارفع `pnpm-lock.yaml` المُحدّث مع الكومت — وإلا يفشل `--frozen-lockfile` على Vercel.
-- سكربت `preinstall` في الجذر يستخدم `sh` (Linux). على Windows استخدم `--ignore-scripts` عند الحاجة لإعادة توليد الـ lockfile.
+## 12. pnpm و Vercel — قواعد حرجة
+
+- المشروع يستخدم **pnpm v10**، مثبّت في `package.json` عبر `"packageManager": "pnpm@10.32.1"` — **لا تُزِل هذا الحقل** وإلا استخدم Vercel إصداراً قديماً وفشل النشر.
+- **الـ overrides** (esbuild, lightningcss, rollup…) في `pnpm-workspace.yaml` لا في `package.json` — خاص بـ pnpm v10. أي تعديل عليها يتطلّب `pnpm install` لتحديث `pnpm-lock.yaml`.
+- عند إضافة حزمة أو تعديل `pnpm-workspace.yaml`، شغّل `pnpm install` محلياً وارفع `pnpm-lock.yaml` مع الكومت — وإلا فشل `--frozen-lockfile` على Vercel.
+- سكربت `preinstall` في الجذر يستخدم `sh` (Linux). على Windows استخدم `--ignore-scripts` عند إعادة توليد الـ lockfile.
+
+---
+
+## 13. تشغيل محلي للفحص
+
+```bash
+# قاعدة بيانات مؤقتة
+PGD=/tmp/zmanpg
+rm -rf $PGD && mkdir -p $PGD && chown postgres:postgres $PGD
+su postgres -c "initdb -D $PGD -U postgres --auth=trust -E UTF8"
+su postgres -c "pg_ctl -D $PGD -o '-p 55432 -k /tmp' -l $PGD/log start"
+psql -h /tmp -p 55432 -U postgres -c "CREATE DATABASE zman;"
+export DATABASE_URL="postgres://postgres@127.0.0.1:55432/zman"
+cd artifacts/zman-app && ./node_modules/.bin/drizzle-kit push --force
+
+# التطبيق
+DATABASE_URL="..." PASSCODE="123456" PORT=3000 pnpm start
+```
+
+**مطبّات إدخال البيانات:** `sale.source` محصور بـ `'manual'|'order'` وهو `NOT NULL`؛ `order` فيه `total_cost_cents` و`total_price_cents` (لا `price_cents`)؛ `opening_balance` بلا عمود `account_id`؛ و`getAmmanDate()` يُرجع تاريخ **عمّان** — إن كانت ساعة الخادم مساءً بتوقيت UTC فهو تاريخ الغد، وسيستبعد صامتاً حركات كتبتها للتو.
