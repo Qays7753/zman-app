@@ -116,6 +116,17 @@ export const expense = pgTable(
     // Phase 2 — التصنيف بُعدين: رأسمالي؟ + طبيعة (ثابت/متغيّر). نفس منطق purchase.
     isCapitalAsset: boolean("is_capital_asset").notNull().default(false),
     costNature: text("cost_nature"),
+    // SA1 (Round 4 — A-1 fix) — علم «هدر/تلف مخزون غير نقدي». يُضبَط على true
+    // فقط من adjustStock (direction='out' مع totalValueCents > 0) داخل نفس
+    // transaction حركة catalog_movement `out`. لا تُنشَأ لها cash_movement —
+    // الخسارة غير نقدية (مثل COGS). computeOperatingPnl يقرأ المصاريف بهذا
+    // العلم مباشرةً (لا عبر cash_movement) كبند مستقل inventoryWriteOffCents
+    // يُخصم من operatingNetCents. getFinancialPosition يخصم cumulative-to-date
+    // من retainedProfitCents ليبقى IC-1 = 0. موثَّق في INV-25 / §9 من
+    // ACCOUNTING_RULES.md.
+    isInventoryWriteoff: boolean("is_inventory_writeoff")
+      .notNull()
+      .default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -149,6 +160,12 @@ export const expense = pgTable(
       index("expense_capital_idx")
         .on(table.isCapitalAsset)
         .where(sql`deleted_at is null`),
+      // SA1 (Round 4 — A-1 fix) — فهرس جزئي على is_inventory_writeoff=true
+      // يُسرِّع computeOperatingPnl.inventoryWriteOffCents و
+      // getFinancialPosition.inventoryWriteOffCentsToDate.
+      index("expense_inventory_writeoff_idx")
+        .on(table.isInventoryWriteoff, table.date)
+        .where(sql`is_inventory_writeoff = true AND deleted_at IS NULL`),
     ];
   },
 );

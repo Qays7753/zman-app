@@ -6,6 +6,8 @@ import { db } from "@/lib/db/client";
 import { mapDbError } from "@/lib/db/errors";
 import { capitalAsset } from "./db";
 import { getCapitalAssetForSource } from "./queries";
+// SA1 (A-2 fix — Round 4) — getAmmanDate لرفض تاريخ الشراء المستقبلي.
+import { getAmmanDate } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────
 // depreciation/actions — إضافة وقراءة الأصول الرأسمالية المُهلَكة (Phase 4)
@@ -43,7 +45,7 @@ interface AddCapitalAssetInput {
  *      إن وُجد: إرجاع الصف الموجود (idempotency على مستوى المصدر).
  *   3. حساب monthlyDepreciationCents = Math.floor(purchaseAmountCents / usefulLifeMonths).
  *      Math.floor (لا Math.round) لتفادي إهلاك أكثر من 100% من قيمة الأصل.
- *   4. إدراج الصف. started_at = now() افتراضياً (تاريخ بداية الإهلاك = اليوم).
+ *   4. إدراج الصف. started_at = purchaseDate (validated input — SA1 A-2 fix).
  *
  * لا تُدرَج حركة cash_movement. الإهلاك غير نقدي (INV-22).
  *
@@ -99,6 +101,18 @@ export async function addCapitalAsset(
     };
   }
 
+  // SA1 (A-2 fix — Round 4) — ارفض تاريخ الشراء المستقبلي. تاريخ البدء يجب أن
+  // يكون اليوم أو قبل اليوم. لا معنى لبدء إهلاك أصل لم يُشترَ بعد. راجع INV-22
+  // (الإهلاك = 0 في شهر started_at نفسه؛ أول charge في الشهر التالي).
+  const today = getAmmanDate();
+  if (purchaseDate > today) {
+    return {
+      status: "error",
+      message:
+        "تاريخ الشراء لا يمكن أن يكون في المستقبل — حدّد تاريخاً اليوم أو قبل اليوم",
+    };
+  }
+
   try {
     // 2. Idempotency على مستوى المصدر: إن وُجد capital_asset نشط مسبقاً لنفس
     //    (sourceType, sourceId)، أرجِع الصف الموجود. هذا يمنع تكرار الإهلاك
@@ -123,7 +137,14 @@ export async function addCapitalAsset(
       purchaseAmountCents / usefulLifeMonths,
     );
 
-    // 4. إدراج الصف. started_at = now() (DEFAULT في DB — راجع depreciation/db.ts).
+    // 4. إدراج الصف. started_at = purchaseDate (validated input — SA1 A-2 fix).
+    //    قبل هذا الإصلاح، started_at كان DB-default = now()، أي لحظة قرار
+    //    المستخدم، فكانت الأصول القديمة لا تُستهلك بأثر رجعي حتى لو أُدخلت
+    //    بـ purchaseDate قديمة. الآن started_at = purchaseDate، فيبدأ الإهلاك
+    //    من تاريخ الشراء الفعلي. للأصول القديمة جداً (عمرها > useful_life_months):
+    //    months_elapsed ≥ useful_life → CASE «الشهر الأخير يكتسح الباقي» في
+    //    getCapitalAssetValuation → NBV = 0 (مُستهلَك بالكامل، صحيح جبرياً).
+    //    IC-14 يبقى PASS (NBV ≥ 0). راجع INV-22 / §10 من ACCOUNTING_RULES.md.
     const [row] = await db
       .insert(capitalAsset)
       .values({
@@ -134,6 +155,10 @@ export async function addCapitalAsset(
         purchaseAmountCents,
         usefulLifeMonths,
         monthlyDepreciationCents,
+        // SA1 (A-2 fix — Round 4) — started_at = purchaseDate (وليس DB-default now()).
+        // الأصل يبدأ الإهلاك من تاريخ الشراء. الإهلاك = 0 في شهر started_at نفسه،
+        // أول charge في الشهر التالي (INV-22 — لا تغيير على SQL).
+        startedAt: new Date(`${purchaseDate}T00:00:00Z`),
       })
       .returning({
         id: capitalAsset.id,

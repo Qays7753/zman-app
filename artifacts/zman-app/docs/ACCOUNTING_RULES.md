@@ -182,6 +182,7 @@ INV-24). معادلة IC-1 (totalAssets = totalLiab + totalEquity) تبقى مت
 | INV-23 | **رأسمَلة المخزون المتتبَّع (Phase 3-revised / D4 fix).** الشراء لصنف متتبَّع (`purchase.is_tracked_inventory = true`) يُستبعَد من `operatingPurchasesCents` في `computeOperatingPnl` (لا يخفض الربح التشغيلي في شهر الشراء). يُرأسمَل كمخزون بالتكلفة التاريخية (`floor(totalCents / quantity)` للوحدة، يُخزَّن في `catalog_movement.unit_cost_cents` للحركة `in`). حركة الصندوق `out` تُدرَج كالمعتاد (النقد خرج فعلاً)، لكنها تُوسم بـ `is_tracked_inventory = true` ليُستبعَد مبلغها من P&L. `createPurchase`/`updatePurchase` يضبطان `is_tracked_inventory` تلقائياً عند `linked_catalog_component_id` يشير لصنف متتبَّع. الأصناف غير المتتبَّعة تبقى تشغيلية بحتة (`is_tracked_inventory = false`). | مراجعة يدوية + IC-12 (PASS/WARN/FAIL) + IC-13 |
 | INV-24 | **COGS عند البيع (Phase 3-revised / D4 fix).** عند `convertOrderToSale`، يُحسَب التكلفة الوسطية المرجَّحة للوحدة من `catalog_movement in` النشطة: `Σ(in_qty × coalesce(unit_cost_cents, 0)) / Σ(in_qty)`. تُخزَّن على الحركة `out` (`unit_cost_cents`) لتكون COGS غير قابلة للتعديل لاحقاً (immutable). `computeOperatingPnl` يخصم `cogsCents = Σ(out_qty × unit_cost_cents)` للفترة من `operatingNetCents` كتعديل غير نقدي (مثل الإهلاك — لا حركة `cash_movement`). `getFinancialPosition` يخصم `cogsCentsToDate` من `retainedProfitCents` ويُضيف `inventoryValueCents = Σ(in_qty × unit_cost) − Σ(out_qty × unit_cost)` إلى `totalAssets` (Cash + Inventory) — IC-1 يبقى 0 جبرياً. `reverseSale` يُعاكَس بـ soft-delete للحركة `out` (COGS يُعاكَس تلقائياً عند القراءة — لا حاجة لكتابة إضافية). | مراجعة يدوية + IC-12 (PASS/WARN/FAIL) + IC-13 |
 | IC-12 | **PASS/WARN/FAIL حقيقي (D5 fix).** FAIL عند وجود صفوف catalog_movement يتيمة (order_component_id يشير لصف order_component غير موجود). WARN عند وجود صنف متتبَّع برصيد سالب (§9 سيناريو 1 — مسموح لكن يستحق الإشارة). PASS خلاف ذلك (بما في ذلك عدم وجود أصناف متتبَّعة). يعرض القيمة الدفترية الفعلية للمخزون (`inventoryValueCents = Σ(in_qty × unit_cost) − Σ(out_qty × unit_cost)` من `catalog_movement`، وليست تقدير `defaultCostCents × balance` كما كانت قبل D4). المخزون المتتبَّع الآن جزء فعلي من `totalAssets` وIC-1. | IC-12 |
+| INV-25 | **هدر/تلف المخزون اليدوي = مصروف غير نقدي (SA1 A-1 fix في Round 4).** `adjustStock` مع `direction='out'` و`totalValueCents > 0` يُنشئ في نفس الـ transaction: (1) حركة `catalog_movement out` بالقيمة الكاملة (تُخفِض `inventoryValueCents`)، (2) صف `expense` بـ `category='هدر/تلف مخزون'`، `amount_cents = totalValueCents`، `is_capital_asset=false`، `cost_nature='variable'`، `is_inventory_writeoff=true` (عمود جديد في migration 0025). **لا يُنشئ `cash_movement`** — الخسارة غير نقدية مثل COGS. `computeOperatingPnl` يضيف بنداً جديداً `inventoryWriteOffCents` يقرأ مباشرة من `expense` حيث `is_inventory_writeoff=true` (لا عبر `cash_movement`)، يُخصم من `operatingNetCents` لمطابقة الخسارة بالفترة. `getFinancialPosition.retainedProfitCents` يخصم `inventoryWriteOffCentsToDate` (إلى جانب `cogsCentsToDate`) — يحافِظ على `equityDriftCents = 0`. IC-1 في `integrityCheck.ts` يُفوَّض الآن إلى `getFinancialPosition.equityDriftCents` (لا حساب cash-only منفصل) كي يتطابق `IC-1.status` دائماً مع `balanced`. **معادلة IC-1 المُعدَّلة:** `retainedProfitCents = salesCashInCents − depositsLiability − operatingExpensesCents − operatingPurchasesCents − cogsCentsToDate − inventoryWriteOffCentsToDate`. IC-8 (source-ledger reconciliation) يستثني مصاريف `is_inventory_writeoff=true` (لا cash_movement لها فلا تنقص السجل). | IC-1 + IC-13 |
 
 **قواعد إضافية للتعديلات المستقبلية في هذه المرحلة:**
 
@@ -203,28 +204,30 @@ INV-24). معادلة IC-1 (totalAssets = totalLiab + totalEquity) تبقى مت
 - لا تُسقط FK على `catalog_movement.order_component_id` (مُضاف في migration 0023 كجزء من D6 fix). الـ FK يحمي من إعادة إنشاء `order_component` بطريقة تُيتم الحركات المرتبطة.
 - لا تُخصَم COGS مرتين: مرة في `computeOperatingPnl.cogsCents` ومرة في `getFinancialPosition.retainedProfitCents`. الأولى يُخصَم من `operatingNetCents` (للعرض)، والثانية يُخصَم من `retainedProfitCents` (للميزانية). الفرق بينهما = 0 (كلاهما يطرح نفس المبلغ، فلا ازدواج).
 
-### مثال تطبيقي: شراء 100 وحدة @ 10 د.أ، بيع 50 وحدة @ 20 د.أ
+### مثال تطبيقي: شراء 100 وحدة @ 10 د.أ، بيع 50 وحدة @ 20 د.أ، ثم هدر 10 وحدات
 
-> هذا المثال يُوضِّح INV-23 / INV-24. الأسعار بالـ fils (10 د.أ = 10,000 fils).
+> هذا المثال يُوضِّح INV-23 / INV-24 / INV-25. الأسعار بالـ fils (10 د.أ = 10,000 fils).
 
 | المرحلة | الحدث | Cash | Inventory | P&L | Equity | IC-1 |
 |---|---|---|---|---|---|---|
 | 1 | شراء 100 وحدة @ 10,000 fils (إجمالي 1,000,000 fils) | −1,000,000 | +1,000,000 | 0 (شراء مُرأسمَل، لا يخفض الربح) | 0 (Cash ↓1M، Inventory ↑1M، المجموع ثابت) | ✓ |
 | 2 | بيع 50 وحدة @ 20,000 fils (إيراد 1,000,000 fils، COGS 50×10,000 = 500,000 fils) | +1,000,000 | −500,000 (50 × 10,000) | +500,000 (1,000,000 saleCents − 500,000 COGS) | +500,000 (retained يزيد بـ 500,000) | ✓ |
-| 3 | بعد العمليتين | 0 (−1M + 1M) | +500,000 (50 وحدة متبقية × 10,000) | +500,000 | +500,000 | ✓ (totalAssets 500,000 = totalEquity 500,000 + totalLiab 0) |
+| 3 | هدر 10 وحدات (تلف) — `adjustStock(out, 10)` بـ `totalValueCents = 100,000` (10 × 10,000) | 0 (لا حركة نقدية — الخسارة غير نقدية) | −100,000 (10 × 10,000) | −100,000 (بند `inventoryWriteOffCents` جديد في P&L) | −100,000 (retained يخفض بـ 100,000) | ✓ |
+| 4 | بعد العمليات الثلاث | 0 (−1M + 1M + 0) | +400,000 (40 وحدة متبقية × 10,000) | +400,000 (500k − 100k) | +400,000 | ✓ (totalAssets 400,000 = totalEquity 400,000 + totalLiab 0) |
 
-**التحقق من IC-1 بعد المرحلة 2:**
-- `totalAssets` = Cash + Inventory = 0 + 500,000 = 500,000 fils.
+**التحقق من IC-1 بعد المرحلة 3 (هدر المخزون — INV-25):**
+- `totalAssets` = Cash (0) + Inventory (400,000) = 400,000 fils.
 - `totalLiabilities` = 0 (لا عربونات نشطة).
-- `retainedProfitCents` = salesCashInCents (1,000,000) − deposits (0) − operatingExpenses (0) − operatingPurchases (0، الشراء المُرأسمَل مُستبعَد) − cogsCentsToDate (500,000) = 500,000 fils.
-- `totalEquity` = opening (0) + injections (0) − drawings (0) + retained (500,000) − capitalAdditions (0) = 500,000 fils.
-- `equityDriftCents` = totalAssets − totalLiab − totalEquity = 500,000 − 0 − 500,000 = **0** ✓.
+- `retainedProfitCents` = salesCashInCents (1,000,000) − deposits (0) − operatingExpenses (0) − operatingPurchases (0، الشراء المُرأسمَل مُستبعَد) − cogsCentsToDate (500,000) − **inventoryWriteOffCentsToDate (100,000)** = 400,000 fils.
+- `totalEquity` = opening (0) + injections (0) − drawings (0) + retained (400,000) − capitalAdditions (0) = 400,000 fils.
+- `equityDriftCents` = totalAssets − totalLiab − totalEquity = 400,000 − 0 − 400,000 = **0** ✓.
+- بدون INV-25 (قبل إصلاح A-1): كانت `inventoryValueCents` تخفض 100,000 دون أي قيد مقابل في `retainedProfitCents` → `equityDriftCents = -100,000` و`balanced = false` بعد أي تسوية يدوية. كان IC-1 (cash-only) يُرجِع PASS في الوقت الذي تكون فيه الميزانية غير متوازنة — تناقض خطير.
 
-**التحقق من LOCKED-6 (IC-13) بعد المرحلة 2:** كل من `dashboard.summary.netProfit`،
+**التحقق من LOCKED-6 (IC-13) بعد المرحلة 3:** كل من `dashboard.summary.netProfit`،
 `reports.pnl.netCents`، و`dashboard.monthlyProfit` تُنداء `computeOperatingPnl` التي
 تُرجِع `operatingNetCents = salesCents (1,000,000) − operatingExpensesCents (0) −
 operatingPurchasesCents (0، الشراء المُرأسمَل مُستبعَد) − cogsCents (500,000) −
-monthlyDepreciationCents (0) = 500,000 fils`. التطابق مضمون بالبناء (LOCKED-6 محفوظ).
+inventoryWriteOffCents (100,000) − monthlyDepreciationCents (0) = 400,000 fils`. التطابق مضمون بالبناء (LOCKED-6 محفوظ).
 
 ---
 
@@ -246,7 +249,7 @@ INV-1 من حيث المبدأ (الإهلاك ليس حركة نقدية، فل
 
 | # | القاعدة | يفرضها الفحص |
 |---|---|---|
-| INV-22 | **الإهلاك شهري محسوب، ليس حركة نقدية.** لا يُدرَج أي صف في `cash_movement` للإهلاك. يُحسَب عند كل قراءة من `capital_asset` عبر `(EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age))` بدل `date_part('month', age)` (الذي يُرجِع 0-11 فقط، خاطئ للأصول فوق 12 شهراً — راجع SA1 CRITICAL-NOTE-4). النتيجة تُخصَم من `operatingNetCents` في `computeOperatingPnl`. `started_at = now()` (تاريخ بداية الإهلاك = لحظة قرار المستخدم، لا تاريخ الشراء الأصلي — يمنع الإهلاك بأثر رجعي). **الإهلاك لا يُحتسَب في شهر `started_at` نفسه (months_elapsed = 0).** يبدأ التحميل من الشهر التالي (months_elapsed = 1) ويستمر حتى انقضاء `useful_life_months` أشهر كاملة (months_elapsed من 1 إلى life). لا يدخل الميزانية (`getFinancialPosition` لا يستعمل `operatingNetCents` — يبني `retainedProfitCents` محلياً من `operatingExpensesCents + operatingPurchasesCents` cash-basis). الفرق بين `dashboard.netProfit` (يضم الإهلاك) و`retainedProfitCents` (لا يضمه) = `monthlyDepreciationCents`. هذا فصل مقصود بين «الربح التشغيلي المُعدَّل» (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية). | IC-14 (PASS/WARN/FAIL) |
+| INV-22 | **الإهلاك شهري محسوب، ليس حركة نقدية.** لا يُدرَج أي صف في `cash_movement` للإهلاك. يُحسَب عند كل قراءة من `capital_asset` عبر `(EXTRACT(YEAR FROM age) * 12 + EXTRACT(MONTH FROM age))` بدل `date_part('month', age)` (الذي يُرجِع 0-11 فقط، خاطئ للأصول فوق 12 شهراً — راجع SA1 CRITICAL-NOTE-4). النتيجة تُخصَم من `operatingNetCents` في `computeOperatingPnl`. `started_at = purchaseDate` (تاريخ بداية الإهلاك = تاريخ الشراء المُدخَل من المستخدم — SA1 A-2 fix في Round 4). قبل هذا الإصلاح، كان `started_at` يققع إلى `now()` DB-default، فكانت الأصول القديمة لا تُستهلك بأثر رجعي حتى لو أُدخلت بـ `purchaseDate` قديمة. الآن يبدأ الإهلاك من تاريخ الشراء الفعلي. يُرفَض `purchaseDate` المستقبلي. **الإهلاك لا يُحتسَب في شهر `started_at` نفسه (months_elapsed = 0).** يبدأ التحميل من الشهر التالي (months_elapsed = 1) ويستمر حتى انقضاء `useful_life_months` أشهر كاملة (months_elapsed من 1 إلى life). للأصول القديمة جداً (عمرها > useful_life): months_elapsed ≥ useful_life → CASE «الشهر الأخير يكتسح الباقي» → NBV = 0 (مُستهلَك بالكامل، صحيح جبرياً). لا يدخل الميزانية (`getFinancialPosition` لا يستعمل `operatingNetCents` — يبني `retainedProfitCents` محلياً من `operatingExpensesCents + operatingPurchasesCents` cash-basis). الفرق بين `dashboard.netProfit` (يضم الإهلاك) و`retainedProfitCents` (لا يضمه) = `monthlyDepreciationCents`. هذا فصل مقصود بين «الربح التشغيلي المُعدَّل» (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية). | IC-14 (PASS/WARN/FAIL) |
 | IC-14 | **PASS/WARN/FAIL حقيقي (D5 fix).** FAIL عند وجود أصول يتيمة (capital_asset نشط ومصدره expense/purchase محذوف/غير موجود — يُكشَف عبر LEFT JOIN على expense/purchase في `getCapitalAssetValuation`). WARN عند وجود أصول مُستهلَكة بالكامل (months_elapsed >= useful_life_months — معلومة لا خطأ). PASS خلاف ذلك (بما في ذلك عدم وجود أصول). يعرض: (1) `totalOriginalCents` = SUM(purchase_amount_cents) حيث started_at <= asOfDate، (2) `totalDepreciatedToDateCents` = SUM(depreciationForAsset) حيث depreciationForAsset = purchase_amount إن months_elapsed >= useful_life (قاعدة «الشهر الأخير يُكلِّف الباقي» — D13 fix لتفادي residual صغير من floor) وإلا months_elapsed × monthly_dep، (3) `netBookValueCents` = الفرق (يصل لـ 0 بالضبط عند انقضاء العمر النافع). activeCount مُقيَّد بالأصول قيد الإهلاك فعلاً (D13 fix). | IC-14 |
 
 **قواعد إضافية للتعديلات المستقبلية في هذه المرحلة:**

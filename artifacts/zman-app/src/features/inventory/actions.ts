@@ -3,7 +3,7 @@
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { idempotencyKey, order, orderComponent } from "../orders/db";
-import { sale } from "../finance/db";
+import { sale, expense } from "../finance/db";
 import { catalogComponent } from "../catalog/db";
 import { catalogMovement } from "./db";
 import { getAmmanDate } from "@/lib/utils";
@@ -282,6 +282,15 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
     // مع COGS المخصوم من retainedProfitCents — فلا يظهر equityDrift حتى لو
     // floor(totalCents/qty) ترك كسراً. الـ fallback في الاستعلامات يضمن أن
     // الحركات القديمة (قبل 0024) بلا total_value_cents تُعامَل بـ qty × unit_cost.
+    //
+    // SA1 (A4 fix — Round 4) — قاعدة «آخر حركة out تكتسح الباقي الدفتري».
+    // إذا كانت الكمية المطلوبة ≥ الرصيد المتاح (balanceBefore) فإن هذه الحركة
+    // تأخذ كل المخزون المتبقي فعلياً. نحسب bookValueBefore = Σ(in total_value) −
+    // Σ(out total_value) قبل هذه الحركة. إن وجدنا أن totalValueCents المحسوب
+    // بالوسط المرجَّح أقل من bookValueBefore (بسبب فقدان كسور floor)، نضع
+    // totalValueCents = bookValueBefore بالكامل. هذا يُحرِّر القيمة الدفترية
+    // المتبقية (1 fils عادةً) من المخزون عند نفاده تاماً، فلا يبقى bookValue=1
+    // على رصيد صفري. نفس منطق D13 (الشهر الأخير للإهلاك يكتسح الباقي).
     const [costRow] = await tx
       .select({
         totalQty: sql<number>`coalesce(sum(${catalogMovement.quantity}), 0)::bigint`,
@@ -299,7 +308,32 @@ export async function deductForDelivery(input: DeductForDeliveryInput) {
     const totalQty = Number(costRow?.totalQty) || 0;
     const totalCost = Number(costRow?.totalCost) || 0;
     const unitCostCents = totalQty > 0 ? Math.floor(totalCost / totalQty) : 0;
-    const totalValueCents = requiredQty * unitCostCents;
+    let totalValueCents = requiredQty * unitCostCents;
+
+    // A4 fix — احسب القيمة الدفترية الحالية (Σ in total_value − Σ out total_value)
+    // قبل هذه الحركة. إن أخذت الحركة كل الرصيد المتاح (أو أكثر)، اكتسح الباقي
+    // الدفتري لتفادي residual 1-fils على رصيد صفري.
+    const [bvRow] = await tx
+      .select({
+        bookValue: sql<number>`coalesce(sum(
+          case when ${catalogMovement.direction} = 'in'
+               then coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+               else -(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)))
+          end
+        ), 0)::bigint`,
+      })
+      .from(catalogMovement)
+      .where(
+        and(
+          eq(catalogMovement.catalogComponentId, comp.id),
+          isNull(catalogMovement.deletedAt),
+        ),
+      );
+    const bookValueBefore = Number(bvRow?.bookValue) || 0;
+
+    if (requiredQty >= balanceBefore && bookValueBefore > totalValueCents) {
+      totalValueCents = bookValueBefore;
+    }
 
     const result = await addCatalogMovement({
       tx,
@@ -446,6 +480,16 @@ export async function adjustStock(
       //
       // Edge case: لا حركات in (صنف متتبَّع بلا مخزون، ثم صرف يدوي) → unitCostCents = 0،
       // totalValueCents = 0 → لا قيمة لخصمها — صحيح (لا تكلُّفة دفترية).
+      //
+      // SA1 (A1 fix — Round 4) — للحركة `out` مع totalValueCents > 0، أُدرِج
+      // في نفس الـ transaction صف expense بـ is_inventory_writeoff=true (خسارة
+      // غير نقدية). computeOperatingPnl يقرؤه مباشرةً (لا عبر cash_movement)
+      // كبند inventoryWriteOffCents، وgetFinancialPosition يخصمه من
+      // retainedProfitCents لمطابقة inventoryValueCents الذي يخصم بنفس المقدار
+      // من totalAssets. هكذا يبقى IC-1 = 0 والتوازن محفوظ. موثَّق في INV-25.
+      //
+      // SA1 (A4 fix — Round 4) — اكتسح الباقي الدفتري عند نفاد المخزون كلياً
+      // (نفس منطق deductForDelivery).
       let unitCostCents: number | undefined;
       let totalValueCents: number | undefined;
       if (direction === "out") {
@@ -466,6 +510,30 @@ export async function adjustStock(
         const totalCost = Number(costRow?.totalCost) || 0;
         unitCostCents = totalQty > 0 ? Math.floor(totalCost / totalQty) : 0;
         totalValueCents = quantity * unitCostCents;
+
+        // A4 fix — احسب bookValueBefore و balanceBefore. إن أخذت الحركة كل
+        // الرصيد المتاح، اكتسب الباقي الدفتري لتفادي residual 1-fils.
+        const [bvRow] = await tx
+          .select({
+            bookValue: sql<number>`coalesce(sum(
+              case when ${catalogMovement.direction} = 'in'
+                   then coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))
+                   else -(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)))
+              end
+            ), 0)::bigint`,
+          })
+          .from(catalogMovement)
+          .where(
+            and(
+              eq(catalogMovement.catalogComponentId, catalogComponentId),
+              isNull(catalogMovement.deletedAt),
+            ),
+          );
+        const bookValueBefore = Number(bvRow?.bookValue) || 0;
+        const balanceBefore = await getTxComponentBalance(tx, catalogComponentId);
+        if (quantity >= balanceBefore && bookValueBefore > (totalValueCents ?? 0)) {
+          totalValueCents = bookValueBefore;
+        }
       }
 
       const result = await addCatalogMovement({
@@ -479,6 +547,32 @@ export async function adjustStock(
         unitCostCents,
         totalValueCents,
       });
+
+      // SA1 (A1 fix — Round 4) — أدرج صف expense بـ is_inventory_writeoff=true
+      // للصرف اليدوي ذي القيمة (direction='out' مع totalValueCents > 0). هذا
+      // يُنشئ قيداً مقابل في retainedProfitCents يُطابِق ما خُصِم من
+      // inventoryValueCents. لا cash_movement (الخسارة غير نقدية — مثل COGS).
+      // الـ transaction الواحد يضمن atomicity: فشل إدراج expense = rollback
+      // حركة catalog_movement أيضاً.
+      if (direction === "out" && totalValueCents && totalValueCents > 0) {
+        const compRow = await tx
+          .select({ name: catalogComponent.name })
+          .from(catalogComponent)
+          .where(eq(catalogComponent.id, catalogComponentId))
+          .limit(1);
+        const compName = compRow[0]?.name ?? "صنف غير معروف";
+        const safeReason = (reason ?? "غير محدد").trim();
+        await tx.insert(expense).values({
+          date: getAmmanDate(),
+          category: "هدر/تلف مخزون",
+          amountCents: totalValueCents,
+          description:
+            `هدر/تلف مخزون: ${compName} (${quantity} وحدة) — السبب: ${safeReason}`,
+          isCapitalAsset: false,
+          costNature: "variable",
+          isInventoryWriteoff: true,
+        });
+      }
 
       return { status: "ok", data: { id: result.id } };
     });

@@ -165,6 +165,11 @@ export async function getInventoryValuation(asOfDate?: string) {
              else -(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0)))
         end
       ), 0)::bigint`,
+      // SA1 (A-5 fix — Round 4) — عدد الحركات النشطة لهذا الصنف. 0 = «لم يُسجَّل
+      // بعد» (حالة setup). >0 = «سُجِّل له رصيد سابقاً». نُميِّز بين الحالتين في
+      // lowStock: لا إنذار للأصناف بلا حركات، إنذار فقط لمن سُجِّل له رصيد
+      // سابقاً وانخفض لـ 0 أو سالب («نفد المخزون»).
+      movementCount: sql<number>`coalesce(count(${catalogMovement.id}), 0)::bigint`,
     })
     .from(catalogComponent)
     .leftJoin(
@@ -208,13 +213,18 @@ export async function getInventoryValuation(asOfDate?: string) {
     totalMovements,
     totalEstimatedValueCents,
     totalBookValueCents,
-    items: rows.map((r) => ({
-      ...r,
-      bookValueCents: Number(r.bookValueCents) || 0,
-      // SA4 (Part C) — علم «رصيد منخفض» = صفر أو سالب. أبسط قاعدة دون
-      // حدّ أدنى قابل للضبط (لا توجد إعدادات لكل صنف). الأصناف ذات الرصيد
-      // الصفري/السالب تُظهر تحذيراً مرئياً في القائمة الموحَّدة على الـ dashboard.
-      lowStock: r.balance <= 0,
-    })),
+    items: rows.map((r) => {
+      const movementCount = Number(r.movementCount) || 0;
+      // SA1 (A-5 fix — Round 4) — لا تُطلِق إنذار «رصيد منخفض» على صنف متتبَّع
+      // بلا حركات (لم يُسجَّل له رصيد بعد — حالة setup). الإنذار يُطلَق فقط إذا
+      // سُجِّل له رصيد سابقاً (movementCount > 0) ثم انخفض لـ 0 أو سالب.
+      const lowStock = movementCount > 0 && r.balance <= 0;
+      return {
+        ...r,
+        bookValueCents: Number(r.bookValueCents) || 0,
+        movementCount,
+        lowStock,
+      };
+    }),
   };
 }

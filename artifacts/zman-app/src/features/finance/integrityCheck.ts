@@ -20,7 +20,7 @@ import { catalogMovement } from "../inventory/db";
 // سيُكشَف هنا. لا دورة استيراد وقت التشغيل: تقارير/إجراءات تستعمل import type
 // فقط من finance/actions (ActionResponse)، فيُمحى وقت التجميع.
 import { getFinancialSummary, getMonthlyProfit } from "../dashboard/queries";
-import { computeCashBasisPnl } from "../reports/actions";
+import { computeCashBasisPnl, getFinancialPosition } from "../reports/actions";
 // Phase 4 — IC-14 يعرض القيمة الدفترية المتبقية للأصول الرأسمالية المُهلَكة.
 // PASS/WARN/FAIL حقيقي بعد D5 fix. يستعين بـ getCapitalAssetValuation من
 // depreciation/queries.
@@ -117,6 +117,16 @@ export async function runFinancialIntegrityCheck(
 
 // ─────────────────────────────────────────────────────────────────────────
 // IC-1 — تحقّق التوازن الحقيقي: حقوق الملكية من الدفتر = من المكوّنات (INV-11)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// SA1 (Round 4 — A-1 fix) — IC-1 now delegates to getFinancialPosition's
+// equityDriftCents calculation. Before this fix, IC-1 was a cash-only check
+// (no inventory, no COGS, no write-offs) and would PASS while
+// getFinancialPosition.balanced=false on a manual stock write-off. Now both
+// share the exact same drift definition (cash + bank + inventory =
+// deposits + openingCashInEquity + injections − drawings + retainedProfit −
+// capitalAdditions), so IC-1 status always agrees with balanced. The retained
+// profit breakdown is still computed below for the description string.
 // ─────────────────────────────────────────────────────────────────────────
 
 async function checkIC1EquityDrift(
@@ -235,18 +245,30 @@ async function checkIC1EquityDrift(
   const equityFromComponents =
     openingCashInEquity + injections - drawings + retainedProfit;
   const equityFromLedger = totalAssets - totalLiabilities;
-  const drift = equityFromLedger - equityFromComponents;
+
+  // SA1 (Round 4 — A-1 fix) — drift authoritative source is getFinancialPosition.
+  // The cash-only calculation above is informational (description only); the
+  // PASS/FAIL decision follows getFinancialPosition.equityDriftCents so IC-1
+  // and balanced always agree. Both include inventory, COGS and inventory
+  // write-offs as non-cash adjustments.
+  const posResp = await getFinancialPosition(asOfDate);
+  const drift =
+    posResp.status === "ok" ? posResp.data.equityDriftCents : equityFromLedger - equityFromComponents;
+  const status: IntegrityCheckStatus = drift === 0 ? "PASS" : "FAIL";
 
   return {
     id: "IC-1",
     invariantId: "INV-11",
-    status: drift === 0 ? "PASS" : "FAIL",
+    status,
     titleAr: "توازن الميزانية (فحص حقيقي)",
-    descriptionAr: `يقارن حقوق الملكية المحسوبة من السجل (${(equityFromLedger / 1000).toFixed(3)} د.أ) مع حقوق الملكية المحسوبة من المكوّنات (${(equityFromComponents / 1000).toFixed(3)} د.أ). يجب أن يتطابقا.`,
+    descriptionAr:
+      posResp.status === "ok"
+        ? `يقارن حقوق الملكية المحسوبة من السجل (${(posResp.data.assets.totalCents / 1000).toFixed(3)} د.أ — نقد + بنك + مخزون) مع حقوق الملكية المحسوبة من المكوّنات (${(posResp.data.equity.totalCents / 1000).toFixed(3)} د.أ). يجب أن يتطابقا. (المرجع: getFinancialPosition — يشمل المخزون وCOGS وهدر المخزون.)`
+        : `يقارن حقوق الملكية المحسوبة من السجل (${(equityFromLedger / 1000).toFixed(3)} د.أ — نقد فقط) مع حقوق الملكية المحسوبة من المكوّنات (${(equityFromComponents / 1000).toFixed(3)} د.أ).`,
     driftCents: drift,
     suggestedFixAr:
       drift !== 0
-        ? `يوجد انحراف قدره ${(drift / 1000).toFixed(3)} د.أ. تحقّق من: (1) حركات يتيمة في cash_movement. (2) حسابات مؤرشفة برصيد غير صفري. (3) عربونات طلبات لم تُسجَّل أو تُحذَف بشكل صحيح.`
+        ? `يوجد انحراف قدره ${(drift / 1000).toFixed(3)} د.أ. تحقّق من: (1) حركات يتيمة في cash_movement. (2) حسابات مؤرشفة برصيد غير صفري. (3) عربونات طلبات لم تُسجَّل أو تُحذَف بشكل صحيح. (4) هدر مخزون يدوي لم يُنشئ صف expense مقابل (is_inventory_writeoff=true).`
         : undefined,
   };
 }
@@ -715,7 +737,16 @@ async function checkIC8SourceLedgerReconciliation(
   const [srcExpensesAllTimeRes] = await db
     .select({ total: sum(expense.amountCents) })
     .from(expense)
-    .where(isNull(expense.deletedAt));
+    .where(
+      and(
+        isNull(expense.deletedAt),
+        // SA1 (Round 4 — A-1 fix) — استثنِ مصاريف هدر/تلف المخزون غير النقدية.
+        // هذه المصاريف ليس لها cash_movement مقابلة في السجل النقدي (هي تعديل
+        // غير نقدي مثل COGS)، فلو أُدرجت في source-side لظهر انحراف وهمي بـ
+        // drift = +amount. نُخصمها هنا لتطابق ledger-side الذي لا يشملها أيضاً.
+        sql`${expense.isInventoryWriteoff} = false`,
+      ),
+    );
   const srcExpensesCents = Number(srcExpensesAllTimeRes?.total) || 0;
 
   const [activeDepositsRes] = await db

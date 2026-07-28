@@ -162,6 +162,19 @@ export async function createPurchase(
         }
       }
 
+      // SA1 (A-3 fix — Round 4) — منع التكرار المزدوج للأصل الرأسمالي: لا يمكن
+      // تصنيف الشراء كأصل رأسمالي (isCapitalAsset=true) وربطه بصنف متتبَّع
+      // (linkedCatalogComponentId != null) في نفس الوقت. هذا التركيب يُضاعف
+      // قيمة الشراء في الميزانية: مرة في capitalAdditionsCents ومرّة في
+      // inventoryValueCents، وكلاهما يُطرح من totalEquity (الأول) ويُضاف لـ
+      // totalAssets (الثاني) — فتنكسر IC-1. الرفض داخل transaction → rollback
+      // كامل، رسالة عربية واضحة.
+      if (parsed.data.isCapitalAsset && parsed.data.linkedCatalogComponentId) {
+        throw new Error(
+          "لا يمكن تصنيف الشراء كأصل رأسمالي وربطه بصنف متتبَّع في نفس الوقت — هذا تكرار للمبلغ في الميزانية",
+        );
+      }
+
       // سعر الوحدة عالي الدقّة هو المصدر؛ نشتقّ الفردي الصحيح (fils) للعرض/التوافق.
       const derivedUnitCostCents = Math.round(
         parsed.data.unitCostMicroCents / 1000,
@@ -321,6 +334,15 @@ export async function updatePurchase(
           status: "error",
           message: "تم تحديث البيانات من جهة أخرى",
         };
+      }
+
+      // SA1 (A-3 fix — Round 4) — نفس فحص createPurchase: لا يمكن الجمع بين
+      // isCapitalAsset=true و linkedCatalogComponentId != null. الرفض داخل
+      // transaction → rollback.
+      if (parsed.data.isCapitalAsset && parsed.data.linkedCatalogComponentId) {
+        throw new Error(
+          "لا يمكن تصنيف الشراء كأصل رأسمالي وربطه بصنف متتبَّع في نفس الوقت — هذا تكرار للمبلغ في الميزانية",
+        );
       }
 
       const derivedUnitCostCents = Math.round(

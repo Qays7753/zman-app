@@ -637,6 +637,14 @@ export type FinancialPositionData = {
    * كتعديل غير نقدي لمطابقة الإيراد بالتكلفة. موثَّق في INV-24.
    */
   cogsCentsToDate: number;
+  /**
+   * SA1 (Round 4 — A-1 fix) — هدر/تلف المخزون اليدوي التراكمي حتى asOfDate =
+   * Σ(expense.amount_cents) لصفوف expense بـ is_inventory_writeoff=true نشطة
+   * (deleted_at IS NULL) بتاريخ <= asOfDate. مُخصوم من retainedProfitCents
+   * كتعديل غير نقدي يُطابِق ما خُصِم من inventoryValueCents في totalAssets.
+   * موثَّق في INV-25 / §9 من ACCOUNTING_RULES.md.
+   */
+  inventoryWriteOffCentsToDate: number;
   ledgerPnlNetCents: number;
   sourceTablePnlNetCents: number;
   pnlSourceReconciliationCents: number;
@@ -844,6 +852,9 @@ export async function getFinancialPosition(
       // بـ range:"all" — startDate=undefined يجعله يُرجِع تراكم كل التاريخ حتى endDate).
       // cogsCents من computeOperatingPnl في وضع range:"all" = تراكم حتى asOfDate.
       const cogsCentsToDate = operatingPnl.cogsCents;
+      // SA1 (Round 4 — A-1 fix) — inventoryWriteOffCentsToDate = cumulative حتى
+      // asOfDate (computeOperatingPnl في وضع range:"all" يُرجِع cumulative-to-date).
+      const inventoryWriteOffCentsToDate = operatingPnl.inventoryWriteOffCents;
 
       // Phase 3-revised (D4 fix) — retainedProfitCents يطرح COGS التراكمي (تعديل
       // غير نقدي لمطابقة الإيراد بالتكلفة). operatingPurchasesCents لا يضم المشتريات
@@ -852,7 +863,24 @@ export async function getFinancialPosition(
       // totalAssets أعلاه). عند البيع: Cash يزيد بـ salesCashInCents، COGS يُخصم
       // من retainedProfitCents، inventoryValueCents يقل تلقائياً (لأن الحركة out
       // لها unit_cost_cents) — فتبقى IC-1 = 0. موثَّق في INV-23 / INV-24.
-      const retainedProfitCents = salesCashInCents - depositsCents - operatingCashOutCents - cogsCentsToDate;
+      //
+      // SA1 (Round 4 — A-1 fix) — retainedProfitCents يطرح كذلك cumulative-to-date
+      // لـ inventoryWriteOffCents (تعديل غير نقدي يُطابِق ما خُصِم من inventoryValueCents
+      // عند الصرف اليدوي). المعادلة الكاملة:
+      //   retainedProfitCents = salesCashInCents - depositsCents
+      //                         - operatingCashOutCents
+      //                         - cogsCentsToDate
+      //                         - inventoryWriteOffCentsToDate
+      // توازن IC-1: inventoryValueCents (في totalAssets) يقل بمقدار
+      // (cogsCentsToDate + inventoryWriteOffCentsToDate) من جرّاء حركات out
+      // مُسجَّلة على catalog_movement، وretainedProfitCents يقل بنفس المقدار،
+      // فتبقى المعادلة متوازنة. موثَّق في INV-25.
+      const retainedProfitCents =
+        salesCashInCents -
+        depositsCents -
+        operatingCashOutCents -
+        cogsCentsToDate -
+        inventoryWriteOffCentsToDate;
 
       // حساب إجمالي حقوق الملكية — Option A: capitalAdditions سطر طرح منفصل.
       // هذا يُحافظ على IC-1 (equityDriftCents == 0) رغم أن retained لم يعد يطرح
@@ -869,7 +897,14 @@ export async function getFinancialPosition(
       // P&L (all time, OPERATING). Both sides exclude capital → drift should stay 0.
       // Phase 3-revised (D4 fix): cogsCentsToDate يُخصم من الطرفين معاً (retainedProfitCents
       // أعلاه طرحه، وpnlAsOfDateNetCents نطرحه هنا) ليظل pnlReconciliationCents = 0.
-      const pnlAsOfDateNetCents = salesCashInCents - operatingCashOutCents - cogsCentsToDate;
+      // SA1 (Round 4 — A-1 fix): inventoryWriteOffCentsToDate كذلك يُخصم من الطرفين
+      // (retainedProfitCents أعلاه طرحه، وpnlAsOfDateNetCents نطرحه هنا) ليظل
+      // pnlReconciliationCents = 0. كلا البندين غير نقدي ولا يمرّ عبر cash_movement.
+      const pnlAsOfDateNetCents =
+        salesCashInCents -
+        operatingCashOutCents -
+        cogsCentsToDate -
+        inventoryWriteOffCentsToDate;
       const pnlReconciliationCents = pnlAsOfDateNetCents - (retainedProfitCents + depositsCents);
 
       // F-05: real reconciliation between ledger (cash_movement) and source tables (sale, purchase, expense, order deposits).
@@ -917,7 +952,17 @@ export async function getFinancialPosition(
       const [srcExpensesAllTimeRes] = await tx
         .select({ total: sum(expense.amountCents) })
         .from(expense)
-        .where(isNull(expense.deletedAt));
+        .where(
+          and(
+            isNull(expense.deletedAt),
+            // SA1 (Round 4 — A-1 fix) — استثنِ مصاريف هدر/تلف المخزون غير النقدية.
+            // ليس لها cash_movement مقابلة (تعديل غير نقدي مثل COGS). إدراجها هنا
+            // يجعل source-side يخصم مرتين (مرة في srcExpenses ومرّة ضمن
+            // inventoryValueCents غير المرئي)، فيظهر pnlSourceReconciliationCents
+            // = +amount وهمياً. نُخصمها لتطابق ledger-side الذي لا يشملها.
+            sql`${expense.isInventoryWriteoff} = false`,
+          ),
+        );
       const srcExpensesAllTimeCents = Number(srcExpensesAllTimeRes?.total) || 0;
 
       // Active order deposits represent cash collected (deposit) that has not yet been converted into a sale.
@@ -968,6 +1013,7 @@ export async function getFinancialPosition(
           pnlAsOfDateNetCents,
           pnlReconciliationCents,
           cogsCentsToDate,
+          inventoryWriteOffCentsToDate,
           ledgerPnlNetCents,
           sourceTablePnlNetCents,
           pnlSourceReconciliationCents,

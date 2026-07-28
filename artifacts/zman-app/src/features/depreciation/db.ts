@@ -33,12 +33,15 @@ import {
 //   - usefulLifeMonths: العمر النافع بالأشهر (CHECK > 0).
 //   - monthlyDepreciationCents: = floor(purchaseAmountCents / usefulLifeMonths)
 //     يُحسَب في addCapitalAsset (depreciation/actions.ts) ويُخزَّن هنا كعدد صحيح.
-//   - startedAt: timestamptz NOT NULL DEFAULT now() — **تاريخ بداية الإهلاك**،
-//     وهو لحظة إنشاء هذا الصف، **لا** تاريخ الشراء الأصلي. هذا اختيار مقصود:
-//     الإهلاك يبدأ من قرار المستخدم، لا من تاريخ دفع الفاتورة (الذي قد يكون
-//     قديماً). تاريخ الشراء الأصلي محفوظ في purchaseDate كحقل عرض فقط. هذا
-//     يمنع سيناريو «اشتريت آلة قبل سنة ولم أُهلكها — النظام يُهلكها بأثر
-//     رجعي 12 شهراً دفعة واحدة». بدلاً من ذلك: يبدأ الإهلاك من اليوم.
+//   - startedAt: timestamptz NOT NULL DEFAULT now() — **تاريخ بداية الإهلاك**.
+//     SA1 (A-2 fix — Round 4): بدأ من تاريخ الشراء (purchaseDate) الذي يُمرَّر
+//     من addCapitalAsset، لا من لحظة إنشاء الصف. قبل هذا الإصلاح كان
+//     started_at = now() دائماً، فكانت الأصول القديمة لا تُستهلك بأثر رجعي.
+//     الآن started_at = purchaseDate (validated — راجع addCapitalAsset). الـ
+//     DEFAULT now() يبقى كحزام أمان للصفوف المُدرَجة عبر قنوات أخرى (مثلاً
+//     backfill مستقبلي). الفرق بين purchaseDate (تاريخ الشراء للعرض) وstarted_at
+//     (تاريخ بداية الإهلاك): الآن متطابقان عملياً (نفس القيمة). الإهلاك = 0 في
+//     شهر started_at نفسه، أول charge في الشهر التالي (INV-22 — لا تغيير).
 //
 // الكتابة:
 //   - فقط من addCapitalAsset في depreciation/actions.ts.

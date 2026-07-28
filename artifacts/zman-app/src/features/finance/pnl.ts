@@ -94,6 +94,19 @@ export interface OperatingPnlResult {
    * COGS يُخصَم عند البيع لمطابقة الإيراد بالتكلفة. INV-24.
    */
   cogsCents: number;
+  /**
+   * SA1 (Round 4 — A-1 fix) — هدر/تلف المخزون اليدوي للفترة = Σ(expense.amount_cents)
+   * لصفوف expense بـ is_inventory_writeoff=true نشطة (deleted_at IS NULL) ضمن
+   * [startDate, endDate]. غير نقدي تماماً — لا cash_movement مرتبطة (الخسارة
+   * تُسجَّل عبر adjustStock direction='out' مع total_value_cents > 0 فقط).
+   *
+   * لماذا بند مستقل وليس داخل operatingExpensesCents؟ لأن operatingExpensesCents
+   * يُشتق من cash_movement (LEFT JOIN إلى expense) — صف expense بلا cash_movement
+   * لا يُلتقَط هناك. نقرأ الـ write-off مباشرةً من جدول expense بفلتر
+   * is_inventory_writeoff=true (نفس فكرة COGS من catalog_movement). يُخصم من
+   * operatingNetCents. موثَّق في INV-25 / §9 من ACCOUNTING_RULES.md.
+   */
+  inventoryWriteOffCents: number;
   operatingNetCents: number;
 }
 
@@ -298,6 +311,40 @@ export async function computeOperatingPnl({
   const cogsCents = Number(cogsRow?.total) || 0;
 
   // ─────────────────────────────────────────────────────────────────────────
+  // 4.6. inventoryWriteOffCents (SA1 — A-1 fix — Round 4).
+  //
+  // قراءة مباشرة من جدول expense بـ is_inventory_writeoff=true ضمن [startDate,
+  // endDate]. هذه مصاريف غير نقدية تماماً — لا cash_movement مرتبطة. مصدرها
+  // الوحيد: adjustStock (direction='out' مع total_value_cents > 0)، التي تُدرج
+  // صف expense داخل نفس transaction حركة catalog_movement `out`.
+  //
+  // لماذا قراءة مباشرة من expense لا عبر cash_movement؟ لأن INV-1 يحرم إنشاء
+  // cash_movement للخسائر غير النقدية، فلا JOIN ممكن. الـ expense وحده يحمل
+  // الدليل. الفهرس الجزئي expense_inventory_writeoff_idx (migration 0025) يُسرِّع
+  // هذا الاستعلام على البيانات الكبيرة.
+  //
+  // التأثير على getFinancialPosition (IC-1):
+  //   retainedProfitCents يُخصم منه cumulative-to-date من inventoryWriteOffCents
+  //   (محسوب بنفس الصيغة لكن بدون startDate — كل التاريخ حتى asOfDate).
+  //   هذا يُطابِق ما خُصِم من inventoryValueCents في totalAssets، فيبقى
+  //   equityDriftCents = 0. موثَّق في INV-25.
+  // ─────────────────────────────────────────────────────────────────────────
+  const writeOffConds = [
+    eq(expense.isInventoryWriteoff, true),
+    isNull(expense.deletedAt),
+    sql`${expense.date} <= ${endDate}`,
+  ];
+  if (startDate) writeOffConds.push(sql`${expense.date} >= ${startDate}`);
+
+  const [writeOffRow] = await tx
+    .select({
+      total: sql<number>`coalesce(sum(${expense.amountCents}), 0)::bigint`,
+    })
+    .from(expense)
+    .where(and(...writeOffConds));
+  const inventoryWriteOffCents = Number(writeOffRow?.total) || 0;
+
+  // ─────────────────────────────────────────────────────────────────────────
   // 5. التجميع النهائي.
   // ─────────────────────────────────────────────────────────────────────────
   const capitalAdditionsCents = capitalExpensesCents + capitalPurchasesCents;
@@ -306,6 +353,7 @@ export async function computeOperatingPnl({
     operatingExpensesCents -
     operatingPurchasesCents -
     cogsCents -
+    inventoryWriteOffCents -
     monthlyDepreciationCents;
 
   return {
@@ -315,6 +363,7 @@ export async function computeOperatingPnl({
     capitalAdditionsCents,
     monthlyDepreciationCents,
     cogsCents,
+    inventoryWriteOffCents,
     operatingNetCents,
   };
 }

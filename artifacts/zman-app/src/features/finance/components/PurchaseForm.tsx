@@ -101,6 +101,20 @@ export function PurchaseForm({
   // Phase 2 — نراقب isCapitalAsset لإظهار/إخفاء حقل طبيعة التكلفة.
   const isCapital = watch("isCapitalAsset");
 
+  // SA1 (A-3 fix — Round 4) — إذا كان الشراء رأسمالياً، أفرغ الربط بصنف متتبَّع
+  // تلقائياً. هذا يمنع إرسال (isCapitalAsset=true, linkedCatalogComponentId != null)
+  // للخادم، الذي يرفضه الآن صراحةً. الـ UI أيضاً يُخفي picker عند isCapital=true
+  // (انظر JSX أدناه). هذا إجراء دفاعي ثنائي: العميل + الخادم كلاهما يحرمان التركيب.
+  useEffect(() => {
+    if (isCapital) {
+      // أفرغ الربط حتى لو كان موجوداً في initialData (تحرير صفحة قديمة قبل الإصلاح).
+      // الـ server سيرفض أيضاً، لكنّ هذا يمنع الـ round-trip ويعرض النية بوضوح.
+      setValue("linkedCatalogComponentId", null);
+    }
+    // isCapital فقط — لا نريد إعادة التشغيل عند تغيّر linkedCatalogComponentId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCapital]);
+
   // Phase 3 — نراقب linkedCatalogComponentId لعرض تأثير الربط على المخزون.
   const watchedLinkedCatalogComponentId = watch("linkedCatalogComponentId");
   const watchQty = watch("quantity") || 0;
@@ -385,54 +399,58 @@ export function PurchaseForm({
         {/* Phase 3 — ربط اختياري بصنف كتالوج متتبَّع (card 3.J).
             عند اختيار صنف متتبَّع، تُنشئ createPurchase حركة `in` في catalog_movement
             تُضيف الكمية المشتراة للرصيد. الفاتورة تظل تدخل P&L كالمعتاد (cash basis)
-            لكنها تُضيف للرصيد التشغيلي أيضاً. الأصناف غير المتتبَّعة لا تظهر في القائمة. */}
-        <div className="space-y-2 flex flex-col">
-          <label
-            htmlFor={`${formId}-linked-catalog`}
-            className="text-sm font-bold text-ink/75 flex items-center gap-1.5"
-          >
-            <PackageCheck className="w-4 h-4 text-info" />
-            ربط بصنف كتالوج متتبَّع (اختياري — يزيد رصيد المخزون)
-          </label>
-          {/* SA3: استبدال <select> الخام بمكوّن <Select> المشترك لمطابقة SA2 baseline §2.5. */}
-          <Controller
-            control={control}
-            name="linkedCatalogComponentId"
-            render={({ field }) => (
-              <Select
-                id={`${formId}-linked-catalog`}
-                value={field.value ?? ""}
-                onChange={(e) =>
-                  field.onChange(e.target.value === "" ? null : e.target.value)
-                }
-              >
-                <option value="">— لا ربط (نص حر فقط) —</option>
-                {trackedItems.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.unit})
-                  </option>
-                ))}
-              </Select>
+            لكنها تُضيف للرصيد التشغيلي أيضاً. الأصناف غير المتتبَّعة لا تظهر في القائمة.
+            SA1 (A-3 fix — Round 4) — يُخفى الـ picker بالكامل إذا كان isCapital=true،
+            لأنّ الجمع بين الربط والرأسمالية ممنوع على الخادم (تكرار مزدوج في الميزانية). */}
+        {!isCapital && (
+          <div className="space-y-2 flex flex-col">
+            <label
+              htmlFor={`${formId}-linked-catalog`}
+              className="text-sm font-bold text-ink/75 flex items-center gap-1.5"
+            >
+              <PackageCheck className="w-4 h-4 text-info" />
+              ربط بصنف كتالوج متتبَّع (اختياري — يزيد رصيد المخزون)
+            </label>
+            {/* SA3: استبدال <select> الخام بمكوّن <Select> المشترك لمطابقة SA2 baseline §2.5. */}
+            <Controller
+              control={control}
+              name="linkedCatalogComponentId"
+              render={({ field }) => (
+                <Select
+                  id={`${formId}-linked-catalog`}
+                  value={field.value ?? ""}
+                  onChange={(e) =>
+                    field.onChange(e.target.value === "" ? null : e.target.value)
+                  }
+                >
+                  <option value="">— لا ربط (نص حر فقط) —</option>
+                  {trackedItems.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.unit})
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
+            {trackedItems.length === 0 && (
+              <p className="text-[11px] text-ink-3">
+                لا توجد أصناف متتبَّعة. فعِّل التتبّع على صنف من صفحة المكوّنات أولاً.
+              </p>
             )}
-          />
-          {trackedItems.length === 0 && (
-            <p className="text-[11px] text-ink-3">
-              لا توجد أصناف متتبَّعة. فعِّل التتبّع على صنف من صفحة المكوّنات أولاً.
-            </p>
-          )}
-          {/* معاينة تأثير الربط على المخزون */}
-          {linkedItem && (
-            <div className="p-2.5 rounded-md bg-info-soft text-info text-xs flex items-center justify-between gap-2">
-              <span>
-                سيُضاف <strong className="font-bold">{watchQty || 0}</strong>{" "}
-                {linkedItem.unit} للمخزون عند الحفظ.
-              </span>
-              <span className="opacity-70">
-                الرصيد الحالي: <strong className="font-bold">{linkedStock ?? 0}</strong>
-              </span>
-            </div>
-          )}
-        </div>
+            {/* معاينة تأثير الربط على المخزون */}
+            {linkedItem && (
+              <div className="p-2.5 rounded-md bg-info-soft text-info text-xs flex items-center justify-between gap-2">
+                <span>
+                  سيُضاف <strong className="font-bold">{watchQty || 0}</strong>{" "}
+                  {linkedItem.unit} للمخزون عند الحفظ.
+                </span>
+                <span className="opacity-70">
+                  الرصيد الحالي: <strong className="font-bold">{linkedStock ?? 0}</strong>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* الكمية وسعر الوحدة */}
         <div className="grid grid-cols-2 gap-4">
