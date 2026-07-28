@@ -39,9 +39,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const sizes = {
-      sm: "h-9 px-3 text-xs gap-1.5",
+      // SA2 (Round 4 — B-2 system decision): all touch-surface buttons MUST be ≥ 44×44 px.
+      // `sm` was 36 px (h-9) without min-h — measured live at 36×50 on /reports «تحميل» and
+      // 36×100 on catalog «تسوية يدوية». Now raised to 44 px (min-h + h-11) to match the
+      // baseline mandate. Trade-off: visual density slightly looser on tight headers; verified
+      // at 360 + 390 that /reports header (SegmentedControl + DownloadBtn) still fits.
+      sm: "h-11 px-3 text-xs gap-1.5 min-h-[44px]",
       md: "h-11 px-4 text-sm gap-2 min-h-[44px]", // Minimum 44px touch target
-      lg: "h-12 px-6 text-base gap-2",
+      lg: "h-12 px-6 text-base gap-2 min-h-[44px]",
       icon: "h-11 w-11 p-0 min-h-[44px] min-w-[44px]",
     };
 

@@ -41,8 +41,12 @@ export function SegmentedControl<T = string>({
             onClick={() => onChange(opt.value)}
             className={cn(
               "flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-[120ms] ease-out active:scale-[0.94]",
+              // SA2 (Round 4 — B-2 system decision): both compact and default
+              // variants now use min-h-[44px] h-11 (was min-h-[36px] h-9 for
+              // compact). All touch-surface buttons MUST be ≥ 44×44 px per
+              // design-baseline.md.
               compact
-                ? "min-h-[36px] h-9 px-3.5 rounded-md"
+                ? "min-h-[44px] h-11 px-3.5 rounded-md"
                 : "min-h-[44px] h-11 px-3 rounded-md flex-1",
               isActive
                 ? "bg-info text-paper shadow-sm"
