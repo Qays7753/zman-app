@@ -11,7 +11,11 @@ export async function loginAction(passcode: string) {
     const cookieStore = await cookies();
     cookieStore.set("zman_session", passcode, {
       httpOnly: true,
-      secure: true,
+      // secure مشروطة بالبيئة: في الإنتاج (HTTPS على Vercel) تبقى true لأمان الكوكي؛
+      // في التطوير تصبح false ليتمكّن المتصفّح من تخزين الكوكي على HTTP عبر IP الشبكة
+      // المحلية (تجربة الهاتف عبر الواي فاي) — المتصفّح يرفض كوكي secure على HTTP لأي
+      // عنوان غير localhost. راجع §4 في CLAUDE.md.
+      secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 60 * 60 * 8, // 8 ساعات (طبقة أمان ثانية؛ القفل عند الخمول يعمل قبلها)
       path: "/",
