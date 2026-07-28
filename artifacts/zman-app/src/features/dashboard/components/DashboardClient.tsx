@@ -105,7 +105,12 @@ function FinanceComparePanel({
         {rows.map((row) => {
           const pct = Math.round((row.value / maxValue) * 100);
           return (
-            <div key={row.label} className="space-y-1">
+            // SA-A (Round 5 — R5-2 fix): pe-16 (64px) على الجهة End (يسار في RTL)
+            // لإبعاد القيمة عن بصمة الزر العائم الثابت (FAB 56×56 على end-4 = x16-72).
+            // بدون هذا، عند تمرير اللوحة إلى موضع الزر العائم على 390px، يغطّي الزر
+            // قيمة «مشتريات» (700.999) بـ 39×20px. نفس إصلاح SA3 على
+            // TrackedInventoryPanel وعلى FlowRow في LiquidityFlowPanel.
+            <div key={row.label} className="space-y-1 pe-16">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-xs font-semibold text-ink-2 whitespace-nowrap">{row.label}</span>
                 <span className={`text-sm font-black font-mono whitespace-nowrap flex items-baseline gap-0.5 ${row.textClass}`}>

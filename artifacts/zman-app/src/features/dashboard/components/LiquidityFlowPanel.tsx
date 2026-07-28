@@ -8,6 +8,12 @@ import { InfoTooltip } from "@/components/shared/InfoTooltip";
  * حركة الكاش — ما دخل وما خرج من الصندوق خلال الفترة المختارة، وينتهي بصافي
  * حركة الفترة (الداخل − الخارج). لا يُعرَض هنا الرصيد الافتتاحي/المُرحَّل —
  * الرصيد الفعلي معروض في بطاقة «النقد المتاح» بالأعلى، وتفكيكه في «تركيبة الكاش».
+ *
+ * SA-A (Round 5 — R5-2 fix): كل FlowRow له pe-16 (64px) على الجهة End (يسار
+ * في RTL) لإبعاد قيمة الصف عن بصمة الزر العائم الثابت (FAB 56×56 على end-4 =
+ * x16-72). بدون هذا، عند تمرير اللوحة إلى موضع الزر العائم على 390px، يغطّي
+ * الزر قيمة «مشتريات» (700.999) بـ 39×20px. نفس إصلاح SA3 على
+ * TrackedInventoryPanel مطبَّق هنا.
  */
 function FlowRow({
   label,
@@ -26,7 +32,7 @@ function FlowRow({
 }) {
   const pct = maxValue > 0 ? Math.round((value / maxValue) * 100) : 0;
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 pe-16">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs font-semibold text-ink-2 whitespace-nowrap">{label}</span>
         <span className={`text-sm font-black font-mono whitespace-nowrap flex items-baseline gap-0.5 ${textClass}`}>
