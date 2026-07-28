@@ -760,6 +760,17 @@ export async function updateExpense(
         return { status: "error", message: "السجل غير موجود" };
       }
 
+      // SA-B (R5-3) — احرس صفوف هدر/تلف المخزون من التعديل. هذا المصروف ناتج
+      // تلقائياً عن تسوية مخزون يدوية (adjustStock out ذو قيمة) ويُطابِق
+      // total_value_cents لحركة catalog_movement. تعديل المبلغ يكسر المساواة
+      // ويُحدث انحرافاً في IC-1 (نفس أثر الحذف). Throw داخل الـ transaction
+      // قبل أي تحديث ليُلغى أي أثر جزئي. الصحيح: صحِّح المخزون من شاشة الكتالوج.
+      if (existing.isInventoryWriteoff) {
+        throw new Error(
+          "هذا المصروف ناتج تلقائياً عن تسوية مخزون يدوية ولا يمكن تعديله أو حذفه من هنا — صحِّح المخزون من شاشة الكتالوج",
+        );
+      }
+
       // فحص التزامن المتفائل
       const clientTime = new Date(updatedAt).getTime();
       const dbTime = new Date(existing.updatedAt).getTime();
@@ -892,6 +903,16 @@ export async function deleteExpense(
 
       if (!existing) {
         return { status: "error", message: "السجل غير موجود" };
+      }
+
+      // SA-B (R5-3) — احرس صفوف هدر/تلف المخزون من الحذف. نفس المنطق المُطبَّق
+      // في updateExpense أعلاه. الحذف الناعم لهذا الصف يُحدث انحرافاً في IC-1
+      // بمقدار amount_cents (Round 3 defect يُعاد بنقرة واحدة). الصحيح: صحِّح
+      // المخزون من شاشة الكتالوج.
+      if (existing.isInventoryWriteoff) {
+        throw new Error(
+          "هذا المصروف ناتج تلقائياً عن تسوية مخزون يدوية ولا يمكن تعديله أو حذفه من هنا — صحِّح المخزون من شاشة الكتالوج",
+        );
       }
 
       // فحص التزامن المتفائل

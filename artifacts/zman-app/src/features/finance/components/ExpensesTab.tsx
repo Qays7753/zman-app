@@ -295,67 +295,97 @@ export function ExpensesTab() {
             <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: مصروف شهري ثابت تقريباً (إيجار، راتب). «متغيّرة»: مصروف يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
           </div>
           <div className="space-y-3">
-            {filteredExpenses.map((item, idx) => (
-              // biome-ignore lint/a11y/useSemanticElements: card container is interactive
-              <div
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => updateUrl({ editExpense: item.id })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    updateUrl({ editExpense: item.id });
-                  }
-                }}
-                style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
-                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 cursor-pointer transition-colors animate-fade-slide-in"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-ink text-base">
-                    {item.description || "مصروف عام"}
-                  </span>
-                  <span className="font-bold text-ink text-base">
-                    <AmountText amount={item.amountCents} />
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-xs text-ink/60 font-medium">
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2.5 py-1 bg-canvas rounded-full text-ink/80 text-[10px] font-bold">
-                      {item.category}
-                    </span>
-                    {/* Phase 2 — شارة التصنيف: رأس مال (warn) / ثابتة (info) / متغيّرة (canvas).
-                        SA3: استبدال ألوان Tailwind الخام (amber-100/blue-100) برموز النظام
-                        (warn-soft/warn-deep، info-soft/info) لمطابقة SA2 baseline §1.2. */}
-                    {item.isCapitalAsset ? (
-                      <span className="px-2 py-0.5 bg-warn-soft text-warn-deep text-[10px] rounded-full font-bold">رأس مال</span>
-                    ) : item.costNature === "fixed" ? (
-                      <span className="px-2 py-0.5 bg-info-soft text-info text-[10px] rounded-full font-bold">ثابتة</span>
-                    ) : (
-                      <span className="px-2 py-0.5 bg-canvas text-ink-3 text-[10px] rounded-full font-bold">متغيّرة</span>
-                    )}
-                    {/* D7 fix — زر «إيقاف الإهلاك» على الصفوف التي لها capital_asset نشط.
-                        SA3: استبدال amber-* الخام برموز warn، وتكبير الهدف اللمسي (min-h + min-w)
-                        لمطابقة SA2 baseline §3.6 (tap targets ≥ 44px).
-                        SA3 (Round 4 — B-2): min-h-[28px] → min-h-[44px] لتحقيق معيار اللمس. */}
-                    {item.activeCapitalAssetId && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setStopDepreciationAssetId(item.activeCapitalAssetId!);
-                        }}
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center px-3 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors"
-                        title="إيقاف الإهلاك — لن يُخصَم من الربح التشغيلي مستقبلاً"
-                      >
-                        إيقاف الإهلاك
-                      </button>
-                    )}
-                  </div>
-                  <DateText date={item.date} relative />
-                </div>
+            {filteredExpenses.map((item, idx) => {
+              // SA-B (R5-3) — صفوف هدر/تلف المخزون مُشتقّة تلقائياً من
+              // adjustStock؛ لا يجوز تعديلها أو حذفها من هنا (يكسر IC-1).
+              // اجعل الصف للقراءة فقط: لا role=button، لا onClick، لا hover،
+              // وأضف شارة «تلقائي» ليُدرِك المالك سبب غياب أزرار التعديل.
+              const isWriteoff = item.isInventoryWriteoff === true;
+              return (
+            // biome-ignore lint/a11y/useSemanticElements: card container is interactive
+            <div
+              key={item.id}
+              role={isWriteoff ? undefined : "button"}
+              tabIndex={isWriteoff ? -1 : 0}
+              onClick={
+                isWriteoff
+                  ? undefined
+                  : () => updateUrl({ editExpense: item.id })
+              }
+              onKeyDown={
+                isWriteoff
+                  ? undefined
+                  : (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        updateUrl({ editExpense: item.id });
+                      }
+                    }
+              }
+              style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
+              className={`p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 transition-colors animate-fade-slide-in ${
+                isWriteoff
+                  ? "cursor-default"
+                  : "hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 cursor-pointer"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-ink text-base">
+                  {item.description || "مصروف عام"}
+                </span>
+                <span className="font-bold text-ink text-base">
+                  <AmountText amount={item.amountCents} />
+                </span>
               </div>
-            ))}
+              <div className="flex justify-between items-center text-xs text-ink/60 font-medium">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2.5 py-1 bg-canvas rounded-full text-ink/80 text-[10px] font-bold">
+                    {item.category}
+                  </span>
+                  {/* Phase 2 — شارة التصنيف: رأس مال (warn) / ثابتة (info) / متغيّرة (canvas).
+                      SA3: استبدال ألوان Tailwind الخام (amber-100/blue-100) برموز النظام
+                      (warn-soft/warn-deep، info-soft/info) لمطابقة SA2 baseline §1.2. */}
+                  {item.isCapitalAsset ? (
+                    <span className="px-2 py-0.5 bg-warn-soft text-warn-deep text-[10px] rounded-full font-bold">رأس مال</span>
+                  ) : item.costNature === "fixed" ? (
+                    <span className="px-2 py-0.5 bg-info-soft text-info text-[10px] rounded-full font-bold">ثابتة</span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-canvas text-ink-3 text-[10px] rounded-full font-bold">متغيّرة</span>
+                  )}
+                  {/* SA-B (R5-3) — شارة «تلقائي» على صفوف هدر/تلف المخزون
+                      المُشتقّة من adjustStock. تُنبِّه المالك أن الصف لا يُحرَّر
+                      من هنا وأن أي تصحيح يجب أن يتم من شاشة الكتالوج. */}
+                  {isWriteoff && (
+                    <span
+                      className="px-2 py-0.5 bg-emerald-soft text-emerald-deep text-[10px] rounded-full font-bold"
+                      title="مصروف ناتج تلقائياً عن تسوية مخزون — لا يُحرَّر من هنا"
+                    >
+                      تلقائي
+                    </span>
+                  )}
+                  {/* D7 fix — زر «إيقاف الإهلاك» على الصفوف التي لها capital_asset نشط.
+                      SA3: استبدال amber-* الخام برموز warn، وتكبير الهدف اللمسي (min-h + min-w)
+                      لمطابقة SA2 baseline §3.6 (tap targets ≥ 44px).
+                      SA3 (Round 4 — B-2): min-h-[28px] → min-h-[44px] لتحقيق معيار اللمس. */}
+                  {item.activeCapitalAssetId && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStopDepreciationAssetId(item.activeCapitalAssetId!);
+                      }}
+                      className="min-h-[44px] min-w-[44px] inline-flex items-center px-3 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors"
+                      title="إيقاف الإهلاك — لن يُخصَم من الربح التشغيلي مستقبلاً"
+                    >
+                      إيقاف الإهلاك
+                    </button>
+                  )}
+                </div>
+                <DateText date={item.date} relative />
+              </div>
+            </div>
+              );
+            })}
           </div>
 
           {hasNextPage && (
@@ -392,6 +422,25 @@ export function ExpensesTab() {
       >
         {isLoadingActive ? (
           <div className="p-4 text-center text-sm text-ink-3">جاري التحميل...</div>
+        ) : activeExpense?.isInventoryWriteoff ? (
+          // SA-B (R5-3) — صف هدر/تلف المخزون لا يُحرَّر من هنا. عرض رسالة
+          // تفسيرية بدل الفورم (لا أزرار تعديل/حذف). يحمي من فتح المودال عبر
+          // URL مباشر (?editExpense=<id>) حتى لو تعذّر النقر على الصف.
+          <div className="p-4 space-y-3 text-sm text-ink-2 leading-relaxed">
+            <p className="font-bold text-ink">هذا مصروف تلقائي</p>
+            <p>
+              هذا المصروف ناتج تلقائياً عن تسوية مخزون يدوية ولا يمكن تعديله أو
+              حذفه من هنا — صحِّح المخزون من شاشة الكتالوج.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={() => updateUrl({ editExpense: null })}
+            >
+              إغلاق
+            </Button>
+          </div>
         ) : (
           <ExpenseForm
             initialData={activeExpense}

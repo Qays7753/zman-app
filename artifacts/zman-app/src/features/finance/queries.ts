@@ -160,6 +160,11 @@ export async function getExpenses(filters: GetExpensesFilters) {
       // Phase 2 — حقلا التصنيف لعرض الشارة في ExpensesTab.
       isCapitalAsset: expense.isCapitalAsset,
       costNature: expense.costNature,
+      // SA-B (R5-3) — اعرض علم «هدر/تلف مخزون» ليجعل الصف للقراءة فقط في
+      // ExpensesTab ويُحرس deleteExpense/updateExpense. قبل هذا الإصلاح كان
+      // الحقل موجوداً في الجدول لكنه غير معرَّض هنا، فلم تستطع الواجهة أو
+      // الإجراءات تمييز صفوف التسوية المُشتقّة.
+      isInventoryWriteoff: expense.isInventoryWriteoff,
       deletedAt: expense.deletedAt,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
