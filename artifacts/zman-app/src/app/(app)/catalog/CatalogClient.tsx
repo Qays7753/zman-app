@@ -15,6 +15,7 @@ import { Select } from "@/components/shared/Select";
 import { TextArea } from "@/components/shared/TextArea";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { AmountText } from "@/components/shared/AmountText";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import {
   useCatalogComponents,
   useCreateCatalogComponent,
@@ -278,7 +279,7 @@ function CatalogCard({
             <button
               type="button"
               onClick={onAdjustStock}
-              className="text-xs px-2.5 py-1.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[36px]"
+              className="text-xs px-2.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[44px]"
               title="تسوية يدوية — صرف أو إضافة (لا تدخل P&L)"
             >
               <PackageMinus className="w-3.5 h-3.5" />
@@ -287,7 +288,7 @@ function CatalogCard({
             <button
               type="button"
               onClick={onShowMovements}
-              className="text-xs px-2.5 py-1.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[36px]"
+              className="text-xs px-2.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[44px]"
               title="عرض آخر 20 حركة"
             >
               <History className="w-3.5 h-3.5" />
@@ -423,7 +424,10 @@ function CatalogForm({
           control={control}
           name="tracked"
           render={({ field: { value, onChange } }) => (
-            <div className="flex items-center gap-3">
+            <label
+              htmlFor="catalog-tracked"
+              className="flex items-center gap-3 min-h-[44px] cursor-pointer"
+            >
               <input
                 type="checkbox"
                 id="catalog-tracked"
@@ -440,14 +444,12 @@ function CatalogForm({
                 }}
                 className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info"
               />
-              <label
-                htmlFor="catalog-tracked"
-                className="text-sm font-bold text-ink/75 cursor-pointer flex items-center gap-1.5"
-              >
+              <span className="text-sm font-bold text-ink/75 flex items-center gap-1.5">
                 <PackageCheck className="w-4 h-4 text-info" />
                 متتبَّع (تفعيل خصم/إضافة المخزون عند الشراء والتوصيل)
-              </label>
-            </div>
+              </span>
+              <InfoTooltip text="عند تفعيل التتبَّع: الشراء لهذا الصنف يُسجَّل كمخزون (لا يخفض الربح في شهر الشراء)، وعند البيع تُخصم تكلفة البضاعة المباعة من الربح. الأصناف غير المتتبَّعة تُعالَج كمصروف تشغيلي مباشر." />
+            </label>
           )}
         />
 
@@ -669,7 +671,10 @@ function AdjustStockForm({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-bold text-ink/75">نوع التسوية</label>
+        <label className="text-sm font-bold text-ink/75 flex items-center gap-1.5">
+          نوع التسوية
+          <InfoTooltip text="الصرف اليدوي (out) لتلف أو فقدان مخزون: يُخصم الرصيد ويُسجَّل خسارة غير نقدية في بند «هدر/تلف مخزون» بالقائمة المالية (تخفض الربح التشغيلي). الإضافة اليدوية (in) لردّ مخزون عائد أو تسوية موجبة: لا تؤثر على الربح." />
+        </label>
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -696,9 +701,15 @@ function AdjustStockForm({
             إضافة يدوية (in)
           </button>
         </div>
-        <p className="text-[11px] text-ink-3">
-          التسوية اليدوية لا تدخل P&L ولا الميزانية — مجرد تعديل تشغيلي على الرصيد.
-        </p>
+        {direction === "out" ? (
+          <p className="text-[11px] text-alert/80 leading-relaxed">
+            الصرف اليدوي يُسجَّل كخسارة غير نقدية في بند «هدر/تلف مخزون» — يُخفِض الربح التشغيلي بقدر قيمة الكمية المخصومة. لا يُخصم النقد من الصندوق.
+          </p>
+        ) : (
+          <p className="text-[11px] text-ink-3 leading-relaxed">
+            الإضافة اليدوية تزيد الرصيد دون أثر على الربح أو الصندوق — لتسوية موجبة أو ردّ مخزون عائد.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
