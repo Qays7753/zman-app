@@ -14,18 +14,7 @@ import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 import { PageToolbar } from "@/components/shared/PageToolbar";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 
-// استيراد تبويبات المالية ديناميكياً لتقسيم الحزم البرمجية (§12.1)
-const PurchasesTab = dynamic(
-  () =>
-    import("@/features/finance/components/PurchasesTab").then(
-      (m) => m.PurchasesTab,
-    ),
-  {
-    ssr: false,
-    loading: () => <SkeletonList count={3} />,
-  },
-);
-
+// ─── استيراد تبويبات العمليات اليومية ديناميكياً ───
 const ExpensesTab = dynamic(
   () =>
     import("@/features/finance/components/ExpensesTab").then(
@@ -37,36 +26,20 @@ const ExpensesTab = dynamic(
   },
 );
 
+const PurchasesTab = dynamic(
+  () =>
+    import("@/features/finance/components/PurchasesTab").then(
+      (m) => m.PurchasesTab,
+    ),
+  {
+    ssr: false,
+    loading: () => <SkeletonList count={3} />,
+  },
+);
+
 const SalesTab = dynamic(
   () =>
     import("@/features/finance/components/SalesTab").then((m) => m.SalesTab),
-  {
-    ssr: false,
-    loading: () => <SkeletonList count={3} />,
-  },
-);
-
-const AccountsTab = dynamic(
-  () =>
-    import("@/features/finance/components/AccountsTab").then((m) => m.AccountsTab),
-  {
-    ssr: false,
-    loading: () => <SkeletonList count={3} />,
-  },
-);
-
-const OwnerTab = dynamic(
-  () =>
-    import("@/features/finance/components/OwnerTab").then((m) => m.OwnerTab),
-  {
-    ssr: false,
-    loading: () => <SkeletonList count={3} />,
-  },
-);
-
-const OpeningTab = dynamic(
-  () =>
-    import("@/features/finance/components/OpeningTab").then((m) => m.OpeningTab),
   {
     ssr: false,
     loading: () => <SkeletonList count={3} />,
@@ -90,14 +63,11 @@ const SALE_SOURCES = [
   { value: "order", label: "طلب محوّل" },
 ];
 
-/* ─── أنواع التبويبات ─── */
+/* ─── أنواع التبويبات اليومية ─── */
 const TABS = [
-  { id: "purchases", label: "المشتريات", icon: ShoppingCart },
   { id: "expenses", label: "المصاريف", icon: Wallet },
+  { id: "purchases", label: "المشتريات", icon: ShoppingCart },
   { id: "sales", label: "المبيعات", icon: Banknote },
-  { id: "accounts", label: "الحسابات", icon: Landmark },
-  { id: "owner", label: "المصاريف الشخصية", icon: User },
-  { id: "opening", label: "الافتتاحي", icon: Settings },
 ] as const;
 
 
@@ -239,12 +209,7 @@ export default function FinanceClient() {
           <PageToolbar
             leading={
               <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar max-w-full">
-                {[
-                  TABS.find((t) => t.id === "purchases")!,
-                  TABS.find((t) => t.id === "expenses")!,
-                  TABS.find((t) => t.id === "owner")!,
-                  TABS.find((t) => t.id === "sales")!,
-                ].map((tab) => {
+                {TABS.map((tab) => {
                   const isActive = tab.id === activeTab;
                   const Icon = tab.icon;
                   return (
@@ -270,11 +235,7 @@ export default function FinanceClient() {
                     ? "البحث في المصاريف..."
                     : activeTab === "sales"
                       ? "البحث في بيان المبيعات..."
-                      : activeTab === "owner"
-                        ? "البحث في المصاريف الشخصية..."
-                        : activeTab === "accounts"
-                          ? "البحث في الحسابات..."
-                          : "البحث...",
+                      : "البحث...",
             }}
             reserveSearchSpace={true}
             filters={filters || undefined}
@@ -292,12 +253,9 @@ export default function FinanceClient() {
             </div>
           ) : (
             <>
-              {activeTab === "purchases" && <PurchasesTab />}
               {activeTab === "expenses" && <ExpensesTab />}
+              {activeTab === "purchases" && <PurchasesTab />}
               {activeTab === "sales" && <SalesTab />}
-              {activeTab === "accounts" && <AccountsTab />}
-              {activeTab === "owner" && <OwnerTab />}
-              {activeTab === "opening" && <OpeningTab />}
             </>
           )}
         </div>

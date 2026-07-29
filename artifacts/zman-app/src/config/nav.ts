@@ -63,13 +63,13 @@ export const moreNavItems: NavItem[] = [
     icon: Clock,
   },
   {
-    label: "الحسابات",
-    href: "/finance?tab=accounts",
+    label: "الحسابات والصناديق",
+    href: "/finance/accounts",
     icon: Landmark,
   },
   {
     label: "الافتتاحي",
-    href: "/finance?tab=opening",
+    href: "/settings/opening-balance",
     icon: Settings,
   },
   {
