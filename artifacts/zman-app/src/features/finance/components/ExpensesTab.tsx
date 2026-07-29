@@ -22,6 +22,7 @@ import {
 } from "../hooks";
 import type { NewExpense } from "../types";
 import { ExpenseForm } from "./ExpenseForm";
+import { SmartFinanceForm } from "./SmartFinanceForm";
 // Phase 4 — مودال سؤال الإهلاك (خلف toggle «تصنيف متقدّم»).
 import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
 import { useAddCapitalAsset, useDeleteCapitalAsset } from "@/features/depreciation/hooks";
@@ -401,16 +402,15 @@ export function ExpensesTab() {
         </div>
       )}
 
-      {/* مودال إنشاء مصروف جديد */}
+      {/* مودال إنشاء جديد — SmartFinanceForm يغطي: مصروف يومي / شراء مواد / أصل */}
       <ResponsiveModal
         isOpen={newExpense}
         onClose={() => updateUrl({ newExpense: null })}
-        title="تسجيل مصروف جديد"
+        title="تسجيل جديد"
       >
-        <ExpenseForm
-          categories={categoriesList.filter((c) => c !== "الكل")}
-          onSubmit={handleCreate}
-          isSubmitting={createMutation.isPending}
+        <SmartFinanceForm
+          onSuccess={() => refetch()}
+          onClose={() => updateUrl({ newExpense: null })}
         />
       </ResponsiveModal>
 

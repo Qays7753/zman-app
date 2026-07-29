@@ -1,0 +1,30 @@
+# Role & Objective
+You are a Senior Frontend/UX Engineer working on the ZMAN Next.js PWA. You already have the context from the MiniMax UX Audit report. 
+
+We are now initiating Round 2: Solving Problem #3 (Complex Input Forms). 
+Our goal is to implement a "Smart Context-Aware Form" that simplifies the daily input for the workshop owner while intelligently handling the relationship between Expenses, Purchases, and Inventory.
+
+# The Proposed UX Logic (To be evaluated)
+Instead of showing 8 accounting fields at once, the new `ExpenseForm` (and similarly `PurchaseForm`) should behave dynamically based on the selected "Category":
+
+1. **Default Simple View (Always Visible):** Date, Category (Autocomplete/Select), Amount, Notes, and a big "Save" button. This covers 90% of daily operational expenses (electricity, rent, tea).
+2. **Smart Inventory Link (Triggered by Category):** 
+   - If the user selects/enters a category that matches a "Tracked Item" in the Catalog (e.g., concrete pots, soil), the system should dynamically ask: "This item exists in your inventory. Do you want to add X quantity to your stock?" 
+   - If YES: The system should process this as a Purchase that increments inventory.
+   - If NO (e.g., it was damaged/wasted): It saves as a standard variable expense.
+3. **Smart Capital Asset Link (Triggered by Category):** 
+   - If the category implies a capital asset (e.g., fridge, machinery), it reveals the advanced section: "Is this a capital asset? Do you want to depreciate it monthly?"
+4. **Underlying Rule:** Do not change the DB schema or accounting logic. Reuse existing actions/hooks for Expenses and Purchases. We are only redesigning the UI flow to be context-aware.
+
+# CRITICAL INSTRUCTION: STOP AND ANALYZE FIRST
+DO NOT WRITE ANY CODE YET. 
+
+Before executing, you must act as a critical reviewer. Read the current implementation of `ExpenseForm.tsx`, `PurchaseForm.tsx`, and how the Catalog/Inventory linkage works. 
+
+Please report back to me with:
+1. **Feasibility Check:** Is the proposed "Smart Inventory Link" technically sound given the current codebase? Can an Expense form smoothly trigger a Purchase/Inventory increment action?
+2. **Potential Flaws:** Do you see any edge cases, data integrity risks, or UX flaws in my proposal? (e.g., what if the user types a new category that isn't in the catalog?)
+3. **Your Better Ideas:** Do you have a better, safer, or cleaner way to achieve this UX goal based on your understanding of the code?
+4. **Execution Plan:** Outline the exact files you will modify and the new UI components you will create.
+
+Wait for my approval of your plan before you proceed to the implementation phase.
