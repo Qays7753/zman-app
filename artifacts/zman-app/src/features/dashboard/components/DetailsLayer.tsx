@@ -23,6 +23,7 @@ import {
   ClipboardList,
   TrendingDown,
   Wallet,
+  Scale,
 } from "lucide-react";
 import Link from "next/link";
 import { AmountText } from "@/components/shared/AmountText";
@@ -328,6 +329,22 @@ export function DetailsLayer({
                 <span className="text-lg font-black text-info font-mono whitespace-nowrap">
                   <AmountText
                     amount={positionData.realCash}
+                    hideCurrency
+                    parenNegative
+                  />
+                </span>
+              </div>
+
+              {/* صافي قيمة المشروع — المجموع النهائي البارز */}
+              <div className="flex items-center justify-between mt-1 pt-2 border-t-2 border-indigo-200 bg-indigo-50 -mx-4 px-4 py-3 rounded-b-lg">
+                <span className="text-sm font-black text-indigo-800 flex items-center gap-1.5">
+                  <Scale className="h-4 w-4 text-indigo-500 shrink-0" />
+                  صافي قيمة المشروع (السائل)
+                  <InfoTooltip text="إجمالي الأصول − الالتزامات (العربون) = حقوق الملكية. هذا ما تملكه فعلاً من المشروع بعد خصم كل الالتزامات. راجع ACCOUNTING_RULES.md." />
+                </span>
+                <span className="text-xl font-black text-indigo-700 font-mono whitespace-nowrap">
+                  <AmountText
+                    amount={positionData.realCash - positionData.depositsHeld}
                     hideCurrency
                     parenNegative
                   />

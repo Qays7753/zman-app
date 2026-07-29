@@ -26,6 +26,7 @@ import {
   ShoppingCart,
   User,
   Wallet,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -33,6 +34,7 @@ import { useState, useTransition } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { FilterChip } from "@/components/shared/FilterChip";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
@@ -49,6 +51,7 @@ import {
 } from "../hooks";
 import { useOpeningBalance } from "@/features/finance/hooks";
 import { useInventoryValuation } from "@/features/inventory/hooks";
+import { useCapitalAssets } from "@/features/depreciation/hooks";
 
 import { DetailsLayer } from "./DetailsLayer";
 import { FinanceComparePanel } from "./FinanceComparePanel";
@@ -130,6 +133,9 @@ export function DashboardClient() {
   // بيانات المخزون للتنبيهات الذكية
   const { data: inventoryData } = useInventoryValuation();
 
+  // الأصول الرأسمالية — لحساب صافي القيمة الدفترية as-of endDate
+  const { data: capitalAssetsData } = useCapitalAssets(endDateStr);
+
   // ── معالجة الأخطاء ────────────────────────────────────────────────────────
   const handleRetryAll = () => {
     refetchSummary();
@@ -179,6 +185,10 @@ export function DashboardClient() {
   const pendingOrdersCount =
     (stats?.ordersByStatus["sent"] ?? 0) +
     (stats?.ordersByStatus["confirmed"] ?? 0);
+
+  // صافي القيمة الدفترية للأصول الرأسمالية as-of endDate
+  const capitalAssetsNetValueCents =
+    capitalAssetsData?.reduce((sum, a) => sum + a.netBookValueCents, 0) ?? 0;
 
   // ── معالجة الفلتر ─────────────────────────────────────────────────────────
   const handlePresetSelect = (idx: number) => {
@@ -281,7 +291,10 @@ export function DashboardClient() {
               asOfBankCents={asOfBankCents}
               asOfDepositsHeldCents={asOfDepositsHeldCents}
               netProfit={summary?.netProfit ?? 0}
+              ownerDraw={summary?.ownerDraw ?? 0}
               inventoryValueCents={summary?.inventoryValueCents ?? 0}
+              equityTotalCents={position?.equity.totalCents ?? 0}
+              capitalAssetsNetValueCents={capitalAssetsNetValueCents}
             />
 
             {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
@@ -453,16 +466,24 @@ function HealthCard({
   asOfBankCents,
   asOfDepositsHeldCents,
   netProfit,
+  ownerDraw,
   inventoryValueCents,
+  equityTotalCents,
+  capitalAssetsNetValueCents,
 }: {
   asOfRealCashCents: number;
   asOfCashCents: number;
   asOfBankCents: number;
   asOfDepositsHeldCents: number;
   netProfit: number;
+  ownerDraw: number;
   inventoryValueCents: number;
+  equityTotalCents: number;
+  capitalAssetsNetValueCents: number;
 }) {
   const isProfit = netProfit >= 0;
+  const netProfitAfterDraw = netProfit - ownerDraw;
+  const isNetAfterDrawPositive = netProfitAfterDraw >= 0;
 
   return (
     <div className="rounded-xl border border-hairline shadow-sm overflow-hidden">
@@ -530,7 +551,58 @@ function HealthCard({
         </div>
       )}
 
-      {/* الصف السفلي: العربون */}
+      {/* الصف الثالث: صافي ربح الفترة بعد السحوبات (مشروط) */}
+      {ownerDraw > 0 && (
+        <div
+          className={`border-t px-4 py-2.5 flex items-center justify-between gap-2 ${
+            isNetAfterDrawPositive
+              ? "bg-emerald/5 border-emerald/10"
+              : "bg-alert/5 border-alert/10"
+          }`}
+        >
+          <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
+            <ArrowDownRight className="h-3 w-3 text-ink/40 shrink-0" />
+            صافي ربح الفترة بعد السحوبات
+          </span>
+          <span
+            className={`text-xs font-black font-mono whitespace-nowrap ${
+              isNetAfterDrawPositive ? "text-emerald-deep" : "text-alert"
+            }`}
+          >
+            <AmountText amount={netProfitAfterDraw} hideCurrency parenNegative />
+          </span>
+        </div>
+      )}
+
+      {/* الصف الرابع: صافي قيمة المشروع السائلة */}
+      {equityTotalCents !== 0 && (
+        <div className="bg-indigo-50 border-t border-indigo-100 px-4 py-2.5 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold text-indigo-700/70 flex items-center gap-1 whitespace-nowrap">
+            <Landmark className="h-3 w-3 text-indigo-500 shrink-0" />
+            صافي قيمة المشروع (السائل)
+            <InfoTooltip text="النقد + المخزون − العربون المستحق = ما تملكه فعلاً من المشروع بشكل سائل. لا يشمل الأصول الرأسمالية." />
+          </span>
+          <span className="text-xs font-black text-indigo-700 font-mono whitespace-nowrap">
+            <AmountText amount={equityTotalCents} hideCurrency parenNegative />
+          </span>
+        </div>
+      )}
+
+      {/* الصف الخامس: صافي قيمة الأصول الرأسمالية */}
+      {capitalAssetsNetValueCents > 0 && (
+        <div className="bg-amber-50 border-t border-amber-100 px-4 py-2.5 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold text-amber-700/70 flex items-center gap-1 whitespace-nowrap">
+            <Wrench className="h-3 w-3 text-amber-500 shrink-0" />
+            صافي قيمة الأصول الرأسمالية
+            <InfoTooltip text="القيمة الدفترية الصافية لآلاتك وأثاثك بعد خصم الإهلاك المتراكم حتى نهاية الفترة المختارة." />
+          </span>
+          <span className="text-xs font-black text-amber-700 font-mono whitespace-nowrap">
+            <AmountText amount={capitalAssetsNetValueCents} hideCurrency />
+          </span>
+        </div>
+      )}
+
+      {/* الصف السادس: العربون */}
       {asOfDepositsHeldCents > 0 && (
         <div className="bg-warn-soft/30 border-t border-warn/15 px-4 py-2.5 flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
