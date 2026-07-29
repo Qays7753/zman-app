@@ -268,13 +268,22 @@ export function ExpensesTab() {
         <ErrorState onRetry={refetch} />
       ) : filteredExpenses.length === 0 ? (
         <EmptyState
-          title={search || category !== "all" || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مصاريف مسجلة"}
+          title={search || category !== "all" || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مصاريف مسجلة حتى الآن"}
           description={
             search || category !== "all" || natureFilter
               ? "جرب تعديل كلمة البحث أو فلتر الفئات أو فلتر الطبيعة."
-              : "تسجيل المصاريف التشغيلية (الرواتب، الإيجارات، الفواتير) يعطي رؤية دقيقة للأرباح الصافية للورشة."
+              : "تسجيل المصاريف التشغيلية يضمن احتساب صافي أرباح الورشة بدقة."
           }
-          actionLabel={search || category !== "all" || natureFilter ? undefined : "تسجيل مصروف"}
+          steps={
+            search || category !== "all" || natureFilter
+              ? undefined
+              : [
+                  "اضغط زر (+) العائم أسفل الشاشة",
+                  "اختر (مصروف جديد) وأدخل البيانات والمبلغ",
+                  "اضغط حفظ لتحديث صافي أرباح الورشة فوراً"
+                ]
+          }
+          actionLabel={search || category !== "all" || natureFilter ? undefined : "إضافة مصروف جديد (+)"}
           onAction={
             search || category !== "all" || natureFilter ? undefined : () => updateUrl({ newExpense: "true" })
           }

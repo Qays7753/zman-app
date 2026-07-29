@@ -28,6 +28,7 @@ import {
   Wallet,
 } from "lucide-react";
 import Link from "next/link";
+import { GlobalSearch } from "./GlobalSearch";
 import { useState, useTransition } from "react";
 
 import { AppShellHeader } from "@/providers/app-shell-context";
@@ -257,6 +258,8 @@ export function DashboardClient() {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* البحث الشامل */}
+            <GlobalSearch />
 
             {/* إعداد أولي — البنود الأربعة */}
             {(!openingBal || !openingBal.isLocked) && (
@@ -321,6 +324,7 @@ export function DashboardClient() {
             <SmartAlertsBar
               lowStockCount={lowStockCount}
               pendingOrdersCount={pendingOrdersCount}
+              isLowCash={asOfRealCashCents < 50000}
             />
 
             {/* بطاقة الصحة الكبيرة */}

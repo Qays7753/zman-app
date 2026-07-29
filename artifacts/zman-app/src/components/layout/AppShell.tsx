@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Database } from "lucide-react";
 import { useEffect, useState } from "react";
 import { navItems, mainNavItems, moreNavItems } from "@/config/nav";
 import { InstallButton } from "@/components/pwa/InstallButton";
 import { cn } from "@/lib/utils";
 import { useAppShell } from "@/providers/app-shell-context";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
+import { BackupModal } from "@/components/shared/BackupModal";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -20,6 +21,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
 
   // سحب للتحديث
   const [pullStart, setPullStart] = useState<number | null>(null);
@@ -293,11 +295,28 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               </Link>
             );
           })}
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsMoreOpen(false);
+              setIsBackupOpen(true);
+            }}
+            className="w-full flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg text-ink-2 hover:bg-canvas hover:text-ink font-medium"
+          >
+            <Database className="w-5 h-5 flex-shrink-0 text-info" />
+            <span>تصدير لقطة مرجعية</span>
+          </button>
         </div>
         <div className="pt-4 border-t border-hairline mt-2">
           <InstallButton />
         </div>
       </ResponsiveModal>
+
+      <BackupModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
+      />
     </div>
   );
 }

@@ -253,13 +253,22 @@ export function PurchasesTab() {
         <ErrorState onRetry={refetch} />
       ) : filteredPurchases.length === 0 ? (
         <EmptyState
-          title={search || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مشتريات مسجلة"}
+          title={search || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مشتريات مسجلة حتى الآن"}
           description={
             search || natureFilter
               ? "جرب تعديل كلمة البحث أو فلتر النتائج."
-              : "تسجيل المشتريات يساعد في حصر تكلفة المواد الخام وحساب صافي أرباح الورشة بدقة."
+              : "تسجيل المشتريات يساعد في تتبع الخامات المستهلكة وضبط التكلفة."
           }
-          actionLabel={search || natureFilter ? undefined : "تسجيل أول فاتورة"}
+          steps={
+            search || natureFilter
+              ? undefined
+              : [
+                  "اضغط زر (+) العائم أسفل الشاشة",
+                  "اختر (تسجيل مشتريات) وأدخل التفاصيل والمبلغ",
+                  "حدد ما إذا كانت خامات تشغيلية أو أصل رأسمالي"
+                ]
+          }
+          actionLabel={search || natureFilter ? undefined : "تسجيل مشتريات جديدة (+)"}
           onAction={
             search || natureFilter ? undefined : () => updateUrl({ newPurchase: "true" })
           }

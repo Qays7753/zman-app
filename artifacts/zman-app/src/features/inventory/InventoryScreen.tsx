@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { AlertTriangle, ArrowUpDown, Package } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { cn } from "@/lib/utils";
 import { useInventoryValuation } from "./hooks";
 
@@ -19,6 +21,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 export function InventoryScreen() {
+  const router = useRouter();
   const [sort, setSort] = useState<SortKey>("alpha");
   const { data, isLoading, isError, refetch } = useInventoryValuation();
 
@@ -105,21 +108,17 @@ export function InventoryScreen() {
 
       {/* القائمة */}
       {!isLoading && !isError && sorted.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-canvas flex items-center justify-center">
-            <Package className="w-7 h-7 text-ink-3" />
-          </div>
-          <p className="text-sm font-medium text-ink-2">لا يوجد مخزون متتبَّع بعد</p>
-          <p className="text-xs text-ink-3 max-w-[220px]">
-            فعّل خيار «تتبّع المخزون» على أي صنف في الكتالوج لتظهر هنا
-          </p>
-          <Link
-            href="/catalog"
-            className="mt-1 text-xs text-info underline underline-offset-2"
-          >
-            اذهب إلى الكتالوج
-          </Link>
-        </div>
+        <EmptyState
+          title="لا يوجد مخزون متتبَّع حتى الآن"
+          description="تتبع كميات وقيم خامات الورشة لمنع النفاد واحتساب القيمة الدفترية."
+          steps={[
+            "اذهب إلى شاشة الكتالوج الخاصة بالخامات",
+            "اختر الصنف المراد تتبعه وفعّل خيار (تتبع المخزون)",
+            "حدد الكمية المتوفرة حالياً وسعر الشراء"
+          ]}
+          actionLabel="الانتقال إلى الكتالوج"
+          onAction={() => router.push("/catalog")}
+        />
       )}
 
       {!isLoading && !isError && sorted.length > 0 && (
