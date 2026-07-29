@@ -1,7 +1,9 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { addCapitalAsset, deleteCapitalAsset } from "./actions";
+import { getAllCapitalAssets } from "./assetsQueries";
+import { getAmmanDate } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────
 // depreciation/hooks — React Query hooks لاستدعاء addCapitalAsset (Phase 4)
@@ -20,7 +22,21 @@ import { addCapitalAsset, deleteCapitalAsset } from "./actions";
 
 export const capitalAssetKeys = {
   all: ["capital-assets"] as const,
+  list: (asOfDate?: string) => [...capitalAssetKeys.all, "list", asOfDate ?? ""] as const,
 };
+
+/**
+ * جلب كل الأصول الرأسمالية النشطة مع بيانات الإهلاك — لشاشة /assets.
+ */
+export function useCapitalAssets(asOfDate?: string) {
+  const date = asOfDate ?? getAmmanDate();
+  return useQuery({
+    queryKey: capitalAssetKeys.list(date),
+    queryFn: () => getAllCapitalAssets(date),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+}
 
 interface AddCapitalAssetVariables {
   sourceType: "expense" | "purchase";

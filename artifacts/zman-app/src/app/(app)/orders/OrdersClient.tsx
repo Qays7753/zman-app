@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, CalendarDays, LayoutList, MessageSquare, Plus } from "lucide-react";
+import { CalendarDays, LayoutList, MessageSquare, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -23,11 +23,6 @@ const OrderList = dynamic(
 const ResponsiveModal = dynamic(
   () => import("@/components/shared/ResponsiveModal").then((m) => m.ResponsiveModal),
   { ssr: false },
-);
-
-const CatalogClient = dynamic(
-  () => import("../catalog/CatalogClient"),
-  { ssr: false, loading: () => <SkeletonList count={3} /> },
 );
 
 const OrderForm = dynamic(
@@ -66,7 +61,6 @@ export default function OrdersClient() {
   const currentQuery = searchParams.get("q") || "";
   const currentSort = searchParams.get("sort") || "newest";
   const { data: statusCounts } = useOrderStatusCounts();
-  const [isComponentsOpen, setIsComponentsOpen] = useState(false);
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
 
   // بحث محلي مع debounce يكتب q في الـ URL (يقرأه العرضان: قائمة/تقويم)
@@ -192,12 +186,6 @@ export default function OrdersClient() {
             icon: <MessageSquare className="w-5 h-5 text-info" />,
             onClick: () => setIsTemplateOpen(true),
           },
-          {
-            key: "components",
-            label: "إدارة المكوّنات",
-            icon: <Boxes className="w-5 h-5" />,
-            onClick: () => setIsComponentsOpen(true),
-          },
         ]}
       />
     );
@@ -266,14 +254,6 @@ export default function OrdersClient() {
           onCreateNew={handleShowCreate}
         />
       )}
-
-      <ResponsiveModal
-        isOpen={isComponentsOpen}
-        onClose={() => setIsComponentsOpen(false)}
-        title="إدارة المكوّنات"
-      >
-        <CatalogClient hideHeader={true} />
-      </ResponsiveModal>
 
       <ResponsiveModal
         isOpen={isTemplateOpen}
