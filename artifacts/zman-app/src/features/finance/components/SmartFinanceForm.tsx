@@ -432,6 +432,15 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
           onSubmit={purchaseForm.handleSubmit(handlePurchaseSubmit)}
           className="space-y-4"
         >
+          {/* رسالة توعوية: شراء المخزون ≠ خسارة */}
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+            <span className="text-base leading-none mt-0.5" aria-hidden="true">✅</span>
+            <p className="text-xs text-emerald-800 leading-relaxed">
+              <strong>هذا المبلغ لم يُضَف لمصاريفك</strong> — سيُضاف لقيمة مخزونك.
+              الربح يتأثر فقط عند تسليم الطلبات (تكلفة البضاعة المباعة).
+            </p>
+          </div>
+
           <div className="space-y-2 flex flex-col">
             <label className="text-sm font-bold text-ink/75">تاريخ الشراء</label>
             <input

@@ -51,6 +51,14 @@ export interface FinancialSummary {
    * للتمكين من عرضه مستقبلاً. SA1 Part C flag #2.
    */
   cogsCentsToDate: number;
+  /**
+   * UX Round 4 — COGS تكلفة البضاعة المباعة للفترة المختارة [startDate, endDate].
+   * = Σ(out total_value_cents) من catalog_movement (source_type='order_delivery')
+   * مقيَّدة بالفترة. مصدرها operatingPnl.cogsCents من computeOperatingPnl — لا
+   * استعلام إضافي. تُعرَض في FinanceComparePanel بدلاً من «مشتريات» لإظهار
+   * التكلفة الحقيقية المُطرحة من الربح (مطابقة الإيراد بالتكلفة — COGS، لا cash out).
+   */
+  cogsCents: number;
 }
 
 export interface ActivityItem {
@@ -246,8 +254,10 @@ export async function getFinancialSummary(
   // فشل/تأخّر position).
   const inventoryValueCents = Number(inventoryValueResult[0]?.total) || 0;
   const cogsCentsToDate = Number(cogsToDateResult[0]?.total) || 0;
+  // UX Round 4 — COGS للفترة من computeOperatingPnl (لا استعلام إضافي).
+  const cogsCents = operatingPnl.cogsCents;
 
-  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, monthlyDepreciationCents, ownerNet, ownerInject, ownerDraw, inventoryValueCents, cogsCentsToDate };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, monthlyDepreciationCents, ownerNet, ownerInject, ownerDraw, inventoryValueCents, cogsCentsToDate, cogsCents };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)

@@ -11,6 +11,7 @@
 
 import {
   BarChart3,
+  PackageOpen,
   TrendingDown,
   TrendingUp,
   User,
@@ -20,20 +21,24 @@ import { InfoTooltip } from "@/components/shared/InfoTooltip";
 
 interface FinanceComparePanelProps {
   actualSales: number;
-  purchases: number;
+  /** UX Round 4 — COGS للفترة (بدلاً من إجمالي المشتريات). */
+  cogsCents: number;
   expenses: number;
   netProfit: number;
   ownerDraw: number;
   expectedRemaining: number;
+  /** مشتريات الفترة — للتلميح التوعوي فقط، لا تُطرَح من الربح هنا. */
+  purchases: number;
 }
 
 export function FinanceComparePanel({
   actualSales,
-  purchases,
+  cogsCents,
   expenses,
   netProfit,
   ownerDraw,
   expectedRemaining,
+  purchases,
 }: FinanceComparePanelProps) {
   const rows = [
     {
@@ -44,21 +49,21 @@ export function FinanceComparePanel({
       subtracted: false,
     },
     {
-      label: "مشتريات",
-      value: purchases,
+      label: "تكلفة المبيعات",
+      value: cogsCents,
       barClass: "bg-amber-500",
       textClass: "text-amber-600",
       subtracted: true,
     },
     {
-      label: "مصاريف",
+      label: "مصاريف تشغيلية",
       value: expenses,
       barClass: "bg-orange-400",
       textClass: "text-amber-600",
       subtracted: true,
     },
   ];
-  const maxValue = Math.max(actualSales, purchases, expenses, 1);
+  const maxValue = Math.max(actualSales, cogsCents, expenses, 1);
   const isProfit = netProfit >= 0;
   const afterDraw = netProfit - ownerDraw;
   const isAfterDrawPositive = afterDraw >= 0;
@@ -71,7 +76,7 @@ export function FinanceComparePanel({
         <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
           <BarChart3 className="h-4.5 w-4.5 text-info" />
           الربح التشغيلي
-          <InfoTooltip text="الربح التشغيلي = مبيعات − مشتريات تشغيلية − مصاريف تشغيلية − إهلاك الفترة (غير نقدي). يختلف عن «الربح النقدي المحتجز» في التفاصيل المالية — الفرق = الإهلاك. راجع ACCOUNTING_RULES.md §10." />
+          <InfoTooltip text="الربح التشغيلي = مبيعات − تكلفة البضاعة المباعة (COGS) − مصاريف تشغيلية − إهلاك الفترة. تكلفة البضاعة المباعة ≠ مشتريات المخزون — المشتريات تزيد قيمة مخزونك، والتكلفة تُحتسب فقط عند تسليم الطلبات." />
         </h3>
         <span className="text-[10px] text-ink/40 whitespace-nowrap">للفترة المختارة</span>
       </div>
@@ -107,6 +112,17 @@ export function FinanceComparePanel({
           );
         })}
       </div>
+
+      {/* تلميح توعوي: مشتريات المخزون ≠ خسارة */}
+      {purchases > 0 && (
+        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-info/8 border border-info/15">
+          <PackageOpen className="h-3.5 w-3.5 text-info shrink-0 mt-0.5" />
+          <p className="text-[11px] text-info/80 leading-relaxed">
+            اشتريت مخزوناً بـ <strong className="text-info font-black"><AmountText amount={purchases} hideCurrency /></strong> هذه الفترة —{" "}
+            <span className="font-semibold">هذا المبلغ لم يُطرَح من ربحك</span>، بل أضيف لقيمة مخزونك. الربح يتأثر فقط عند تسليم الطلبات.
+          </p>
+        </div>
+      )}
 
       {/* الربح التشغيلي — الرقم الأساسي */}
       <div

@@ -281,17 +281,19 @@ export function DashboardClient() {
               asOfBankCents={asOfBankCents}
               asOfDepositsHeldCents={asOfDepositsHeldCents}
               netProfit={summary?.netProfit ?? 0}
+              inventoryValueCents={summary?.inventoryValueCents ?? 0}
             />
 
             {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
             {summary && (
               <FinanceComparePanel
                 actualSales={summary.actualSales ?? 0}
-                purchases={summary.purchases ?? 0}
+                cogsCents={summary.cogsCents ?? 0}
                 expenses={summary.expenses ?? 0}
                 netProfit={summary.netProfit ?? 0}
                 ownerDraw={summary.ownerDraw ?? 0}
                 expectedRemaining={cashSummary?.expectedRemainingCents ?? 0}
+                purchases={summary.purchases ?? 0}
               />
             )}
 
@@ -451,12 +453,14 @@ function HealthCard({
   asOfBankCents,
   asOfDepositsHeldCents,
   netProfit,
+  inventoryValueCents,
 }: {
   asOfRealCashCents: number;
   asOfCashCents: number;
   asOfBankCents: number;
   asOfDepositsHeldCents: number;
   netProfit: number;
+  inventoryValueCents: number;
 }) {
   const isProfit = netProfit >= 0;
 
@@ -512,6 +516,19 @@ function HealthCard({
           </p>
         </div>
       </div>
+
+      {/* الصف الثاني: قيمة المخزون */}
+      {inventoryValueCents > 0 && (
+        <div className="bg-info/5 border-t border-info/10 px-4 py-2.5 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
+            <ShoppingBag className="h-3 w-3 text-info/70 shrink-0" />
+            قيمة مخزونك
+          </span>
+          <span className="text-xs font-black text-info/80 font-mono whitespace-nowrap">
+            <AmountText amount={inventoryValueCents} hideCurrency />
+          </span>
+        </div>
+      )}
 
       {/* الصف السفلي: العربون */}
       {asOfDepositsHeldCents > 0 && (
