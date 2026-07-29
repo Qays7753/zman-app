@@ -128,11 +128,11 @@ export function LiquidityFlowPanel({
         />
       </div>
 
-      {/* = صافي التدفق النقدي — الداخل ناقص الخارج */}
+      {/* = صافي حركة الصندوق — الداخل ناقص الخارج */}
       <div className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${isPositive ? "border-info/30" : "border-alert/30"}`}>
         <span className="text-sm font-black text-ink flex items-center gap-1.5">
           <Wallet className="h-4.5 w-4.5 text-info" />
-          صافي التدفق النقدي
+          صافي حركة الصندوق
         </span>
         <span className={`text-xl font-black font-mono whitespace-nowrap ${isPositive ? "text-info" : "text-alert"}`}>
           <AmountText amount={netFlow} hideCurrency parenNegative />

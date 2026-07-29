@@ -24,6 +24,7 @@ import {
   TrendingDown,
   Wallet,
   Scale,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { AmountText } from "@/components/shared/AmountText";
@@ -46,6 +47,7 @@ interface FinancialPosition {
     drawingsCents: number;
     retainedProfitCents: number;
     capitalAdditionsCents?: number;
+    totalCents: number;
   };
   liabilities: { depositsCents: number };
 }
@@ -59,6 +61,12 @@ interface DetailsLayerProps {
   summaryAllTime: SummaryAllTime | undefined;
   position: FinancialPosition | undefined;
   stats: DashboardStats | undefined;
+  /** ربح الفترة المختارة — مُنقَّل من بطاقة الصحة (Round 6) */
+  netProfit?: number;
+  /** سحوبات المالك في الفترة المختارة — مُنقَّل من بطاقة الصحة (Round 6) */
+  ownerDraw?: number;
+  /** صافي قيمة الأصول الرأسمالية as-of endDate — مُنقَّل من بطاقة الصحة (Round 6) */
+  capitalAssetsNetValueCents?: number;
 }
 
 const LS_KEY = "zman_details_expanded";
@@ -67,6 +75,9 @@ export function DetailsLayer({
   summaryAllTime,
   position,
   stats,
+  netProfit = 0,
+  ownerDraw = 0,
+  capitalAssetsNetValueCents = 0,
 }: DetailsLayerProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -151,6 +162,54 @@ export function DetailsLayer({
       {/* المحتوى القابل للطي */}
       {expanded && (
         <div className="space-y-4 pt-2">
+
+          {/* ── 0. مؤشرات الصحة التفصيلية (مُنقَّلة من بطاقة الصحة R6) ── */}
+          {(ownerDraw > 0 || position?.equity.totalCents !== 0 || capitalAssetsNetValueCents > 0) && (
+            <div className="bg-paper rounded-lg border border-hairline shadow-sm divide-y divide-hairline overflow-hidden">
+              {/* صافي ربح الفترة بعد السحوبات */}
+              {ownerDraw > 0 && (() => {
+                const afterDraw = netProfit - ownerDraw;
+                const isPos = afterDraw >= 0;
+                return (
+                  <div className={`px-4 py-2.5 flex items-center justify-between gap-2 ${isPos ? "bg-emerald/5" : "bg-alert/5"}`}>
+                    <span className="text-[11px] font-semibold text-ink/60 flex items-center gap-1 whitespace-nowrap">
+                      <ArrowDownRight className="h-3.5 w-3.5 text-ink/40 shrink-0" />
+                      صافي ربح الفترة بعد السحوبات
+                    </span>
+                    <span className={`text-sm font-black font-mono whitespace-nowrap ${isPos ? "text-emerald-deep" : "text-alert"}`}>
+                      <AmountText amount={afterDraw} hideCurrency parenNegative />
+                    </span>
+                  </div>
+                );
+              })()}
+              {/* صافي قيمة المشروع السائل */}
+              {(position?.equity.totalCents ?? 0) !== 0 && (
+                <div className="bg-indigo-50 px-4 py-2.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-indigo-700/70 flex items-center gap-1 whitespace-nowrap">
+                    <Landmark className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                    صافي قيمة المشروع (السائل)
+                    <InfoTooltip text="النقد + المخزون − العربون = حقوق ملكيتك السائلة. محسوبة على الأساس النقدي البحت (لا يُطرح منها الإهلاك). الفرق بينها وبين الربح التراكمي = إجمالي الإهلاك المتراكم." />
+                  </span>
+                  <span className="text-sm font-black text-indigo-700 font-mono whitespace-nowrap">
+                    <AmountText amount={position!.equity.totalCents} hideCurrency parenNegative />
+                  </span>
+                </div>
+              )}
+              {/* صافي قيمة الأصول الرأسمالية */}
+              {capitalAssetsNetValueCents > 0 && (
+                <div className="bg-amber-50 px-4 py-2.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-amber-700/70 flex items-center gap-1 whitespace-nowrap">
+                    <Wrench className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    صافي قيمة الأصول الرأسمالية
+                    <InfoTooltip text="القيمة الدفترية الصافية لآلاتك وأثاثك بعد خصم الإهلاك المتراكم حتى نهاية الفترة." />
+                  </span>
+                  <span className="text-sm font-black text-amber-700 font-mono whitespace-nowrap">
+                    <AmountText amount={capitalAssetsNetValueCents} hideCurrency />
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── 1. قيمة المخزون ──────────────────────────────────────── */}
           <div className="bg-emerald-soft/60 rounded-lg border border-emerald/30 shadow-sm p-4">

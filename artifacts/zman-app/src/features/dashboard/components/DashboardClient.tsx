@@ -8,7 +8,7 @@
  *   Layer 2 (قابلة للطي): DetailsLayer — تفاصيل مالية عميقة
  *   Layer 3 (مزالة): النصوص الوصفية الطويلة · القوائم المكررة
  *
- * القيمة الافتراضية للفلتر: «الشهر الحالي» (بدلاً من «الكل»).
+ * القيمة الافتراضية للفلتر: «الكل» (كل الفترات) — Round 6 UX.
  * لم يُلمَس أي منطق محاسبي أو hook أو قاعدة بيانات.
  */
 
@@ -26,7 +26,6 @@ import {
   ShoppingCart,
   User,
   Wallet,
-  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -80,8 +79,8 @@ export function DashboardClient() {
     }),
   ];
 
-  // الافتراضي: الشهر الحالي (index 1) بدلاً من «الكل» (index 0)
-  const [selectedPresetIdx, setSelectedPresetIdx] = useState(1);
+  // الافتراضي: «الكل» (index 0) — Round 6 UX: الورش الصغيرة تحتاج الصورة الكاملة
+  const [selectedPresetIdx, setSelectedPresetIdx] = useState(0);
   const [customRange, setCustomRange] = useState<{
     start: Date;
     end: Date;
@@ -291,10 +290,7 @@ export function DashboardClient() {
               asOfBankCents={asOfBankCents}
               asOfDepositsHeldCents={asOfDepositsHeldCents}
               netProfit={summary?.netProfit ?? 0}
-              ownerDraw={summary?.ownerDraw ?? 0}
               inventoryValueCents={summary?.inventoryValueCents ?? 0}
-              equityTotalCents={position?.equity.totalCents ?? 0}
-              capitalAssetsNetValueCents={capitalAssetsNetValueCents}
             />
 
             {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
@@ -336,6 +332,9 @@ export function DashboardClient() {
               summaryAllTime={summaryAllTime}
               position={position}
               stats={stats}
+              netProfit={summary?.netProfit ?? 0}
+              ownerDraw={summary?.ownerDraw ?? 0}
+              capitalAssetsNetValueCents={capitalAssetsNetValueCents}
             />
 
             {/* المستشار المالي */}
@@ -470,24 +469,16 @@ function HealthCard({
   asOfBankCents,
   asOfDepositsHeldCents,
   netProfit,
-  ownerDraw,
   inventoryValueCents,
-  equityTotalCents,
-  capitalAssetsNetValueCents,
 }: {
   asOfRealCashCents: number;
   asOfCashCents: number;
   asOfBankCents: number;
   asOfDepositsHeldCents: number;
   netProfit: number;
-  ownerDraw: number;
   inventoryValueCents: number;
-  equityTotalCents: number;
-  capitalAssetsNetValueCents: number;
 }) {
   const isProfit = netProfit >= 0;
-  const netProfitAfterDraw = netProfit - ownerDraw;
-  const isNetAfterDrawPositive = netProfitAfterDraw >= 0;
 
   return (
     <div className="rounded-xl border border-hairline shadow-sm overflow-hidden">
@@ -555,58 +546,7 @@ function HealthCard({
         </div>
       )}
 
-      {/* الصف الثالث: صافي ربح الفترة بعد السحوبات (مشروط) */}
-      {ownerDraw > 0 && (
-        <div
-          className={`border-t px-4 py-2.5 flex items-center justify-between gap-2 ${
-            isNetAfterDrawPositive
-              ? "bg-emerald/5 border-emerald/10"
-              : "bg-alert/5 border-alert/10"
-          }`}
-        >
-          <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
-            <ArrowDownRight className="h-3 w-3 text-ink/40 shrink-0" />
-            صافي ربح الفترة بعد السحوبات
-          </span>
-          <span
-            className={`text-xs font-black font-mono whitespace-nowrap ${
-              isNetAfterDrawPositive ? "text-emerald-deep" : "text-alert"
-            }`}
-          >
-            <AmountText amount={netProfitAfterDraw} hideCurrency parenNegative />
-          </span>
-        </div>
-      )}
-
-      {/* الصف الرابع: صافي قيمة المشروع السائلة */}
-      {equityTotalCents !== 0 && (
-        <div className="bg-indigo-50 border-t border-indigo-100 px-4 py-2.5 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold text-indigo-700/70 flex items-center gap-1 whitespace-nowrap">
-            <Landmark className="h-3 w-3 text-indigo-500 shrink-0" />
-            صافي قيمة المشروع (السائل)
-            <InfoTooltip text="النقد + المخزون − العربون المستحق = حقوق ملكيتك السائلة. محسوبة على الأساس النقدي البحت (لا يُطرح منها الإهلاك). لهذا قد تختلف عن الربح التراكمي المعدَّل (الذي يطرح الإهلاك) — الفرق = إجمالي الإهلاك المتراكم. لا تشمل الأصول الرأسمالية." />
-          </span>
-          <span className="text-xs font-black text-indigo-700 font-mono whitespace-nowrap">
-            <AmountText amount={equityTotalCents} hideCurrency parenNegative />
-          </span>
-        </div>
-      )}
-
-      {/* الصف الخامس: صافي قيمة الأصول الرأسمالية */}
-      {capitalAssetsNetValueCents > 0 && (
-        <div className="bg-amber-50 border-t border-amber-100 px-4 py-2.5 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-semibold text-amber-700/70 flex items-center gap-1 whitespace-nowrap">
-            <Wrench className="h-3 w-3 text-amber-500 shrink-0" />
-            صافي قيمة الأصول الرأسمالية
-            <InfoTooltip text="القيمة الدفترية الصافية لآلاتك وأثاثك بعد خصم الإهلاك المتراكم حتى نهاية الفترة المختارة." />
-          </span>
-          <span className="text-xs font-black text-amber-700 font-mono whitespace-nowrap">
-            <AmountText amount={capitalAssetsNetValueCents} hideCurrency />
-          </span>
-        </div>
-      )}
-
-      {/* الصف السادس: العربون */}
+      {/* الصف الثالث: العربون */}
       {asOfDepositsHeldCents > 0 && (
         <div className="bg-warn-soft/30 border-t border-warn/15 px-4 py-2.5 flex items-center justify-between gap-2">
           <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">

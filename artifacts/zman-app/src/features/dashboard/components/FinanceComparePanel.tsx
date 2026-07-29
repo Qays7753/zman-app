@@ -56,7 +56,7 @@ export function FinanceComparePanel({
       subtracted: false,
     },
     {
-      label: "تكلفة المبيعات (COGS)",
+      label: "تكلفة المبيعات",
       value: cogsCents,
       barClass: "bg-amber-500",
       textClass: "text-amber-600",
@@ -154,6 +154,11 @@ export function FinanceComparePanel({
           </p>
         </div>
       )}
+
+      {/* جسر توضيحي */}
+      <p className="text-[11px] text-ink/45 leading-relaxed border-t border-hairline pt-2.5">
+        المشتريات التي لم تُبع بعد لا تُخصم من ربحك، بل تُحفظ كقيمة في مخزونك وتُحتسب تكلفتها عند تسليم الطلبات.
+      </p>
 
       {/* الربح التشغيلي — الرقم الأساسي */}
       <div
