@@ -23,22 +23,29 @@ interface FinanceComparePanelProps {
   actualSales: number;
   /** UX Round 4 — COGS للفترة (بدلاً من إجمالي المشتريات). */
   cogsCents: number;
-  expenses: number;
+  /** Fix A — مصاريف تشغيلية فقط (is_capital_asset=false). تتطابق مع ما يُطرح من netProfit. */
+  operatingExpenses: number;
+  /** Fix B — مشتريات تشغيلية (غير رأسمالية وغير مخزون متتبَّع). تُطرح من netProfit. */
+  operatingPurchases: number;
+  /** Fix C — إهلاك الفترة (غير نقدي). يُطرح من netProfit. */
+  depreciation: number;
   netProfit: number;
   ownerDraw: number;
   expectedRemaining: number;
-  /** مشتريات الفترة — للتلميح التوعوي فقط، لا تُطرَح من الربح هنا. */
-  purchases: number;
+  /** Fix D — مشتريات رأسمالية + مخزون متتبَّع فقط (لم تُطرح من الربح). للتلميح التوعوي. */
+  nonOperatingPurchases: number;
 }
 
 export function FinanceComparePanel({
   actualSales,
   cogsCents,
-  expenses,
+  operatingExpenses,
+  operatingPurchases,
+  depreciation,
   netProfit,
   ownerDraw,
   expectedRemaining,
-  purchases,
+  nonOperatingPurchases,
 }: FinanceComparePanelProps) {
   const rows = [
     {
@@ -49,7 +56,7 @@ export function FinanceComparePanel({
       subtracted: false,
     },
     {
-      label: "تكلفة المبيعات",
+      label: "تكلفة المبيعات (COGS)",
       value: cogsCents,
       barClass: "bg-amber-500",
       textClass: "text-amber-600",
@@ -57,13 +64,35 @@ export function FinanceComparePanel({
     },
     {
       label: "مصاريف تشغيلية",
-      value: expenses,
+      value: operatingExpenses,
       barClass: "bg-orange-400",
-      textClass: "text-amber-600",
+      textClass: "text-orange-600",
       subtracted: true,
     },
+    ...(operatingPurchases > 0
+      ? [
+          {
+            label: "مشتريات تشغيلية",
+            value: operatingPurchases,
+            barClass: "bg-rose-400",
+            textClass: "text-rose-600",
+            subtracted: true,
+          },
+        ]
+      : []),
+    ...(depreciation > 0
+      ? [
+          {
+            label: "إهلاك الفترة",
+            value: depreciation,
+            barClass: "bg-slate-400",
+            textClass: "text-slate-500",
+            subtracted: true,
+          },
+        ]
+      : []),
   ];
-  const maxValue = Math.max(actualSales, cogsCents, expenses, 1);
+  const maxValue = Math.max(actualSales, cogsCents, operatingExpenses, operatingPurchases, depreciation, 1);
   const isProfit = netProfit >= 0;
   const afterDraw = netProfit - ownerDraw;
   const isAfterDrawPositive = afterDraw >= 0;
@@ -113,13 +142,15 @@ export function FinanceComparePanel({
         })}
       </div>
 
-      {/* تلميح توعوي: مشتريات المخزون ≠ خسارة */}
-      {purchases > 0 && (
+      {/* Fix D — تلميح توعوي: مشتريات مخزون + رأسمالية فقط (لم تُطرح من الربح) */}
+      {nonOperatingPurchases > 0 && (
         <div className="flex items-start gap-2 p-2.5 rounded-lg bg-info/8 border border-info/15">
           <PackageOpen className="h-3.5 w-3.5 text-info shrink-0 mt-0.5" />
           <p className="text-[11px] text-info/80 leading-relaxed">
-            اشتريت مخزوناً بـ <strong className="text-info font-black"><AmountText amount={purchases} hideCurrency /></strong> هذه الفترة —{" "}
-            <span className="font-semibold">هذا المبلغ لم يُطرَح من ربحك</span>، بل أضيف لقيمة مخزونك. الربح يتأثر فقط عند تسليم الطلبات.
+            اشتريت مخزوناً أو أصولاً بـ{" "}
+            <strong className="text-info font-black"><AmountText amount={nonOperatingPurchases} hideCurrency /></strong>{" "}
+            هذه الفترة —{" "}
+            <span className="font-semibold">هذا المبلغ لم يُطرَح من ربحك</span>، بل أضيف لقيمة مخزونك أو أصولك. الربح يتأثر فقط عند تسليم الطلبات.
           </p>
         </div>
       )}

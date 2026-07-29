@@ -302,11 +302,15 @@ export function DashboardClient() {
               <FinanceComparePanel
                 actualSales={summary.actualSales ?? 0}
                 cogsCents={summary.cogsCents ?? 0}
-                expenses={summary.expenses ?? 0}
+                operatingExpenses={summary.operatingExpensesCents ?? 0}
+                operatingPurchases={summary.operatingPurchasesCents ?? 0}
+                depreciation={summary.monthlyDepreciationCents ?? 0}
                 netProfit={summary.netProfit ?? 0}
                 ownerDraw={summary.ownerDraw ?? 0}
                 expectedRemaining={cashSummary?.expectedRemainingCents ?? 0}
-                purchases={summary.purchases ?? 0}
+                nonOperatingPurchases={
+                  Math.max((summary.purchases ?? 0) - (summary.operatingPurchasesCents ?? 0), 0)
+                }
               />
             )}
 
@@ -580,7 +584,7 @@ function HealthCard({
           <span className="text-[10px] font-semibold text-indigo-700/70 flex items-center gap-1 whitespace-nowrap">
             <Landmark className="h-3 w-3 text-indigo-500 shrink-0" />
             صافي قيمة المشروع (السائل)
-            <InfoTooltip text="النقد + المخزون − العربون المستحق = ما تملكه فعلاً من المشروع بشكل سائل. لا يشمل الأصول الرأسمالية." />
+            <InfoTooltip text="النقد + المخزون − العربون المستحق = حقوق ملكيتك السائلة. محسوبة على الأساس النقدي البحت (لا يُطرح منها الإهلاك). لهذا قد تختلف عن الربح التراكمي المعدَّل (الذي يطرح الإهلاك) — الفرق = إجمالي الإهلاك المتراكم. لا تشمل الأصول الرأسمالية." />
           </span>
           <span className="text-xs font-black text-indigo-700 font-mono whitespace-nowrap">
             <AmountText amount={equityTotalCents} hideCurrency parenNegative />

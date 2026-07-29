@@ -59,6 +59,19 @@ export interface FinancialSummary {
    * التكلفة الحقيقية المُطرحة من الربح (مطابقة الإيراد بالتكلفة — COGS، لا cash out).
    */
   cogsCents: number;
+  /**
+   * Fix A (Audit Round 5) — المصاريف التشغيلية فقط (is_capital_asset = false)
+   * مصدرها operatingPnl.operatingExpensesCents — لا استعلام إضافي.
+   * تُمرَّر لـ FinanceComparePanel بدلاً من summary.expenses (الذي يشمل الرأسمالي)
+   * لضمان تطابق الشريط مع ما يُطرح فعلاً من netProfit.
+   */
+  operatingExpensesCents: number;
+  /**
+   * Fix B (Audit Round 5) — المشتريات التشغيلية (is_capital_asset=false, is_tracked_inventory=false)
+   * مصدرها operatingPnl.operatingPurchasesCents — لا استعلام إضافي.
+   * تُعرض كشريط رابع في FinanceComparePanel لأنها تُطرح من netProfit وكانت غير مرئية.
+   */
+  operatingPurchasesCents: number;
 }
 
 export interface ActivityItem {
@@ -256,8 +269,12 @@ export async function getFinancialSummary(
   const cogsCentsToDate = Number(cogsToDateResult[0]?.total) || 0;
   // UX Round 4 — COGS للفترة من computeOperatingPnl (لا استعلام إضافي).
   const cogsCents = operatingPnl.cogsCents;
+  // Fix A+B (Audit Round 5) — مصاريف تشغيلية ومشتريات تشغيلية من computeOperatingPnl.
+  // لا استعلامات إضافية — القيم محسوبة بالفعل داخل operatingPnl.
+  const operatingExpensesCents = operatingPnl.operatingExpensesCents;
+  const operatingPurchasesCents = operatingPnl.operatingPurchasesCents;
 
-  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, monthlyDepreciationCents, ownerNet, ownerInject, ownerDraw, inventoryValueCents, cogsCentsToDate, cogsCents };
+  return { sales, actualSales, deposits, expenses, purchases, netProfit, capitalAdditionsCents, monthlyDepreciationCents, ownerNet, ownerInject, ownerDraw, inventoryValueCents, cogsCentsToDate, cogsCents, operatingExpensesCents, operatingPurchasesCents };
 }
 
 // 2. جلب آخر النشاطات عبر الجداول الأربعة بشكل متوازٍ (§5.7)

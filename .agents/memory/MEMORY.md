@@ -1,2 +1,3 @@
 - [Next.js on Replit](nextjs-replit-install.md) — pnpm loops on self-upgrade (SIGABRT) because NixOS store is read-only; fix: add `manage-package-manager-versions=false` + `registry=https://registry.npmjs.org` to `.npmrc`.
 - [Zman Next.js architecture](zman-architecture.md) — financial safety rules: transactions, optimistic concurrency, idempotent convertOrderToSale, httpOnly cookies, additive migrations only.
+- [Next.js 15.5 dev cache corruption](nextjs-dev-cache-bug.md) — segment-explorer-node.js webpack error causes 500 + missing CSS; fix: rm -rf .next then restart workflow.
