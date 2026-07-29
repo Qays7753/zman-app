@@ -31,6 +31,9 @@ export function OrderForm({
 }: OrderFormProps) {
   const isEditMode = !!initialData;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeliveryProfit, setIsDeliveryProfit] = useState(
+    () => (initialData?.additionalProfitCents ?? 0) > 0,
+  );
   const [requestId] = useState(() =>
     typeof window !== "undefined" ? window.crypto.randomUUID() : "",
   );
@@ -61,6 +64,7 @@ export function OrderForm({
     control,
     watch,
     getValues,
+    setValue,
     reset,
     formState: { errors },
   } = useForm({
@@ -322,54 +326,55 @@ export function OrderForm({
         />
       </div>
 
-      {/* التوصيل — رقم واحد مسجّل للتوثيق فقط، لا يدخل أي حساب */}
-      <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm space-y-3">
+      {/* مبلغ التوصيل والدفعات الإضافية */}
+      <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm space-y-4">
         <div>
-          <h3 className="text-base font-bold text-ink">التوصيل</h3>
+          <h3 className="text-base font-bold text-ink">مبلغ التوصيل والدفعات الإضافية</h3>
           <p className="text-xs text-ink-3 mt-0.5">
-            رقم توثيقي فقط — لا يدخل المالية إطلاقاً (لا السيولة ولا الربح).
-            إن كان الزبون دفع مبلغاً فعلياً للتوصيل وتريد إدراجه كإيراد،
-            سجّله في «أرباح إضافية» ليُدخل المالية عند التسليم.
+            سجل مبلغ التوصيل الفعلي الذي دفعه الزبون للطلب
           </p>
         </div>
+
         <Controller
           control={control}
           name="deliveryPaidCents"
           render={({ field: { value, onChange } }) => (
             <MoneyInput
-              label=""
+              label="مبلغ التوصيل الذي دفعه العميل"
               value={value}
-              onChange={onChange}
+              onChange={(val) => {
+                onChange(val);
+                if (isDeliveryProfit) {
+                  setValue("additionalProfitCents", val);
+                }
+              }}
               placeholder="0.000"
               error={errors.deliveryPaidCents?.message as string}
             />
           )}
         />
-      </div>
 
-      {/* الأرباح الإضافية — تُضاف إلى صافي الربح */}
-      <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm space-y-3">
-        <div>
-          <h3 className="text-base font-bold text-ink">أرباح إضافية</h3>
-          <p className="text-xs text-ink-3 mt-0.5">
-            إيراد إضافي فعلي يدفعه الزبون كجزء من سعر الطلب (تصميم/استشارة/هامش
-            توصيل). يُدخل المالية عند التسليم كإيراد محقَّق (يُضاف إلى سعر الطلب
-            في حركة المبيعة). مرة واحدة على الطلب كاملاً.
-          </p>
+        <div className="flex items-center gap-2 pt-1 border-t border-hairline">
+          <input
+            type="checkbox"
+            id="delivery-as-profit"
+            checked={isDeliveryProfit}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setIsDeliveryProfit(checked);
+              if (checked) {
+                const deliveryVal = getValues("deliveryPaidCents") || 0;
+                setValue("additionalProfitCents", deliveryVal);
+              } else {
+                setValue("additionalProfitCents", 0);
+              }
+            }}
+            className="h-4 w-4 rounded border-hairline text-info focus:ring-info cursor-pointer"
+          />
+          <label htmlFor="delivery-as-profit" className="text-xs font-semibold text-ink cursor-pointer select-none">
+            هل أدخله كإيراد وأرباح إضافية للمشروع عند التسليم؟ ✓
+          </label>
         </div>
-        <Controller
-          control={control}
-          name="additionalProfitCents"
-          render={({ field: { value, onChange } }) => (
-            <MoneyInput
-              label=""
-              value={value}
-              onChange={onChange}
-              placeholder="0.000"
-              error={errors.additionalProfitCents?.message as string}
-            />
-          )}
-        />
       </div>
 
       {/* التسعير */}

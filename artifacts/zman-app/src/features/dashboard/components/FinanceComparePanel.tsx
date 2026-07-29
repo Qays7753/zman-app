@@ -61,6 +61,7 @@ export function FinanceComparePanel({
       barClass: "bg-amber-500",
       textClass: "text-amber-600",
       subtracted: true,
+      tooltip: "ثمن الخامات والمواد التي استُخدمت فعلياً في الطلبات المُسلمة فقط.",
     },
     {
       label: "مصاريف تشغيلية",
@@ -88,6 +89,7 @@ export function FinanceComparePanel({
             barClass: "bg-slate-400",
             textClass: "text-slate-500",
             subtracted: true,
+            tooltip: "توزيع تكلفة الآلة أو الأصل على عدة أشهر حتى لا تُسجل كخسارة في شهر واحد.",
           },
         ]
       : []),
@@ -117,8 +119,9 @@ export function FinanceComparePanel({
           return (
             <div key={row.label} className="space-y-1 pe-16">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-xs font-semibold text-ink-2 whitespace-nowrap">
+                <span className="text-xs font-semibold text-ink-2 whitespace-nowrap flex items-center gap-1">
                   {row.label}
+                  {row.tooltip && <InfoTooltip text={row.tooltip} />}
                 </span>
                 <span
                   className={`text-sm font-black font-mono whitespace-nowrap flex items-baseline gap-0.5 ${row.textClass}`}

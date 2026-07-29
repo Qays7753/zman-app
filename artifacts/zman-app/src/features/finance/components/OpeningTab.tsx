@@ -6,6 +6,8 @@ import { Lock, Unlock, Loader2, Info } from "lucide-react";
 import { useOpeningBalance, useSaveOpeningBalance, useLockOpeningBalance } from "../hooks";
 import { AmountText } from "@/components/shared/AmountText";
 import { Button } from "@/components/shared/Button";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { SkeletonList } from "@/components/shared/SkeletonList";
 import { formatFilsToInput } from "@/lib/money";
 
 export function OpeningTab() {
@@ -67,14 +69,11 @@ export function OpeningTab() {
     });
   };
 
-  const handleLock = () => {
-    if (!opBal) return;
-    if (opBal.isLocked) return;
+  const [isConfirmLockOpen, setIsConfirmLockOpen] = useState(false);
 
-    if (!confirm("تحذير محاسبي هام: قفل الرصيد الافتتاحي سيعتمد ميزان القيد تاريخياً ولن يسمح بتعديله لاحقاً بأي شكل لتثبيت القيود بصفة نهائية. هل تريد الاستمرار؟")) {
-      return;
-    }
-
+  const confirmLock = () => {
+    if (!opBal || opBal.isLocked) return;
+    setIsConfirmLockOpen(false);
     lockMutation.mutate({ id: opBal.id }, {
       onSuccess: (res) => {
         if (res.status === "ok") {
@@ -87,11 +86,7 @@ export function OpeningTab() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-info" />
-      </div>
-    );
+    return <SkeletonList count={3} />;
   }
 
   const isLocked = opBal?.isLocked ?? false;
@@ -121,7 +116,7 @@ export function OpeningTab() {
           {!isLocked && opBal && (
             <Button
               type="button"
-              onClick={handleLock}
+              onClick={() => setIsConfirmLockOpen(true)}
               isLoading={lockMutation.isPending}
               className="flex items-center gap-1 text-xs px-3 h-8 bg-alert hover:bg-alert-hover text-paper"
             >
@@ -212,6 +207,17 @@ export function OpeningTab() {
           )}
         </form>
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmLockOpen}
+        title="تأكيد قفل الأرصدة الافتتاحية"
+        message="بعد القفل، لن تستطيع تعديل هذه الأرقام. هل أنت متأكد؟"
+        confirmLabel="نعم، قفل وإغلاق التعديل"
+        cancelLabel="إلغاء"
+        onConfirm={confirmLock}
+        onCancel={() => setIsConfirmLockOpen(false)}
+        isLoading={lockMutation.isPending}
+      />
     </div>
   );
 }

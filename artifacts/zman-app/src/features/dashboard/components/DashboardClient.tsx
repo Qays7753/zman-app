@@ -258,20 +258,60 @@ export function DashboardClient() {
         ) : (
           <div className="space-y-4">
 
-            {/* إعداد أولي */}
-            {openingBal === null && (
+            {/* إعداد أولي — البنود الأربعة */}
+            {(!openingBal || !openingBal.isLocked) && (
               <Link
-                href="/finance?tab=opening"
-                className="flex items-center justify-between gap-3 p-4 rounded-lg border border-warn/40 bg-warn-soft hover:bg-warn/10 transition-colors"
+                href="/settings/opening-balance"
+                className="flex flex-col gap-2.5 p-4 rounded-lg border border-warn/40 bg-warn-soft hover:bg-warn/10 transition-colors"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <AlertCircle className="h-5 w-5 text-warn-deep shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-ink truncate">أكمل الإعداد الأولي للمشروع</p>
-                    <p className="text-xs text-ink-2 truncate">يرجى تسجيل الأرصدة الافتتاحية ورأس المال لضبط الحسابات</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <AlertCircle className="h-5 w-5 text-warn-deep shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-ink truncate">أكمل الإعداد الأولي للمشروع</p>
+                      <p className="text-xs text-ink-2 truncate">اضبط الميزان الافتتاحي واقفل الأرقام لتثبيت الدفتر المحاسبي</p>
+                    </div>
+                  </div>
+                  <Settings className="h-5 w-5 text-warn-deep shrink-0" />
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-warn/20 text-xs">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {openingBal && openingBal.cashCents > 0 ? (
+                      <span className="text-emerald-600 font-bold">✓</span>
+                    ) : (
+                      <span className="text-alert font-bold">✗</span>
+                    )}
+                    <span className="text-ink-2">رصيد الصندوق</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {openingBal && openingBal.bankCents > 0 ? (
+                      <span className="text-emerald-600 font-bold">✓</span>
+                    ) : (
+                      <span className="text-alert font-bold">✗</span>
+                    )}
+                    <span className="text-ink-2">رصيد البنك</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {openingBal && openingBal.capitalCents > 0 ? (
+                      <span className="text-emerald-600 font-bold">✓</span>
+                    ) : (
+                      <span className="text-alert font-bold">✗</span>
+                    )}
+                    <span className="text-ink-2">رأس المال</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 font-medium">
+                    {openingBal?.isLocked ? (
+                      <span className="text-emerald-600 font-bold">✓</span>
+                    ) : (
+                      <span className="text-alert font-bold">✗</span>
+                    )}
+                    <span className="text-ink-2">تأكيد القفل</span>
                   </div>
                 </div>
-                <Settings className="h-5 w-5 text-warn-deep shrink-0" />
               </Link>
             )}
 
@@ -438,6 +478,12 @@ export function DashboardClient() {
         title="إضافة عملية جديدة"
       >
         <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 flex items-center gap-2 pb-1">
+            <div className="flex-1 h-px bg-hairline" />
+            <span className="text-[11px] text-ink font-bold">عملياتك اليومية</span>
+            <div className="flex-1 h-px bg-hairline" />
+          </div>
+
           <QuickLink href="/orders?new=true" icon={<ClipboardList className="h-6 w-6 text-info" />} label="طلب جديد" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=sales&newSale=true" icon={<ShoppingBag className="h-6 w-6 text-info" />} label="عملية بيع" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=expenses&newExpense=true" icon={<ArrowDownRight className="h-6 w-6 text-alert" />} label="مصروف جديد" onClick={() => setIsFabOpen(false)} />

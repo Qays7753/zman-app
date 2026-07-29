@@ -8,6 +8,7 @@ import { useAccountBalancesQuery, useCreateAccount, useTransferBetweenAccounts, 
 import { AmountText } from "@/components/shared/AmountText";
 import { Button } from "@/components/shared/Button";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 export function AccountsTab() {
   const router = useRouter();
@@ -43,10 +44,13 @@ export function AccountsTab() {
     });
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا الحساب؟")) return;
-    deleteMutation.mutate(id, {
+  const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
+
+  const confirmDelete = () => {
+    if (!deleteAccountId) return;
+    deleteMutation.mutate(deleteAccountId, {
       onSuccess: (res) => {
+        setDeleteAccountId(null);
         if (res.status === "ok") toast.success("تم حذف الحساب بنجاح");
         else toast.error(res.message);
       },
@@ -210,7 +214,7 @@ export function AccountsTab() {
               )}
               <button
                 type="button"
-                onClick={() => handleDelete(acc.id)}
+                onClick={() => setDeleteAccountId(acc.id)}
                 disabled={deleteMutation.isPending}
                 title="حذف"
                 className="p-2.5 rounded-md border border-alert/30 text-alert hover:bg-alert-soft transition-colors disabled:opacity-50 flex items-center justify-center"
@@ -401,6 +405,17 @@ export function AccountsTab() {
           </div>
         </form>
       </ResponsiveModal>
+
+      <ConfirmDialog
+        isOpen={!!deleteAccountId}
+        title="حذف الحساب المالي"
+        message="هل أنت متأكد من حذف هذا الحساب المالي؟ لن تستطيع التراجع عن هذه العملية."
+        confirmLabel="نعم، حذف الحساب"
+        cancelLabel="إلغاء"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteAccountId(null)}
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 }
