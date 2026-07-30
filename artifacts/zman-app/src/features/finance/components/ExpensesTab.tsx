@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Boxes, Trash2 } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -18,10 +19,8 @@ import {
   useDeleteExpense,
   useExpense,
   useInfiniteExpenses,
-  useUpdateExpense,
 } from "../hooks";
 import type { NewExpense } from "../types";
-import { ExpenseForm } from "./ExpenseForm";
 import { SmartFinanceForm } from "./SmartFinanceForm";
 // Phase 4 — مودال سؤال الإهلاك (خلف toggle «تصنيف متقدّم»).
 import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
@@ -56,18 +55,6 @@ export function ExpensesTab() {
   const capitalAssetMutation = useAddCapitalAsset();
   const deleteCapitalAssetMutation = useDeleteCapitalAsset();
 
-  // الفئات المعتمدة للتصفية (§5.1)
-  const categoriesList = [
-    "الكل",
-    "رواتب",
-    "إيجار",
-    "كهرباء ومياه",
-    "نقل وتوصيل",
-    "تعبئة وتغليف",
-    "صيانة وأدوات",
-    "أخرى",
-  ];
-
   // هوك جلب البيانات اللانهائي (§10.1)
   const queryCategory = category === "الكل" || category === "all" ? undefined : category;
   const {
@@ -84,7 +71,6 @@ export function ExpensesTab() {
   const isLoadingActive = useExpense(editId || "").isLoading;
 
   const createMutation = useCreateExpense();
-  const updateMutation = useUpdateExpense();
   const deleteMutation = useDeleteExpense();
 
   const expenses = data?.pages.flatMap((page) => page.items) || [];
@@ -144,47 +130,6 @@ export function ExpensesTab() {
         // لا نُغلق مودال الفورم الآن — يُغلق عند إغلاق مودال الإهلاك.
       } else {
         updateUrl({ newExpense: null });
-      }
-      refetch();
-    } else {
-      toast.error(res.message);
-    }
-  };
-
-  const handleUpdate = async (
-    fields: NewExpense,
-    advancedClassification: boolean,
-  ) => {
-    if (!editId) return;
-    const updatedAt = activeExpense?.updatedAt instanceof Date
-      ? activeExpense.updatedAt.toISOString()
-      : String(activeExpense?.updatedAt || "");
-    const res = await updateMutation.mutateAsync({
-      id: editId,
-      updatedAt,
-      values: fields,
-    });
-    if (res.status === "ok") {
-      toast.success("تم تحديث بيانات المصروف بنجاح");
-      // Phase 4 — للتعديل أيضاً: إن كان رأسمالياً و toggle مفتوحاً، اعرض المودال.
-      // ملاحظة: التعديل لا يُنشئ capital_asset تلقائياً (إن وُجد صف قديم،
-      // addCapitalAsset يُرجِعه idempotent). لذلك آمن استدعاؤه دائماً.
-      if (
-        fields.isCapitalAsset &&
-        advancedClassification &&
-        res.data &&
-        typeof res.data === "object" &&
-        "id" in res.data
-      ) {
-        setPendingCapitalAsset({
-          sourceType: "expense",
-          sourceId: (res.data as { id: string }).id,
-          name: fields.description || fields.category || "أصل رأسمالي",
-          purchaseDate: fields.date ?? new Date().toLocaleDateString("en-CA"),
-          purchaseAmountCents: fields.amountCents,
-        });
-      } else {
-        updateUrl({ editExpense: null });
       }
       refetch();
     } else {
@@ -261,6 +206,21 @@ export function ExpensesTab() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col pb-36">
+      {/* Issue #7 — زر «إدارة الفئات» في رأس تبويب المصاريف بدلاً من قائمة «المزيد».
+          يفتح FinanceCatalogModal عبر محدد URL (manageCatalog=expenses) الذي يقرؤه
+          FinanceClient.tsx ويُعرض المودال تلقائياً. */}
+      <div className="flex items-center justify-end">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => updateUrl({ manageCatalog: "expenses" })}
+          icon={<Boxes className="w-4 h-4" />}
+          className="text-xs"
+        >
+          إدارة الفئات
+        </Button>
+      </div>
 
       {isLoading ? (
         <SkeletonList />
@@ -451,13 +411,41 @@ export function ExpensesTab() {
             </Button>
           </div>
         ) : (
-          <ExpenseForm
-            initialData={activeExpense}
-            categories={categoriesList.filter((c) => c !== "الكل")}
-            onSubmit={handleUpdate}
-            onDelete={() => setDeleteConfirmOpen(true)}
-            isSubmitting={updateMutation.isPending}
-          />
+          // Issue #1 — Edit Trap: نستخدم SmartFinanceForm للتعديل بدلاً من ExpenseForm.
+          // النموذج يُحدِّث السجل عبر useUpdateExpense داخلياً. زر الحذف يُعرَض
+          // منفصلاً أسفل النموذج لأن SmartFinanceForm لا يُدير الحذف (يبقى من
+          // مسؤولية الأب عبر ConfirmDialog القائم).
+          <div className="space-y-3">
+            <SmartFinanceForm
+              initialData={
+                activeExpense
+                  ? {
+                      id: activeExpense.id,
+                      updatedAt: activeExpense.updatedAt,
+                      type: activeExpense.isCapitalAsset ? "asset" : "expense",
+                      date: new Date(activeExpense.date).toLocaleDateString("en-CA"),
+                      amountCents: activeExpense.amountCents,
+                      description: activeExpense.description ?? "",
+                      category: activeExpense.category,
+                      isCapitalAsset: activeExpense.isCapitalAsset ?? false,
+                      costNature:
+                        (activeExpense.costNature as "variable" | "fixed" | null) ?? null,
+                    }
+                  : undefined
+              }
+              onSuccess={() => refetch()}
+              onClose={() => updateUrl({ editExpense: null })}
+            />
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setDeleteConfirmOpen(true)}
+              icon={<Trash2 className="h-4 w-4" />}
+              className="w-full"
+            >
+              حذف المصروف
+            </Button>
+          </div>
         )}
       </ResponsiveModal>
 

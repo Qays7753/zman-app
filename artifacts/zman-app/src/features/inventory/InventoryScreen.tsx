@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ArrowUpDown, Package } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, Package, PackageMinus, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShellHeader } from "@/providers/app-shell-context";
@@ -9,8 +9,12 @@ import { AmountText } from "@/components/shared/AmountText";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
+import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { cn } from "@/lib/utils";
 import { useInventoryValuation } from "./hooks";
+import { AddTrackedItemForm } from "./components/AddTrackedItemForm";
+import { QuickAdjustStockForm } from "./components/QuickAdjustStockForm";
 
 type SortKey = "alpha" | "lowest" | "highest";
 
@@ -23,6 +27,9 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 export function InventoryScreen() {
   const router = useRouter();
   const [sort, setSort] = useState<SortKey>("alpha");
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const [isQuickAdjustOpen, setIsQuickAdjustOpen] = useState(false);
+  const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const { data, isLoading, isError, refetch } = useInventoryValuation();
 
   const items = data?.items ?? [];
@@ -165,6 +172,87 @@ export function InventoryScreen() {
           ))}
         </div>
       )}
+
+      {/* ═══ Issue #2 — FAB إجراءات المخزون ═══ */}
+      <FloatingActionButton
+        onClick={() => setIsFabOpen(true)}
+        label="إجراءات المخزون"
+      />
+
+      {/* المودال الرئيسي: قائمة الإجراءات */}
+      <ResponsiveModal
+        isOpen={isFabOpen}
+        onClose={() => setIsFabOpen(false)}
+        title="إجراءات المخزون"
+      >
+        <div className="grid grid-cols-1 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsFabOpen(false);
+              setIsAddItemOpen(true);
+            }}
+            className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-[60px] text-start"
+          >
+            <Plus className="w-5 h-5 text-info shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-ink">إضافة صنف مُتابَع</p>
+              <p className="text-xs text-ink-3">إنشاء صنف جديد في الكتالوج وتفعيل تتبّع المخزون</p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsFabOpen(false);
+              setIsQuickAdjustOpen(true);
+            }}
+            className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-[60px] text-start"
+          >
+            <PackageMinus className="w-5 h-5 text-info shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-ink">تعديل سريع للمخزون</p>
+              <p className="text-xs text-ink-3">صرف أو إضافة يدوية لصنف متتبَّع موجود</p>
+            </div>
+          </button>
+          <Link
+            href="/catalog"
+            onClick={() => setIsFabOpen(false)}
+            className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-[60px]"
+          >
+            <Package className="w-5 h-5 text-ink-3 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-ink">إدارة الكتالوج الكامل</p>
+              <p className="text-xs text-ink-3">عرض وتعديل كل أصناف الكتالوج (متتبَّعة وغير متتبَّعة)</p>
+            </div>
+          </Link>
+        </div>
+      </ResponsiveModal>
+
+      {/* مودال: إضافة صنف متتبَّع جديد */}
+      <ResponsiveModal
+        isOpen={isAddItemOpen}
+        onClose={() => setIsAddItemOpen(false)}
+        title="إضافة صنف مُتابَع"
+      >
+        <AddTrackedItemForm onDone={() => setIsAddItemOpen(false)} />
+      </ResponsiveModal>
+
+      {/* مودال: تعديل سريع للمخزون */}
+      <ResponsiveModal
+        isOpen={isQuickAdjustOpen}
+        onClose={() => setIsQuickAdjustOpen(false)}
+        title="تعديل سريع للمخزون"
+      >
+        <QuickAdjustStockForm
+          items={items.map((i) => ({
+            catalogComponentId: i.catalogComponentId,
+            name: i.name,
+            unit: i.unit,
+            balance: i.balance,
+          }))}
+          onDone={() => setIsQuickAdjustOpen(false)}
+        />
+      </ResponsiveModal>
     </>
   );
 }

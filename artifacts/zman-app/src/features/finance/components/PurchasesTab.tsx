@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -17,10 +18,10 @@ import {
   useDeletePurchase,
   useInfinitePurchases,
   usePurchase,
-  useUpdatePurchase,
 } from "../hooks";
 import type { NewPurchase } from "../types";
 import { PurchaseForm } from "./PurchaseForm";
+import { SmartFinanceForm } from "./SmartFinanceForm";
 import { FinanceCatalogModal } from "./FinanceCatalogModal";
 // Phase 4 — مودال سؤال الإهلاك (خلف toggle «تصنيف متقدّم»).
 import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
@@ -69,7 +70,6 @@ export function PurchasesTab() {
   const isLoadingActive = usePurchase(editId || "").isLoading;
 
   const createMutation = useCreatePurchase();
-  const updateMutation = useUpdatePurchase();
   const deleteMutation = useDeletePurchase();
 
   const purchases = data?.pages.flatMap((page) => page.items) || [];
@@ -131,47 +131,6 @@ export function PurchasesTab() {
         });
       } else {
         updateUrl({ newPurchase: null });
-      }
-      refetch();
-    } else {
-      toast.error(res.message);
-    }
-  };
-
-  const handleUpdate = async (
-    fields: NewPurchase,
-    advancedClassification: boolean,
-  ) => {
-    if (!editId) return;
-    const updatedAt = activePurchase?.updatedAt instanceof Date
-      ? activePurchase.updatedAt.toISOString()
-      : String(activePurchase?.updatedAt || "");
-    const res = await updateMutation.mutateAsync({
-      id: editId,
-      updatedAt,
-      values: fields,
-    });
-    if (res.status === "ok") {
-      toast.success("تم تحديث المشتريات بنجاح");
-      if (
-        fields.isCapitalAsset &&
-        advancedClassification &&
-        res.data &&
-        typeof res.data === "object" &&
-        "id" in res.data
-      ) {
-        const micro = fields.unitCostMicroCents ?? 0;
-        const qty = fields.quantity ?? 1;
-        const totalCents = Math.round((micro * qty) / 1000);
-        setPendingCapitalAsset({
-          sourceType: "purchase",
-          sourceId: (res.data as { id: string }).id,
-          name: fields.item ?? "أصل رأسمالي",
-          purchaseDate: fields.date ?? new Date().toLocaleDateString("en-CA"),
-          purchaseAmountCents: totalCents,
-        });
-      } else {
-        updateUrl({ editPurchase: null });
       }
       refetch();
     } else {
@@ -389,12 +348,46 @@ export function PurchasesTab() {
         {isLoadingActive ? (
           <div className="p-4 text-center text-sm text-ink-3">جاري التحميل...</div>
         ) : (
-          <PurchaseForm
-            initialData={activePurchase}
-            onSubmit={handleUpdate}
-            onDelete={() => setDeleteConfirmOpen(true)}
-            isSubmitting={updateMutation.isPending}
-          />
+          // Issue #1 — Edit Trap: نستخدم SmartFinanceForm للتعديل بدلاً من PurchaseForm.
+          // النموذج يُحدِّث السجل عبر useUpdatePurchase داخلياً. زر الحذف يُعرَض
+          // منفصلاً أسفل النموذج لأن SmartFinanceForm لا يُدير الحذف (يبقى من
+          // مسؤولية الأب عبر ConfirmDialog القائم).
+          <div className="space-y-3">
+            <SmartFinanceForm
+              initialData={
+                activePurchase
+                  ? {
+                      id: activePurchase.id,
+                      updatedAt: activePurchase.updatedAt,
+                      type: activePurchase.isCapitalAsset ? "asset" : "purchase",
+                      date: new Date(activePurchase.date).toLocaleDateString("en-CA"),
+                      // للشراء: amountCents في initialData يُمارَس كـ totalCents للنموذج.
+                      amountCents: activePurchase.totalCents,
+                      description: activePurchase.notes ?? "",
+                      category: activePurchase.item,
+                      isCapitalAsset: activePurchase.isCapitalAsset ?? false,
+                      costNature:
+                        (activePurchase.costNature as "variable" | "fixed" | null) ?? null,
+                      itemName: activePurchase.item,
+                      quantity: activePurchase.quantity,
+                      notes: activePurchase.notes ?? "",
+                      linkedCatalogComponentId: activePurchase.linkedCatalogComponentId ?? null,
+                    }
+                  : undefined
+              }
+              onSuccess={() => refetch()}
+              onClose={() => updateUrl({ editPurchase: null })}
+            />
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setDeleteConfirmOpen(true)}
+              icon={<Trash2 className="h-4 w-4" />}
+              className="w-full"
+            >
+              حذف المشتريات
+            </Button>
+          </div>
         )}
       </ResponsiveModal>
 

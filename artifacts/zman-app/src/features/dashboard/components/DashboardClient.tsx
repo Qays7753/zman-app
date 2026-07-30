@@ -8,7 +8,7 @@
  *   Layer 2 (قابلة للطي): DetailsLayer — تفاصيل مالية عميقة
  *   Layer 3 (مزالة): النصوص الوصفية الطويلة · القوائم المكررة
  *
- * القيمة الافتراضية للفلتر: «الكل» (كل الفترات) — Round 6 UX.
+ * القيمة الافتراضية للفلتر: «منذ البداية» (كل الفترات) — Round 6 UX.
  * لم يُلمَس أي منطق محاسبي أو hook أو قاعدة بيانات.
  */
 
@@ -68,7 +68,7 @@ export function DashboardClient() {
   // ── فترات التاريخ ─────────────────────────────────────────────────────────
   const presets = [
     {
-      label: "الكل",
+      label: "منذ البداية",
       getValue: () => ({ start: new Date("2020-01-01"), end: new Date() }),
     },
     ...[0, 1, 2].map((monthsAgo) => {
@@ -80,7 +80,7 @@ export function DashboardClient() {
     }),
   ];
 
-  // الافتراضي: «الكل» (index 0) — Round 6 UX: الورش الصغيرة تحتاج الصورة الكاملة
+  // الافتراضي: «منذ البداية» (index 0) — Round 6 UX: الورش الصغيرة تحتاج الصورة الكاملة
   const [selectedPresetIdx, setSelectedPresetIdx] = useState(0);
   const [customRange, setCustomRange] = useState<{
     start: Date;
@@ -583,9 +583,12 @@ function HealthCard({
         </div>
       </div>
 
-      {/* الصف الثاني: قيمة المخزون */}
+      {/* الصف الثاني: قيمة المخزون — رابط لشاشة المخزون */}
       {inventoryValueCents > 0 && (
-        <div className="bg-info/5 border-t border-info/10 px-4 py-2.5 flex items-center justify-between gap-2">
+        <Link
+          href="/inventory"
+          className="bg-info/5 border-t border-info/10 px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-info/10 hover:underline transition-colors cursor-pointer"
+        >
           <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
             <ShoppingBag className="h-3 w-3 text-info/70 shrink-0" />
             قيمة مخزونك
@@ -593,12 +596,15 @@ function HealthCard({
           <span className="text-xs font-black text-info/80 font-mono whitespace-nowrap">
             <AmountText amount={inventoryValueCents} hideCurrency />
           </span>
-        </div>
+        </Link>
       )}
 
-      {/* الصف الثالث: العربون */}
+      {/* الصف الثالث: العربون — رابط لشاشة الطلبات */}
       {asOfDepositsHeldCents > 0 && (
-        <div className="bg-warn-soft/30 border-t border-warn/15 px-4 py-2.5 flex items-center justify-between gap-2">
+        <Link
+          href="/orders"
+          className="bg-warn-soft/30 border-t border-warn/15 px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-warn-soft/50 hover:underline transition-colors cursor-pointer"
+        >
           <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
             <AlertCircle className="h-3 w-3 text-warn-deep shrink-0" />
             عربون مستحق التسليم
@@ -606,7 +612,7 @@ function HealthCard({
           <span className="text-xs font-black text-warn-deep font-mono whitespace-nowrap">
             <AmountText amount={asOfDepositsHeldCents} hideCurrency />
           </span>
-        </div>
+        </Link>
       )}
     </div>
   );

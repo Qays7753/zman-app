@@ -77,9 +77,6 @@ export const moreNavItems: NavItem[] = [
     href: "/finance?manageCatalog=purchases",
     icon: Boxes,
   },
-  {
-    label: "إدارة فئات المصاريف",
-    href: "/finance?manageCatalog=expenses",
-    icon: Boxes,
-  },
+  // Issue #7 — «إدارة فئات المصاريف» نُقِل من هنا إلى زرّ مرئيّ في رأس تبويب
+  // المصاريف داخل ExpensesTab.tsx (يفتح FinanceCatalogModal عبر ?manageCatalog=expenses).
 ];

@@ -65,9 +65,9 @@ const SALE_SOURCES = [
 
 /* ─── أنواع التبويبات اليومية ─── */
 const TABS = [
-  { id: "expenses", label: "المصاريف", icon: Wallet },
-  { id: "purchases", label: "المشتريات", icon: ShoppingCart },
-  { id: "sales", label: "المبيعات", icon: Banknote },
+  { id: "expenses", label: "مصاريفي", icon: Wallet },
+  { id: "purchases", label: "مشترياتي", icon: ShoppingCart },
+  { id: "sales", label: "مبيعاتي", icon: Banknote },
 ] as const;
 
 
@@ -78,9 +78,9 @@ export default function FinanceClient() {
   const searchParams = useSearchParams();
   const [_isPending, startTransition] = useTransition();
 
-  // التبويب الافتراضي هو المشتريات دائماً
+  // التبويب الافتراضي هو المبيعات
   const { isLoading: opBalLoading } = useOpeningBalance();
-  const activeTab = searchParams.get("tab") || "purchases";
+  const activeTab = searchParams.get("tab") || "sales";
   const isReady = !opBalLoading || searchParams.has("tab");
 
   // حالة البحث

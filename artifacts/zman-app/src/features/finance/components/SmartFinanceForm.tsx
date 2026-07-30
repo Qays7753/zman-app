@@ -14,7 +14,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Banknote, ShoppingBag, Wrench } from "lucide-react";
-import { useMemo, useId, useState } from "react";
+import { useEffect, useMemo, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -28,6 +28,8 @@ import { formatFilsToJod } from "@/lib/money";
 import {
   useCreateExpense,
   useCreatePurchase,
+  useUpdateExpense,
+  useUpdatePurchase,
   useExpenseCategoryCatalog,
 } from "../hooks";
 import { useAddCapitalAsset } from "@/features/depreciation/hooks";
@@ -95,22 +97,77 @@ type AssetValues = z.infer<typeof assetSchema>;
 
 // ── واجهة المكوّن ─────────────────────────────────────────────────────────────
 
+/**
+ * بيانات تهيئة التعديل (Issue #1 — Edit Trap).
+ * حقل مُسطَّح يغطي الأنواع الثلاثة (مصروف / شراء / أصل) دون ربط مباشر بأنواع
+ * Expense/Purchase Legacy. الحقول الاختيارية تُتجاهَل في الأوضاع غير المناسبة.
+ */
+export interface SmartFinanceFormInitialData {
+  /** معرّف السجل المراد تعديله */
+  id: string;
+  /** ختم آخر تحديث (للتحقق من التزامن في الخادم) */
+  updatedAt?: string | Date;
+  /** نوع السجل — يُحدِّد الوضع الافتراضي للنموذج */
+  type: "expense" | "purchase" | "asset";
+  /** التاريخ بصيغة ISO yyyy-mm-dd */
+  date: string;
+  /**
+   * المبلغ الأساسي:
+   * - وضع «مصروف» أو «أصل» → amountCents للمصروف.
+   * - وضع «شراء» → الإجمالي (totalCents) للشراء.
+   */
+  amountCents: number;
+  /** الوصف/البيان الحر (مصروف.description أو أصل.description) */
+  description?: string;
+  // ── حقول خاصة بوضع المصروف/الأصل ──
+  /** فئة المصروف، أو اسم الأصل (في وضع «أصل» يُخزَّن الاسم في حقل category في DB) */
+  category?: string;
+  /** علم رأسمالية المصروف (للحفاظ على تصنيفه الأصلي عند التعديل) */
+  isCapitalAsset?: boolean;
+  /** طبيعة التكلفة (للحفاظ على التصنيف الأصلي عند التعديل) */
+  costNature?: "variable" | "fixed" | null;
+  // ── حقول خاصة بوضع الشراء ──
+  /** بيان الصنف المشترى (purchase.item) */
+  itemName?: string;
+  /** الكمية (purchase.quantity) */
+  quantity?: number;
+  /** ملاحظات الشراء (purchase.notes) */
+  notes?: string;
+  /** معرّف صنف الكتالوج المرتبط بالشراء، إن وُجد */
+  linkedCatalogComponentId?: string | null;
+}
+
 interface SmartFinanceFormProps {
   /** استدعاء بعد أي نجاح (يُخبر الأب بإعادة جلب القائمة) */
   onSuccess: () => void;
   /** إغلاق المودال */
   onClose: () => void;
+  /**
+   * بيانات تعديل سجل موجود. إن مُرِّر، يُفتح النموذج في وضع التعديل:
+   * - يُختار الوضع تلقائياً من `type`.
+   * - تُملأ الحقول من البيانات.
+   * - عند الحفظ، يُستدعى updateExpense/updatePurchase بدلاً من create.*
+   * إن لم يُمرَّر، يبقى السلوك الافتراضي (إنشاء جديد) كما هو.
+   */
+  initialData?: SmartFinanceFormInitialData;
 }
 
 // ── المكوّن ────────────────────────────────────────────────────────────────────
 
-export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) {
-  const [mode, setMode] = useState<Mode>("expense");
+export function SmartFinanceForm({
+  onSuccess,
+  onClose,
+  initialData,
+}: SmartFinanceFormProps) {
+  const [mode, setMode] = useState<Mode>(initialData?.type ?? "expense");
   const id = useId();
+  const isEditing = !!initialData?.id;
 
   // ── Mutations ──────────────────────────────────────────────────────────────
   const createExpense = useCreateExpense();
   const createPurchase = useCreatePurchase();
+  const updateExpense = useUpdateExpense();
+  const updatePurchase = useUpdatePurchase();
   const addCapitalAsset = useAddCapitalAsset();
 
   // ── مودال الإهلاك (وضع «أصل للورشة»)  ───────────────────────────────────
@@ -127,13 +184,19 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
     () => allCatalogItems.filter((c) => c.tracked),
     [allCatalogItems],
   );
-  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(null);
+  // في وضع التعديل: إن وُجد linkedCatalogComponentId نُهيّئ الـ picker إليه؛
+  // وإلا وُجد itemName، نُهيّئه كـ«إدخال يدوي» لعرض الحقل النصي مُعبَّئاً.
+  const [selectedCatalogId, setSelectedCatalogId] = useState<string | null>(
+    initialData?.linkedCatalogComponentId ?? null,
+  );
   const { data: currentStock } = useComponentStock(selectedCatalogId ?? undefined);
   const selectedItem = useMemo(
     () => trackedItems.find((i) => i.id === selectedCatalogId),
     [trackedItems, selectedCatalogId],
   );
-  const [isCustomItem, setIsCustomItem] = useState(false);
+  const [isCustomItem, setIsCustomItem] = useState(
+    !initialData?.linkedCatalogComponentId && !!initialData?.itemName,
+  );
 
   // ── فئات المصاريف (وضع «مصروف يومي») ────────────────────────────────────
   const { data: dbCategories = [] } = useExpenseCategoryCatalog();
@@ -141,53 +204,122 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
     () => Array.from(new Set(dbCategories.map((c) => c.name))),
     [dbCategories],
   );
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  // في وضع التعديل: إن لم تكن الفئة في كتالوج الفئات، نُهيّئه كـ«إدخال يدوي».
+  const [isCustomCategory, setIsCustomCategory] = useState(!initialData?.category);
+
+  // بعد تحميل كتالوج الفئات، صحِّح isCustomCategory إن كانت الفئة موجودة فعلاً.
+  useEffect(() => {
+    if (initialData?.category && categoryOptions.length > 0) {
+      setIsCustomCategory(!categoryOptions.includes(initialData.category));
+    }
+  }, [initialData?.category, categoryOptions]);
 
   const today = new Date().toLocaleDateString("en-CA");
+
+  // ── القيم الافتراضية لكل وضع (تُشتق من initialData في وضع التعديل) ───────
+  const expenseDefaults = useMemo<ExpenseValues>(
+    () => ({
+      date: initialData?.date ?? today,
+      category: initialData?.category ?? "",
+      amountCents: initialData?.amountCents ?? 0,
+      description: initialData?.description ?? "",
+    }),
+    [initialData, today],
+  );
+
+  const purchaseDefaults = useMemo<PurchaseValues>(
+    () => ({
+      date: initialData?.date ?? today,
+      catalogId: initialData?.linkedCatalogComponentId ?? null,
+      itemName: initialData?.itemName ?? "",
+      quantity: initialData?.quantity ?? 1,
+      totalCents: initialData?.amountCents ?? 0,
+      notes: initialData?.notes ?? "",
+    }),
+    [initialData, today],
+  );
+
+  const assetDefaults = useMemo<AssetValues>(
+    () => ({
+      date: initialData?.date ?? today,
+      // وضع «أصل» يخزّن الاسم في حقل category في DB، لذا نأخذه من initialData.category.
+      name: initialData?.category ?? "",
+      amountCents: initialData?.amountCents ?? 0,
+      description: initialData?.description ?? "",
+      // لا يمكننا معرفة إن كان المستخدم فعّل الإهلاك سابقاً من سجل المصروف وحده.
+      // نُهيّئه بـ false؛ إعادة تفعيله في وضع التعديل لا تُعيد فتح مودال الإهلاك
+      // (الارتباط capital_asset القائم يُحافَظ عليه كما هو).
+      wantDepreciation: false,
+    }),
+    [initialData, today],
+  );
 
   // ── نماذج RHF (واحد لكل وضع) ─────────────────────────────────────────────
   const expenseForm = useForm<ExpenseValues>({
     resolver: zodResolver(expenseSchema),
-    defaultValues: { date: today, category: "", amountCents: 0, description: "" },
+    defaultValues: expenseDefaults,
   });
 
   const purchaseForm = useForm<PurchaseValues>({
     resolver: zodResolver(purchaseSchema),
-    defaultValues: {
-      date: today,
-      catalogId: null,
-      itemName: "",
-      quantity: 1,
-      totalCents: 0,
-      notes: "",
-    },
+    defaultValues: purchaseDefaults,
   });
 
   const assetForm = useForm<AssetValues>({
     resolver: zodResolver(assetSchema),
-    defaultValues: {
-      date: today,
-      name: "",
-      amountCents: 0,
-      description: "",
-      wantDepreciation: false,
-    },
+    defaultValues: assetDefaults,
   });
 
   // ── تبديل الوضع + إعادة ضبط الحالة ──────────────────────────────────────
+  // ملاحظة: في وضع التعديل، تبديل الوضع غير شائع (لا يمكن تحويل مصروف إلى شراء)،
+  // لكنّنا ندعمه بأمان بإعادة الضبط إلى قيم initialData بدل القيم الفارغة.
   const handleModeChange = (m: Mode) => {
     setMode(m);
-    setIsCustomItem(false);
-    setIsCustomCategory(false);
-    setSelectedCatalogId(null);
-    expenseForm.reset({ date: today, category: "", amountCents: 0, description: "" });
-    purchaseForm.reset({ date: today, catalogId: null, itemName: "", quantity: 1, totalCents: 0, notes: "" });
-    assetForm.reset({ date: today, name: "", amountCents: 0, description: "", wantDepreciation: false });
+    setIsCustomItem(!initialData?.linkedCatalogComponentId && !!initialData?.itemName);
+    setIsCustomCategory(!initialData?.category);
+    setSelectedCatalogId(initialData?.linkedCatalogComponentId ?? null);
+    expenseForm.reset(expenseDefaults);
+    purchaseForm.reset(purchaseDefaults);
+    assetForm.reset(assetDefaults);
   };
 
   // ── handlers per mode ─────────────────────────────────────────────────────
 
+  // ── تحويل updatedAt (string | Date) إلى ISO string لـ updateExpense/updatePurchase ──
+  const updatedAtIso =
+    initialData?.updatedAt instanceof Date
+      ? initialData.updatedAt.toISOString()
+      : typeof initialData?.updatedAt === "string"
+        ? initialData.updatedAt
+        : "";
+
   const handleExpenseSubmit = async (values: ExpenseValues) => {
+    // ── وضع التعديل: نُحدِّث السجل القائم بدلاً من إنشاء جديد ──
+    if (isEditing && initialData) {
+      const res = await updateExpense.mutateAsync({
+        id: initialData.id,
+        updatedAt: updatedAtIso,
+        values: {
+          date: values.date,
+          category: values.category,
+          amountCents: values.amountCents,
+          description: values.description || "",
+          // نُحافِظ على التصنيف الأصلي (وضع «مصروف يومي» لا يُعرِّض هذه الحقول للمستخدم).
+          isCapitalAsset: initialData.isCapitalAsset ?? false,
+          costNature: initialData.costNature ?? "variable",
+        },
+      });
+      if (res.status === "ok") {
+        toast.success("تم تحديث المصروف");
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message);
+      }
+      return;
+    }
+
+    // ── وضع الإنشاء (الأصل) ──
     const res = await createExpense.mutateAsync({
       values: {
         date: values.date,
@@ -213,6 +345,35 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
     const unitCostMicroCents =
       qty > 0 ? Math.round((values.totalCents * 1000) / qty) : values.totalCents * 1000;
 
+    // ── وضع التعديل ──
+    if (isEditing && initialData) {
+      const res = await updatePurchase.mutateAsync({
+        id: initialData.id,
+        updatedAt: updatedAtIso,
+        values: {
+          date: values.date,
+          item: values.itemName,
+          supplier: "",
+          quantity: qty,
+          unitCostMicroCents,
+          notes: values.notes || "",
+          // نُحافِظ على التصنيف الأصلي (وضع «شراء مواد» لا يُعرِّضه للمستخدم).
+          isCapitalAsset: initialData.isCapitalAsset ?? false,
+          costNature: initialData.costNature ?? "variable",
+          linkedCatalogComponentId: values.catalogId ?? null,
+        },
+      });
+      if (res.status === "ok") {
+        toast.success("تم تحديث شراء المواد");
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message);
+      }
+      return;
+    }
+
+    // ── وضع الإنشاء (الأصل) ──
     const res = await createPurchase.mutateAsync({
       values: {
         date: values.date,
@@ -237,6 +398,38 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
   };
 
   const handleAssetSubmit = async (values: AssetValues) => {
+    // ── وضع التعديل: نُحدِّث المصروف الأساسي (isCapitalAsset=true) ──
+    // TODO (Issue #1): لا يوجد useUpdateCapitalAsset بعد. لذلك لا يمكن تعديل
+    // إعدادات الإهلاك (usefulLifeMonths) لسجل capital_asset مرتبط من هنا.
+    // السلوك الحالي: يُحدِّث المصروف الأساسي ويُحافِظ على الارتباط القائم كما هو.
+    // لتفعيل الإهلاك على أصل غير مُهلَّك، يمكن للمستخدم إيقاف الإهلاك ثم إعادة
+    // إنشائه (لكن هذا خارج نطاق نموذج التعديل).
+    if (isEditing && initialData) {
+      const res = await updateExpense.mutateAsync({
+        id: initialData.id,
+        updatedAt: updatedAtIso,
+        values: {
+          date: values.date,
+          category: values.name,
+          amountCents: values.amountCents,
+          description: values.description || "",
+          isCapitalAsset: true,
+          costNature: undefined,
+        },
+      });
+      if (res.status === "ok") {
+        toast.success("تم تحديث الأصل");
+        // لا نُعيد فتح DepreciationPromptModal في وضع التعديل (الارتباط القائم
+        // يُحافَظ عليه). فقط نُخبر الأب ونُغلق.
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message);
+      }
+      return;
+    }
+
+    // ── وضع الإنشاء (الأصل) ──
     const res = await createExpense.mutateAsync({
       values: {
         date: values.date,
@@ -302,8 +495,11 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
   };
 
   // ── render ─────────────────────────────────────────────────────────────────
-  const isExpensePending = createExpense.isPending;
-  const isPurchasePending = createPurchase.isPending;
+  // في وضع التعديل، حالة الانتظار تعتمد على الـ mutation المُحدِّث لا المُنشِئ.
+  const isExpensePending = isEditing ? updateExpense.isPending : createExpense.isPending;
+  const isPurchasePending = isEditing
+    ? updatePurchase.isPending
+    : createPurchase.isPending;
 
   return (
     <>
@@ -421,7 +617,7 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
             isLoading={isExpensePending}
             className="w-full"
           >
-            تسجيل المصروف
+            {isEditing ? "حفظ التعديلات" : "تسجيل المصروف"}
           </Button>
         </form>
       )}
@@ -601,7 +797,7 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
             isLoading={isPurchasePending}
             className="w-full"
           >
-            تسجيل الشراء
+            {isEditing ? "حفظ التعديلات" : "تسجيل الشراء"}
           </Button>
         </form>
       )}
@@ -692,7 +888,7 @@ export function SmartFinanceForm({ onSuccess, onClose }: SmartFinanceFormProps) 
             isLoading={isExpensePending}
             className="w-full"
           >
-            تسجيل الأصل
+            {isEditing ? "حفظ التعديلات" : "تسجيل الأصل"}
           </Button>
         </form>
       )}
