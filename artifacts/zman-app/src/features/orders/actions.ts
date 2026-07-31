@@ -11,6 +11,10 @@ import { createOrderSchema, updateOrderSchema } from "./schema";
 import { sale, cashMovement } from "../finance/db";
 import { getOrCreateDefaultCashAccount } from "../finance/actions";
 import { getAmmanDate } from "@/lib/utils";
+// Issue #16 — logAction (defensive audit logger). Runs OUTSIDE the caller's
+// db.transaction, swallows ALL errors. Imported here so create/update/delete
+// order functions can record an audit row on the success path.
+import { logAction } from "../audit/actions";
 
 // نوع الإرجاع الموحد (Discriminated Union) (§18 rule 8)
 type ActionResponse<T = unknown> =
@@ -78,7 +82,7 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // 3. فحص الـ Idempotency لمنع التكرار (§5.6)
       const existingKey = await tx
         .select()
@@ -175,6 +179,16 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
       revalidatePath("/orders");
       return { status: "ok", data: newOrder };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_order",
+        entityType: "order",
+        entityId: (result.data as { id: string }).id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -241,7 +255,7 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // 3. قفل الصف للطلب الرئيسي لمنع السباق المالي (§5.6)
       const [existing] = await tx
         .select()
@@ -531,6 +545,16 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       revalidatePath(`/orders/${id}`);
       return { status: "ok", data: updatedOrder };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "update_order",
+        entityType: "order",
+        entityId: id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -557,7 +581,7 @@ export async function deleteOrder(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // 2. قفل الصف
       const [existing] = await tx
         .select()
@@ -657,6 +681,16 @@ export async function deleteOrder(
       revalidatePath("/orders");
       return { status: "ok", data: deleted };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_order",
+        entityType: "order",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -700,7 +734,7 @@ export async function updateOrderStatus(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // 3. قفل الصف
       const [existing] = await tx
         .select()
@@ -834,6 +868,16 @@ export async function updateOrderStatus(
       revalidatePath(`/orders/${id}`);
       return { status: "ok", data: updated };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "update_order_status",
+        entityType: "order",
+        entityId: id,
+        changesSnapshot: { newStatus },
+      });
+    }
+    return result;
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }

@@ -183,6 +183,13 @@
       "when": 1785242062910,
       "tag": "0025_third_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1785300000000,
+      "tag": "0026_audit_logs",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Boxes, Trash2 } from "lucide-react";
+import { Boxes, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -13,6 +13,7 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import { Button } from "@/components/shared/Button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
+import { CardActionSheet } from "@/components/shared/CardActionSheet";
 import { scheduleDeleteWithUndo } from "@/lib/undo-delete";
 
 import {
@@ -53,6 +54,9 @@ export function ExpensesTab() {
   // D7 fix — إيقاف الإهلاك لصف capital_asset نشط. نُخزِّن المعرّف فقط ونفتح
   // ConfirmDialog للتأكيد قبل استدعاء deleteCapitalAsset.
   const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
+  // Issue #15 — شيت إجراءات سفلي لكل صف مصروف (تعديل/حذف) بدلاً من نقْر البطاقة
+  // بأكملها. الصفوف ذات isInventoryWriteoff=true للقراءة فقط ولا تحصل على زر ⋯.
+  const [actionSheetItem, setActionSheetItem] = useState<(typeof visibleExpenses)[number] | null>(null);
   // Phase 4 — معلومات الصف الرأسمالي المُنشَأ مؤخراً + إظهار مودال الإهلاك.
   const [pendingCapitalAsset, setPendingCapitalAsset] =
     useState<PendingCapitalAsset | null>(null);
@@ -181,18 +185,21 @@ export function ExpensesTab() {
     updateUrl({ newExpense: null, editExpense: null });
   };
 
-  // Issue #12 — حذف مع تراجع: يُخفي الصف فوراً (optimistic)، يُظهر تنبيه sonner
-  // بزر «تراجع» لمدة 5 ثوانٍ، ثم يُنفِّذ الحذف الفعلي عبر useDeleteExpense.
+  // Issue #12 + #15 — حذف مع تراجع: يُخفي الصف فوراً (optimistic)، يُظهر تنبيه
+  // sonner بزر «تراجع» لمدة 5 ثوانٍ، ثم يُنفِّذ الحذف الفعلي عبر useDeleteExpense.
   // إن ضغط المستخدم «تراجع» يُعاد الصف للظهور. إن فشل الحذف (مثل تعارض updatedAt)
   // يُعاد الصف ويُظهر تنبيه خطأ. لا يؤثر على صفوف هدر المخزون (isInventoryWriteoff)
   // لأنها محروسة في الواجهة بدون زر حذف.
-  const handleDeleteWithUndo = () => {
-    if (!editId) return;
-    const idToDelete = editId;
-    const updatedAt = activeExpense?.updatedAt instanceof Date
-      ? activeExpense.updatedAt.toISOString()
-      : String(activeExpense?.updatedAt || "");
-    // أغلق مودال التعديل فوراً ليُغادر المستخدم شاشة التحرير بينما التنبيه ظاهر.
+  //
+  // Issue #15 — حُوِّلت الدالة لتقبل (id, updatedAt) صريحة بدل قراءة editId من
+  // URL. هذا يسمح استدعاءها من شيت الإجراءات السفلي (للصف المُختار) ومن زرّ
+  // الحذف داخل مودال التعديل (للصف المفتوح). كلا المسارين تُغلق الواجهة المعروضة
+  // فوراً قبل بدء العدّ التنازلي.
+  const handleDeleteWithUndo = (idToDelete: string, updatedAtRaw: Date | string) => {
+    const updatedAt =
+      updatedAtRaw instanceof Date ? updatedAtRaw.toISOString() : String(updatedAtRaw || "");
+    // أغلق مودال التعديل (إن كان مفتوحاً) ليُغادر المستخدم شاشة التحرير بينما
+    // التنبيه ظاهر. إن لم يكن مفتوحاً فهذه لا-عملية.
     updateUrl({ editExpense: null });
     // أخفِ الصف من القائمة مباشرةً (تحديث متفائل).
     setHiddenIds((prev) => {
@@ -201,7 +208,7 @@ export function ExpensesTab() {
       return next;
     });
     scheduleDeleteWithUndo({
-      message: "تم حذف المصروف",
+      message: "سيُحذف المصروف — لا تغلق الصفحة",
       onCommit: async () => {
         const res = await deleteMutation.mutateAsync({ id: idToDelete, updatedAt });
         if (res.status !== "ok") {
@@ -312,40 +319,32 @@ export function ExpensesTab() {
               // وأضف شارة «تلقائي» ليُدرِك المالك سبب غياب أزرار التعديل.
               const isWriteoff = item.isInventoryWriteoff === true;
               return (
-            // biome-ignore lint/a11y/useSemanticElements: card container is interactive
             <div
               key={item.id}
-              role={isWriteoff ? undefined : "button"}
-              tabIndex={isWriteoff ? -1 : 0}
-              onClick={
-                isWriteoff
-                  ? undefined
-                  : () => updateUrl({ editExpense: item.id })
-              }
-              onKeyDown={
-                isWriteoff
-                  ? undefined
-                  : (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        updateUrl({ editExpense: item.id });
-                      }
-                    }
-              }
               style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
               className={`p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 transition-colors animate-fade-slide-in ${
-                isWriteoff
-                  ? "cursor-default"
-                  : "hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 cursor-pointer"
+                isWriteoff ? "cursor-default" : "hover:border-ink/20"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-ink text-base">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-ink text-base flex-1 min-w-0 truncate">
                   {item.description || "مصروف عام"}
                 </span>
-                <span className="font-bold text-ink text-base">
+                <span className="font-bold text-ink text-base flex-shrink-0">
                   <AmountText amount={item.amountCents} />
                 </span>
+                {/* Issue #15 — زر ⋯ لفتح شيت الإجراءات السفلي (تعديل/حذف).
+                    صفوف هدر المخزون للقراءة فقط فلا تحصل على الزر. */}
+                {!isWriteoff && (
+                  <button
+                    type="button"
+                    onClick={() => setActionSheetItem(item)}
+                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
+                    aria-label="إجراءات"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+                )}
               </div>
               <div className="flex justify-between items-center text-xs text-ink/60 font-medium">
                 <div className="flex items-center gap-1.5">
@@ -479,7 +478,10 @@ export function ExpensesTab() {
             <Button
               type="button"
               variant="destructive"
-              onClick={handleDeleteWithUndo}
+              onClick={() => {
+                if (!activeExpense) return;
+                handleDeleteWithUndo(activeExpense.id, activeExpense.updatedAt);
+              }}
               icon={<Trash2 className="h-4 w-4" />}
               className="w-full"
             >
@@ -511,6 +513,41 @@ export function ExpensesTab() {
         onConfirmDeductOnce={handleConfirmDeductOnce}
         onConfirmSpread={handleConfirmSpread}
         isSubmitting={capitalAssetMutation.isPending}
+      />
+
+      {/* Issue #15 — شيت إجراءات سفلي لكل صف مصروف. المساران:
+          - «تعديل» → فتح مودال التعديل عبر URL (?editExpense=<id>).
+          - «حذف» → handleDeleteWithUndo(id, updatedAt) الذي يُسلك scheduleDeleteWithUndo
+            (نمط الحذف بتراجع 5 ثوانٍ من commit 8b69d87). لا ConfirmDialog هنا. */}
+      <CardActionSheet
+        isOpen={actionSheetItem !== null}
+        onClose={() => setActionSheetItem(null)}
+        title="إجراءات"
+        actions={
+          actionSheetItem
+            ? [
+                {
+                  label: "تعديل",
+                  icon: <Pencil className="w-5 h-5" />,
+                  onClick: () => {
+                    const id = actionSheetItem.id;
+                    setActionSheetItem(null);
+                    updateUrl({ editExpense: id });
+                  },
+                },
+                {
+                  label: "حذف",
+                  icon: <Trash2 className="w-5 h-5" />,
+                  variant: "danger" as const,
+                  onClick: () => {
+                    const item = actionSheetItem;
+                    setActionSheetItem(null);
+                    handleDeleteWithUndo(item.id, item.updatedAt);
+                  },
+                },
+              ]
+            : []
+        }
       />
     </div>
   );
