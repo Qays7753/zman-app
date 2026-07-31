@@ -14,7 +14,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Banknote, ShoppingBag, Wrench } from "lucide-react";
-import { useEffect, useMemo, useId, useState } from "react";
+import { useEffect, useMemo, useId, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -23,6 +23,7 @@ import { MoneyInput } from "@/components/shared/MoneyInput";
 import { Button } from "@/components/shared/Button";
 import { Select } from "@/components/shared/Select";
 import { TextArea } from "@/components/shared/TextArea";
+import { assertOnline } from "@/lib/online";
 import { formatFilsToJod } from "@/lib/money";
 
 import {
@@ -207,6 +208,11 @@ export function SmartFinanceForm({
   // في وضع التعديل: إن لم تكن الفئة في كتالوج الفئات، نُهيّئه كـ«إدخال يدوي».
   const [isCustomCategory, setIsCustomCategory] = useState(!initialData?.category);
 
+  // ── قفل الإرسال المزدوج (Issue #2) ─────────────────────────────────────────
+  // نفس القفل يُستخدم عبر المعالجات الثلاثة (expense/purchase/asset) لأن وضعاً
+  // واحداً فقط يكون مرئياً في كل لحظة، فلا يمكن أن تتنافس المعالجات معاها.
+  const inFlight = useRef(false);
+
   // بعد تحميل كتالوج الفئات، صحِّح isCustomCategory إن كانت الفئة موجودة فعلاً.
   useEffect(() => {
     if (initialData?.category && categoryOptions.length > 0) {
@@ -270,6 +276,112 @@ export function SmartFinanceForm({
     defaultValues: assetDefaults,
   });
 
+  // ── مسودات localStorage (Issue #7) ─────────────────────────────────────
+  // لكل وضع مفتاح مستقل؛ لا نُ persist في وضع التعديل ولا للأوضاع غير النشطة.
+  const DRAFT_KEYS: Record<Mode, string> = {
+    expense: "zman_draft_expense",
+    purchase: "zman_draft_purchase",
+    asset: "zman_draft_asset",
+  };
+
+  type AnyDraft = ExpenseValues | PurchaseValues | AssetValues;
+  const [draftOffer, setDraftOffer] = useState<Record<Mode, AnyDraft | null>>({
+    expense: null,
+    purchase: null,
+    asset: null,
+  });
+
+  // (1) persist on isDirty change — gated by active mode + create-only.
+  useEffect(() => {
+    if (isEditing || mode !== "expense") return;
+    if (expenseForm.formState.isDirty) {
+      try {
+        localStorage.setItem(DRAFT_KEYS.expense, JSON.stringify(expenseForm.getValues()));
+      } catch {
+        /* quota / private mode — silent */
+      }
+    } else {
+      try {
+        localStorage.removeItem(DRAFT_KEYS.expense);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [expenseForm.formState.isDirty, mode, isEditing]);
+
+  useEffect(() => {
+    if (isEditing || mode !== "purchase") return;
+    if (purchaseForm.formState.isDirty) {
+      try {
+        localStorage.setItem(DRAFT_KEYS.purchase, JSON.stringify(purchaseForm.getValues()));
+      } catch {
+        /* quota / private mode — silent */
+      }
+    } else {
+      try {
+        localStorage.removeItem(DRAFT_KEYS.purchase);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [purchaseForm.formState.isDirty, mode, isEditing]);
+
+  useEffect(() => {
+    if (isEditing || mode !== "asset") return;
+    if (assetForm.formState.isDirty) {
+      try {
+        localStorage.setItem(DRAFT_KEYS.asset, JSON.stringify(assetForm.getValues()));
+      } catch {
+        /* quota / private mode — silent */
+      }
+    } else {
+      try {
+        localStorage.removeItem(DRAFT_KEYS.asset);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [assetForm.formState.isDirty, mode, isEditing]);
+
+  // (2) on mount, اعرض استرجاع المسودة إن وُجدت (إنشاء فقط).
+  useEffect(() => {
+    if (isEditing) return;
+    try {
+      const exp = localStorage.getItem(DRAFT_KEYS.expense);
+      const pur = localStorage.getItem(DRAFT_KEYS.purchase);
+      const ast = localStorage.getItem(DRAFT_KEYS.asset);
+      setDraftOffer({
+        expense: exp ? (JSON.parse(exp) as ExpenseValues) : null,
+        purchase: pur ? (JSON.parse(pur) as PurchaseValues) : null,
+        asset: ast ? (JSON.parse(ast) as AssetValues) : null,
+      });
+    } catch {
+      /* ignore corrupted entries */
+    }
+  }, []);
+
+  // (3) restore / discard handlers — تعمل على الوضع النشط فقط.
+  const handleRestoreDraft = () => {
+    const offer = draftOffer[mode];
+    if (!offer) return;
+    if (mode === "expense") {
+      expenseForm.reset(offer as ExpenseValues);
+    } else if (mode === "purchase") {
+      purchaseForm.reset(offer as PurchaseValues);
+    } else {
+      assetForm.reset(offer as AssetValues);
+    }
+    setDraftOffer((prev) => ({ ...prev, [mode]: null }));
+  };
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEYS[mode]);
+    } catch {
+      /* ignore */
+    }
+    setDraftOffer((prev) => ({ ...prev, [mode]: null }));
+  };
+
   // ── تبديل الوضع + إعادة ضبط الحالة ──────────────────────────────────────
   // ملاحظة: في وضع التعديل، تبديل الوضع غير شائع (لا يمكن تحويل مصروف إلى شراء)،
   // لكنّنا ندعمه بأمان بإعادة الضبط إلى قيم initialData بدل القيم الفارغة.
@@ -294,62 +406,119 @@ export function SmartFinanceForm({
         : "";
 
   const handleExpenseSubmit = async (values: ExpenseValues) => {
-    // ── وضع التعديل: نُحدِّث السجل القائم بدلاً من إنشاء جديد ──
-    if (isEditing && initialData) {
-      const res = await updateExpense.mutateAsync({
-        id: initialData.id,
-        updatedAt: updatedAtIso,
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      // Issue #5 — تحقّق من الاتصال قبل أي طلب تعديل للخادم.
+      try {
+        assertOnline();
+      } catch (e) {
+        if (e instanceof Error && e.message === "offline") {
+          toast.error("لا يوجد اتصال — لم يُحفظ. أعد المحاولة.");
+          return;
+        }
+        throw e;
+      }
+      // ── وضع التعديل: نُحدِّث السجل القائم بدلاً من إنشاء جديد ──
+      if (isEditing && initialData) {
+        const res = await updateExpense.mutateAsync({
+          id: initialData.id,
+          updatedAt: updatedAtIso,
+          values: {
+            date: values.date,
+            category: values.category,
+            amountCents: values.amountCents,
+            description: values.description || "",
+            // نُحافِظ على التصنيف الأصلي (وضع «مصروف يومي» لا يُعرِّض هذه الحقول للمستخدم).
+            isCapitalAsset: initialData.isCapitalAsset ?? false,
+            costNature: initialData.costNature ?? "variable",
+          },
+        });
+        if (res.status === "ok") {
+          try { localStorage.removeItem(DRAFT_KEYS.expense); } catch { /* ignore */ }
+          toast.success("تم تحديث المصروف");
+          onSuccess();
+          onClose();
+        } else {
+          toast.error(res.message);
+        }
+        return;
+      }
+
+      // ── وضع الإنشاء (الأصل) ──
+      const res = await createExpense.mutateAsync({
         values: {
           date: values.date,
           category: values.category,
           amountCents: values.amountCents,
           description: values.description || "",
-          // نُحافِظ على التصنيف الأصلي (وضع «مصروف يومي» لا يُعرِّض هذه الحقول للمستخدم).
-          isCapitalAsset: initialData.isCapitalAsset ?? false,
-          costNature: initialData.costNature ?? "variable",
+          isCapitalAsset: false,
+          costNature: "variable",
         },
+        requestId: crypto.randomUUID(),
       });
       if (res.status === "ok") {
-        toast.success("تم تحديث المصروف");
+        try { localStorage.removeItem(DRAFT_KEYS.expense); } catch { /* ignore */ }
+        toast.success("تم تسجيل المصروف");
         onSuccess();
         onClose();
       } else {
         toast.error(res.message);
       }
-      return;
-    }
-
-    // ── وضع الإنشاء (الأصل) ──
-    const res = await createExpense.mutateAsync({
-      values: {
-        date: values.date,
-        category: values.category,
-        amountCents: values.amountCents,
-        description: values.description || "",
-        isCapitalAsset: false,
-        costNature: "variable",
-      },
-      requestId: crypto.randomUUID(),
-    });
-    if (res.status === "ok") {
-      toast.success("تم تسجيل المصروف");
-      onSuccess();
-      onClose();
-    } else {
-      toast.error(res.message);
+    } finally {
+      inFlight.current = false;
     }
   };
 
   const handlePurchaseSubmit = async (values: PurchaseValues) => {
-    const qty = values.quantity;
-    const unitCostMicroCents =
-      qty > 0 ? Math.round((values.totalCents * 1000) / qty) : values.totalCents * 1000;
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      // Issue #5 — تحقّق من الاتصال قبل أي طلب تعديل للخادم.
+      try {
+        assertOnline();
+      } catch (e) {
+        if (e instanceof Error && e.message === "offline") {
+          toast.error("لا يوجد اتصال — لم يُحفظ. أعد المحاولة.");
+          return;
+        }
+        throw e;
+      }
+      const qty = values.quantity;
+      const unitCostMicroCents =
+        qty > 0 ? Math.round((values.totalCents * 1000) / qty) : values.totalCents * 1000;
 
-    // ── وضع التعديل ──
-    if (isEditing && initialData) {
-      const res = await updatePurchase.mutateAsync({
-        id: initialData.id,
-        updatedAt: updatedAtIso,
+      // ── وضع التعديل ──
+      if (isEditing && initialData) {
+        const res = await updatePurchase.mutateAsync({
+          id: initialData.id,
+          updatedAt: updatedAtIso,
+          values: {
+            date: values.date,
+            item: values.itemName,
+            supplier: "",
+            quantity: qty,
+            unitCostMicroCents,
+            notes: values.notes || "",
+            // نُحافِظ على التصنيف الأصلي (وضع «شراء مواد» لا يُعرِّضه للمستخدم).
+            isCapitalAsset: initialData.isCapitalAsset ?? false,
+            costNature: initialData.costNature ?? "variable",
+            linkedCatalogComponentId: values.catalogId ?? null,
+          },
+        });
+        if (res.status === "ok") {
+          try { localStorage.removeItem(DRAFT_KEYS.purchase); } catch { /* ignore */ }
+          toast.success("تم تحديث شراء المواد");
+          onSuccess();
+          onClose();
+        } else {
+          toast.error(res.message);
+        }
+        return;
+      }
+
+      // ── وضع الإنشاء (الأصل) ──
+      const res = await createPurchase.mutateAsync({
         values: {
           date: values.date,
           item: values.itemName,
@@ -357,57 +526,73 @@ export function SmartFinanceForm({
           quantity: qty,
           unitCostMicroCents,
           notes: values.notes || "",
-          // نُحافِظ على التصنيف الأصلي (وضع «شراء مواد» لا يُعرِّضه للمستخدم).
-          isCapitalAsset: initialData.isCapitalAsset ?? false,
-          costNature: initialData.costNature ?? "variable",
+          isCapitalAsset: false,
+          costNature: "variable",
           linkedCatalogComponentId: values.catalogId ?? null,
         },
+        requestId: crypto.randomUUID(),
       });
       if (res.status === "ok") {
-        toast.success("تم تحديث شراء المواد");
+        try { localStorage.removeItem(DRAFT_KEYS.purchase); } catch { /* ignore */ }
+        toast.success("تم تسجيل شراء المواد");
         onSuccess();
         onClose();
       } else {
         toast.error(res.message);
       }
-      return;
-    }
-
-    // ── وضع الإنشاء (الأصل) ──
-    const res = await createPurchase.mutateAsync({
-      values: {
-        date: values.date,
-        item: values.itemName,
-        supplier: "",
-        quantity: qty,
-        unitCostMicroCents,
-        notes: values.notes || "",
-        isCapitalAsset: false,
-        costNature: "variable",
-        linkedCatalogComponentId: values.catalogId ?? null,
-      },
-      requestId: crypto.randomUUID(),
-    });
-    if (res.status === "ok") {
-      toast.success("تم تسجيل شراء المواد");
-      onSuccess();
-      onClose();
-    } else {
-      toast.error(res.message);
+    } finally {
+      inFlight.current = false;
     }
   };
 
   const handleAssetSubmit = async (values: AssetValues) => {
-    // ── وضع التعديل: نُحدِّث المصروف الأساسي (isCapitalAsset=true) ──
-    // TODO (Issue #1): لا يوجد useUpdateCapitalAsset بعد. لذلك لا يمكن تعديل
-    // إعدادات الإهلاك (usefulLifeMonths) لسجل capital_asset مرتبط من هنا.
-    // السلوك الحالي: يُحدِّث المصروف الأساسي ويُحافِظ على الارتباط القائم كما هو.
-    // لتفعيل الإهلاك على أصل غير مُهلَّك، يمكن للمستخدم إيقاف الإهلاك ثم إعادة
-    // إنشائه (لكن هذا خارج نطاق نموذج التعديل).
-    if (isEditing && initialData) {
-      const res = await updateExpense.mutateAsync({
-        id: initialData.id,
-        updatedAt: updatedAtIso,
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      // Issue #5 — تحقّق من الاتصال قبل أي طلب تعديل للخادم.
+      try {
+        assertOnline();
+      } catch (e) {
+        if (e instanceof Error && e.message === "offline") {
+          toast.error("لا يوجد اتصال — لم يُحفظ. أعد المحاولة.");
+          return;
+        }
+        throw e;
+      }
+      // ── وضع التعديل: نُحدِّث المصروف الأساسي (isCapitalAsset=true) ──
+      // TODO (Issue #1): لا يوجد useUpdateCapitalAsset بعد. لذلك لا يمكن تعديل
+      // إعدادات الإهلاك (usefulLifeMonths) لسجل capital_asset مرتبط من هنا.
+      // السلوك الحالي: يُحدِّث المصروف الأساسي ويُحافِظ على الارتباط القائم كما هو.
+      // لتفعيل الإهلاك على أصل غير مُهلَّك، يمكن للمستخدم إيقاف الإهلاك ثم إعادة
+      // إنشائه (لكن هذا خارج نطاق نموذج التعديل).
+      if (isEditing && initialData) {
+        const res = await updateExpense.mutateAsync({
+          id: initialData.id,
+          updatedAt: updatedAtIso,
+          values: {
+            date: values.date,
+            category: values.name,
+            amountCents: values.amountCents,
+            description: values.description || "",
+            isCapitalAsset: true,
+            costNature: undefined,
+          },
+        });
+        if (res.status === "ok") {
+          try { localStorage.removeItem(DRAFT_KEYS.asset); } catch { /* ignore */ }
+          toast.success("تم تحديث الأصل");
+          // لا نُعيد فتح DepreciationPromptModal في وضع التعديل (الارتباط القائم
+          // يُحافَظ عليه). فقط نُخبر الأب ونُغلق.
+          onSuccess();
+          onClose();
+        } else {
+          toast.error(res.message);
+        }
+        return;
+      }
+
+      // ── وضع الإنشاء (الأصل) ──
+      const res = await createExpense.mutateAsync({
         values: {
           date: values.date,
           category: values.name,
@@ -416,52 +601,33 @@ export function SmartFinanceForm({
           isCapitalAsset: true,
           costNature: undefined,
         },
+        requestId: crypto.randomUUID(),
       });
       if (res.status === "ok") {
-        toast.success("تم تحديث الأصل");
-        // لا نُعيد فتح DepreciationPromptModal في وضع التعديل (الارتباط القائم
-        // يُحافَظ عليه). فقط نُخبر الأب ونُغلق.
-        onSuccess();
-        onClose();
+        try { localStorage.removeItem(DRAFT_KEYS.asset); } catch { /* ignore */ }
+        toast.success("تم تسجيل الأصل");
+        if (
+          values.wantDepreciation &&
+          res.data &&
+          typeof res.data === "object" &&
+          "id" in res.data
+        ) {
+          setPendingAsset({
+            sourceId: (res.data as { id: string }).id,
+            name: values.name,
+            date: values.date,
+            amountCents: values.amountCents,
+          });
+          // لا نُغلق المودال الآن — DepreciationPromptModal سيُشغَّل
+        } else {
+          onSuccess();
+          onClose();
+        }
       } else {
         toast.error(res.message);
       }
-      return;
-    }
-
-    // ── وضع الإنشاء (الأصل) ──
-    const res = await createExpense.mutateAsync({
-      values: {
-        date: values.date,
-        category: values.name,
-        amountCents: values.amountCents,
-        description: values.description || "",
-        isCapitalAsset: true,
-        costNature: undefined,
-      },
-      requestId: crypto.randomUUID(),
-    });
-    if (res.status === "ok") {
-      toast.success("تم تسجيل الأصل");
-      if (
-        values.wantDepreciation &&
-        res.data &&
-        typeof res.data === "object" &&
-        "id" in res.data
-      ) {
-        setPendingAsset({
-          sourceId: (res.data as { id: string }).id,
-          name: values.name,
-          date: values.date,
-          amountCents: values.amountCents,
-        });
-        // لا نُغلق المودال الآن — DepreciationPromptModal سيُشغَّل
-      } else {
-        onSuccess();
-        onClose();
-      }
-    } else {
-      toast.error(res.message);
+    } finally {
+      inFlight.current = false;
     }
   };
 
@@ -503,6 +669,33 @@ export function SmartFinanceForm({
 
   return (
     <>
+      {/* مسودة غير محفوظة (Issue #7) — تُعرَض للوضع النشط فقط */}
+      {draftOffer[mode] && (
+        <div className="mb-4 p-3 rounded-lg border border-warn/30 bg-warn-soft text-warn-deep flex items-start gap-3 flex-wrap">
+          <span className="text-sm flex-1">
+            لديك مسودة غير محفوظة من إدخال سابق. هل تريد استرجاعها؟
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="ink"
+              className="min-h-[44px]"
+              onClick={handleRestoreDraft}
+            >
+              استرجاع
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-[44px]"
+              onClick={handleDiscardDraft}
+            >
+              تجاهل
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* السيلكتور — ثلاثة أوضاع */}
       <div
         className="flex gap-1 p-1 bg-canvas rounded-xl mb-6"

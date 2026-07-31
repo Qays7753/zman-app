@@ -3,11 +3,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link as LinkIcon, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { Button } from "@/components/shared/Button";
 import { TextArea } from "@/components/shared/TextArea";
+import { assertOnline } from "@/lib/online";
 import { saleInputSchema } from "../schema";
 import type { NewSale, Sale } from "../types";
 
@@ -41,7 +43,9 @@ export function SaleForm({
     handleSubmit,
     control,
     setValue,
-    formState: { errors },
+    getValues,
+    reset,
+    formState: { errors, isDirty },
   } = useForm({
     resolver: zodResolver(saleInputSchema),
     defaultValues,
@@ -63,8 +67,104 @@ export function SaleForm({
     }
   }, [initialData, setValue]);
 
+  // ── مسودة localStorage (Issue #7) — إنشاء فقط، لا تُ persist في وضع التعديل ──
+  const SALE_DRAFT_KEY = "zman_draft_sale";
+  // مطابق لشكل defaultValues — مهم: source هو union دقيق لا string.
+  type SaleDraft = {
+    date: string;
+    source: "manual" | "order";
+    orderId: string | null;
+    amountCents: number;
+    description: string;
+  };
+  const [draftOffer, setDraftOffer] = useState<SaleDraft | null>(null);
+
+  useEffect(() => {
+    if (initialData) return;
+    if (isDirty) {
+      try {
+        localStorage.setItem(SALE_DRAFT_KEY, JSON.stringify(getValues()));
+      } catch {
+        /* quota / private mode — silent */
+      }
+    } else {
+      try {
+        localStorage.removeItem(SALE_DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [isDirty, initialData, getValues]);
+
+  useEffect(() => {
+    if (initialData) return;
+    try {
+      const raw = localStorage.getItem(SALE_DRAFT_KEY);
+      if (raw) setDraftOffer(JSON.parse(raw) as SaleDraft);
+    } catch {
+      /* ignore corrupted entries */
+    }
+  }, []);
+
+  const handleRestoreDraft = () => {
+    if (draftOffer) reset(draftOffer);
+    setDraftOffer(null);
+  };
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(SALE_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDraftOffer(null);
+  };
+
+  // Issue #5 — غلاف محلي لـ onSubmit يحرسه assertOnline. يُبقي المنطق داخل
+  // SaleForm بدلاً من تعديل الأب (SalesTab) فيكون مكان صيانة واحد.
+  // Issue #7 — بعد نجاح الإرسال (لم يُلقِ onSubmit خطأً)، امسح المسودة.
+  const handleFormSubmit = async (values: NewSale) => {
+    try {
+      assertOnline();
+    } catch (e) {
+      if (e instanceof Error && e.message === "offline") {
+        toast.error("لا يوجد اتصال — لم يُحفظ. أعد المحاولة.");
+        return;
+      }
+      throw e;
+    }
+    await onSubmit(values);
+    try { localStorage.removeItem(SALE_DRAFT_KEY); } catch { /* ignore */ }
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      {/* مسودة غير محفوظة (Issue #7) */}
+      {draftOffer && (
+        <div className="p-3 rounded-lg border border-warn/30 bg-warn-soft text-warn-deep flex items-start gap-3 flex-wrap">
+          <span className="text-sm flex-1">
+            لديك مسودة غير محفوظة من إدخال سابق. هل تريد استرجاعها؟
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="ink"
+              className="min-h-[44px]"
+              onClick={handleRestoreDraft}
+            >
+              استرجاع
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-[44px]"
+              onClick={handleDiscardDraft}
+            >
+              تجاهل
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         {/* التاريخ */}
         <div className="space-y-2 flex flex-col">

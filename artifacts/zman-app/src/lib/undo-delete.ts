@@ -57,7 +57,10 @@ export function scheduleDeleteWithUndo(
   // Issue #17 — مستمع pagehide: التزام fire-and-forget كمحاولة أخيرة عند إغلاق
   // الصفحة. يُزال في كل مسار خروج (commit / undo / dismiss) كي لا تتراكم.
   const onPageHide = () => {
-    if (!committed) {
+    // Issue #6 — لا تُطلِق commit عند انقطاع الشبكة. الحذف سيفشل على الخادم
+    // أصلاً، وإبقاء الصف على الواجهة (optimistic) سيُكذب على المستخدم. دعه
+    // يبقى مرئياً وغير ملتزَم — سيُعالَج عند عودة الشبكة أو إعادة التحميل.
+    if (!committed && typeof navigator !== "undefined" && navigator.onLine) {
       void commit();
     }
   };

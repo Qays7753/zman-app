@@ -9,6 +9,7 @@ import { AmountText } from "@/components/shared/AmountText";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { Button } from "@/components/shared/Button";
 import { TextField } from "@/components/shared/TextField";
+import { assertOnline } from "@/lib/online";
 import type { CreateOrderInput, UpdateOrderInput } from "../schema";
 import { createOrderSchema, updateOrderSchema } from "../schema";
 import type { OrderWithComponents } from "../types";
@@ -66,7 +67,7 @@ export function OrderForm({
     getValues,
     setValue,
     reset,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema as any),
@@ -144,6 +145,55 @@ export function OrderForm({
     }
   }, [initialData, reset]);
 
+  // ── مسودة localStorage (Issue #7) — إنشاء فقط، لا تُ persist في وضع التعديل ──
+  const ORDER_DRAFT_KEY = "zman_draft_order";
+  // القيمة المسحوبة من JSON؛ نُمرّرها إلى reset مع cast آمن (round-trip JSON).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [draftOffer, setDraftOffer] = useState<any>(null);
+
+  useEffect(() => {
+    if (isEditMode) return;
+    if (isDirty) {
+      try {
+        localStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(getValues()));
+      } catch {
+        /* quota / private mode — silent */
+      }
+    } else {
+      try {
+        localStorage.removeItem(ORDER_DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [isDirty, isEditMode, getValues]);
+
+  useEffect(() => {
+    if (isEditMode) return;
+    try {
+      const raw = localStorage.getItem(ORDER_DRAFT_KEY);
+      if (raw) setDraftOffer(JSON.parse(raw));
+    } catch {
+      /* ignore corrupted entries */
+    }
+  }, []);
+
+  const handleRestoreDraft = () => {
+    if (draftOffer) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      reset(draftOffer as any);
+    }
+    setDraftOffer(null);
+  };
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(ORDER_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDraftOffer(null);
+  };
+
   // مراقبة الحقول للحساب الحي (§9.2)
   const watchedComponents = watch("components") || [];
   const watchedQuantity = Number(watch("quantity")) || 0;
@@ -180,6 +230,16 @@ export function OrderForm({
   const onSubmit = async (data: CreateOrderInput | UpdateOrderInput) => {
     setIsSubmitting(true);
     try {
+      // Issue #5 — تحقّق من الاتصال قبل أي طلب تعديل للخادم.
+      try {
+        assertOnline();
+      } catch (e) {
+        if (e instanceof Error && e.message === "offline") {
+          toast.error("لا يوجد اتصال — لم يُحفظ. أعد المحاولة.");
+          return;
+        }
+        throw e;
+      }
       const submitData = isEditMode
         ? (data as UpdateOrderInput)
         : {
@@ -192,6 +252,7 @@ export function OrderForm({
         : await createOrderMutation.mutateAsync(submitData as CreateOrderInput);
 
       if (response.status === "ok") {
+        try { localStorage.removeItem("zman_draft_order"); } catch { /* ignore */ }
         toast.success(isEditMode ? "تم تحديث الطلب بنجاح" : "تم إنشاء الطلب بنجاح");
         onSubmitSuccess();
       } else {
@@ -209,6 +270,33 @@ export function OrderForm({
       onSubmit={handleSubmit(onSubmit)}
       className="space-y-5 max-w-xl mx-auto pb-32 lg:pb-0"
     >
+      {/* مسودة غير محفوظة (Issue #7) */}
+      {draftOffer && (
+        <div className="p-3 rounded-lg border border-warn/30 bg-warn-soft text-warn-deep flex items-start gap-3 flex-wrap">
+          <span className="text-sm flex-1">
+            لديك مسودة غير محفوظة من إدخال سابق. هل تريد استرجاعها؟
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="ink"
+              className="min-h-[44px]"
+              onClick={handleRestoreDraft}
+            >
+              استرجاع
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-[44px]"
+              onClick={handleDiscardDraft}
+            >
+              تجاهل
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* بيانات العميل */}
       <div className="bg-paper p-5 rounded-lg border border-hairline shadow-sm space-y-4">
         <h3 className="text-base font-bold text-ink border-b border-hairline pb-2">

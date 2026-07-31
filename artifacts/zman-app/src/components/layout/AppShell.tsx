@@ -119,7 +119,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       {/* شريط تنبيه انقطاع الشبكة */}
       {!isOnline && (
         <div className="flex-shrink-0 w-full h-8 bg-warn-soft text-warn-deep text-xs font-semibold flex items-center justify-center gap-2 z-sticky border-b border-warn/10 select-none">
-          <span>بياناتك محفوظة محلياً، ستتزامن عند عودة الإنترنت</span>
+          <span>لا يوجد اتصال بالإنترنت — التعديلات لن تُحفظ حتى تعود الشبكة</span>
         </div>
       )}
 

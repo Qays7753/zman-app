@@ -8,6 +8,7 @@ import { useOwnerTransactions, useCreateOwnerTransaction, useDeleteOwnerTransact
 import { AmountText } from "@/components/shared/AmountText";
 import { Button } from "@/components/shared/Button";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 export function OwnerTab() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export function OwnerTab() {
   const [txAccountId, setTxAccountId] = useState("");
   const [txDate, setTxDate] = useState(() => new Date().toLocaleDateString("en-CA"));
   const [txReason, setTxReason] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; updatedAt?: string } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,19 +77,21 @@ export function OwnerTab() {
     });
   };
 
-  const handleDelete = (id: string, updatedAt?: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذه المعاملة؟ سيتم التراجع عن حركة الصندوق المرفقة.")) {
-      return;
-    }
-    deleteTxMutation.mutate({ id, updatedAt }, {
-      onSuccess: (res) => {
-        if (res.status === "ok") {
-          toast.success("تم حذف المعاملة بنجاح");
-        } else {
-          toast.error(res.message || "فشل حذف المعاملة");
-        }
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteTxMutation.mutate(
+      { id: deleteTarget.id, updatedAt: deleteTarget.updatedAt },
+      {
+        onSuccess: (res) => {
+          if (res.status === "ok") {
+            toast.success("تم حذف المعاملة بنجاح");
+            setDeleteTarget(null);
+          } else {
+            toast.error(res.message || "فشل حذف المعاملة");
+          }
+        },
       },
-    });
+    );
   };
 
   if (isLoading) {
@@ -153,7 +157,7 @@ export function OwnerTab() {
                     <td className="p-4 text-center">
                       <button
                         type="button"
-                        onClick={() => handleDelete(tx.id, tx.updatedAt.toISOString())}
+                        onClick={() => setDeleteTarget({ id: tx.id, updatedAt: tx.updatedAt.toISOString() })}
                         disabled={deleteTxMutation.isPending}
                         className="text-alert hover:bg-alert/10 p-1.5 rounded transition"
                         title="حذف السجل والتراجع عنه"
@@ -298,6 +302,17 @@ export function OwnerTab() {
           </div>
         </form>
       </ResponsiveModal>
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title="حذف معاملة المالك"
+        message="سيُحذف هذا السجل وتُعكَس حركة الصندوق المرتبطة به (سحب أو إيداع). لا يمكن التراجع."
+        confirmLabel="نعم، حذف وعكس الحركة"
+        cancelLabel="إلغاء"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+        isLoading={deleteTxMutation.isPending}
+      />
     </div>
   );
 }

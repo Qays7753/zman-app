@@ -37,17 +37,17 @@ export default function OpeningBalanceClient() {
 
               <div className="flex items-center justify-between pt-3">
                 <span className="text-sm text-ink-2">رصيد الصندوق الافتتاحي</span>
-                <AmountText amount={opBal.cashCents / 1000} className="text-sm font-semibold" />
+                <AmountText amount={opBal.cashCents} className="text-sm font-semibold" />
               </div>
 
               <div className="flex items-center justify-between pt-3">
                 <span className="text-sm text-ink-2">رصيد البنك الافتتاحي</span>
-                <AmountText amount={opBal.bankCents / 1000} className="text-sm font-semibold" />
+                <AmountText amount={opBal.bankCents} className="text-sm font-semibold" />
               </div>
 
               <div className="flex items-center justify-between pt-3">
                 <span className="text-sm font-bold text-ink">رأس المال الافتتاحي</span>
-                <AmountText amount={opBal.capitalCents / 1000} className="text-sm font-bold text-info" />
+                <AmountText amount={opBal.capitalCents} className="text-sm font-bold text-info" />
               </div>
             </div>
 
