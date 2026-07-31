@@ -12,6 +12,7 @@ import {
   StopCircle,
   Pencil,
   Lock,
+  MoreVertical,
 } from "lucide-react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
@@ -19,6 +20,7 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { Button } from "@/components/shared/Button";
 import { TextField } from "@/components/shared/TextField";
+import { CardActionSheet } from "@/components/shared/CardActionSheet";
 import { cn } from "@/lib/utils";
 import {
   useCapitalAssets,
@@ -58,6 +60,13 @@ export function AssetsScreen() {
   // Issue #11 — أصل قيد التعديل (الاسم + تاريخ الشراء + العمر النافع فقط).
   // 🔒 purchaseAmountCents لا يُمرَّر للسيرفر إطلاقاً — يُعرض للقراءة فقط.
   const [editingAsset, setEditingAsset] = useState<CapitalAssetWithDepreciation | null>(null);
+  // Issue #15 — شيت إجراءات سفلي لكل بطاقة أصل. يعرض «تعديل» دائماً، و«إيقاف الإهلاك»
+  // فقط للأصول غير المستهلكة بالكامل. { asset } + flag منفصل لأن علم isFullyDepreciated
+  // على الـ asset نفسه قد لا يكون كافياً لو أردنا لاحقاً التمييز بين الأقسام.
+  const [actionSheet, setActionSheet] = useState<{
+    asset: CapitalAssetWithDepreciation;
+    showStop: boolean;
+  } | null>(null);
 
   const activeAssets = assets?.filter((a) => !a.isFullyDepreciated && !a.isPending) ?? [];
   const doneAssets = assets?.filter((a) => a.isFullyDepreciated) ?? [];
@@ -111,8 +120,9 @@ export function AssetsScreen() {
                   <AssetCard
                     key={asset.id}
                     asset={asset}
-                    onStop={() => setConfirmStop(asset)}
-                    onEdit={() => setEditingAsset(asset)}
+                    onOpenActions={() =>
+                      setActionSheet({ asset, showStop: true })
+                    }
                   />
                 ))}
               </div>
@@ -130,8 +140,9 @@ export function AssetsScreen() {
                   <AssetCard
                     key={asset.id}
                     asset={asset}
-                    onStop={() => setConfirmStop(asset)}
-                    onEdit={() => setEditingAsset(asset)}
+                    onOpenActions={() =>
+                      setActionSheet({ asset, showStop: false })
+                    }
                     fullyDepreciated
                   />
                 ))}
@@ -150,8 +161,9 @@ export function AssetsScreen() {
                   <AssetCard
                     key={asset.id}
                     asset={asset}
-                    onStop={() => setConfirmStop(asset)}
-                    onEdit={() => setEditingAsset(asset)}
+                    onOpenActions={() =>
+                      setActionSheet({ asset, showStop: true })
+                    }
                     pending
                   />
                 ))}
@@ -232,6 +244,43 @@ export function AssetsScreen() {
           </div>
         )}
       </ResponsiveModal>
+
+      {/* Issue #15 — شيت إجراءات سفلي لكل بطاقة أصل. «تعديل» دائماً؛ «إيقاف الإهلاك»
+          فقط للأصول غير المستهلكة بالكامل (showStop=true). */}
+      <CardActionSheet
+        isOpen={actionSheet !== null}
+        onClose={() => setActionSheet(null)}
+        title="إجراءات"
+        actions={
+          actionSheet
+            ? [
+                {
+                  label: "تعديل",
+                  icon: <Pencil className="w-5 h-5" />,
+                  onClick: () => {
+                    const asset = actionSheet.asset;
+                    setActionSheet(null);
+                    setEditingAsset(asset);
+                  },
+                },
+                ...(actionSheet.showStop
+                  ? [
+                      {
+                        label: "إيقاف الإهلاك",
+                        icon: <StopCircle className="w-5 h-5" />,
+                        variant: "danger" as const,
+                        onClick: () => {
+                          const asset = actionSheet.asset;
+                          setActionSheet(null);
+                          setConfirmStop(asset);
+                        },
+                      },
+                    ]
+                  : []),
+              ]
+            : []
+        }
+      />
     </>
   );
 }
@@ -240,14 +289,12 @@ export function AssetsScreen() {
 
 function AssetCard({
   asset,
-  onStop,
-  onEdit,
+  onOpenActions,
   fullyDepreciated = false,
   pending = false,
 }: {
   asset: CapitalAssetWithDepreciation;
-  onStop: () => void;
-  onEdit: () => void;
+  onOpenActions: () => void;
   fullyDepreciated?: boolean;
   pending?: boolean;
 }) {
@@ -267,7 +314,7 @@ function AssetCard({
         pending ? "border-dashed" : "",
       )}
     >
-      {/* الرأس: الاسم + حالة */}
+      {/* الرأس: الاسم + حالة + زر ⋯ */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -288,27 +335,15 @@ function AssetCard({
           </p>
         </div>
 
-        {/* أزرار التعديل والإيقاف — أهداف لمس ≥ 44px */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="flex items-center gap-1 text-[11px] text-ink-2 font-medium hover:bg-canvas rounded-lg px-2 min-h-[44px] min-w-[44px] transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            تعديل
-          </button>
-          {!fullyDepreciated && (
-            <button
-              type="button"
-              onClick={onStop}
-              className="flex items-center gap-1 text-[11px] text-alert font-medium hover:bg-alert/5 rounded-lg px-2 min-h-[44px] min-w-[44px] transition-colors"
-            >
-              <StopCircle className="w-3.5 h-3.5" />
-              إيقاف
-            </button>
-          )}
-        </div>
+        {/* Issue #15 — زر ⋯ لفتح شيت الإجراءات السفلي (تعديل/إيقاف الإهلاك) */}
+        <button
+          type="button"
+          onClick={onOpenActions}
+          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
+          aria-label="إجراءات"
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
       </div>
 
       {/* شريط التقدم */}

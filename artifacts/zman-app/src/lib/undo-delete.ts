@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
 interface ScheduleDeleteWithUndoOptions {
-  /** الرسالة الرئيسية للتنبيه (مثل «تم حذف المصروف»). */
+  /** الرسالة الرئيسية للتنبيه (مثل «سيُحذف المصروف — لا تغلق الصفحة»). */
   message: string;
   /** نص زر التراجع — افتراضي «تراجع». */
   undoLabel?: string;
@@ -16,20 +16,36 @@ interface ScheduleDeleteWithUndoOptions {
 }
 
 /**
- * Issue #12 — نمط «حذف مع تراجع».
+ * Issue #12 — نمط «حذف مع تراجع». (Issue #17 — إصلاح الأمانة.)
  *
  * يُظهر تنبيه sonner يحوي زر «تراجع». بعد `durationMs` (5 ثوانٍ افتراضياً)
  * يُستدعى `onCommit` لتنفيذ الحذف الفعلي. إن ضغط المستخدم «تراجع» قبل انتهاء
  * المهلة يُلغى الحذف ويُستدعى `onUndo`.
  *
- * كل استدعاء يملك إغلاقه الخاص (timer، committed flag) — التنبيهات المتزامنة
- * لا تتداخل مع بعضها.
+ * كل استدعاء يملك إغلاقه الخاص (timer، committed flag، pagehide listener) —
+ * التنبيهات المتزامنة لا تتداخل مع بعضها.
  *
  * السلوك:
- * - انتهاء المهلة → onCommit
+ * - انتهاء المهلة → onCommit ثم toast.success("تم الحذف") (ماضي فقط بعد تأكيد الخادم).
  * - ضغط «تراجع» → onUndo (ولا يُستدعى onCommit لاحقاً)
  * - إغلاق التنبيه يدوياً (X أو swipe) → onCommit فوراً (commit early)
+ * - إغلاق الصفحة (pagehide) قبل الالتزام → onCommit fire-and-forget كمحاولة أخيرة
  * - فشل onCommit (رمى استثناء) → onError + استعادة الصف (مسؤولية المُستدعي)
+ *
+ * Issue #17 — صفاء العَلَم:
+ * الرسالة المُمرَّرة من المُستدعي بصيغة مُستقبلية (لا ماضية) — لا يقول النظام
+ * «تم الحذف» قبل أن يؤكّد الخادم. تأكيد الماضي `toast.success("تم الحذف")`
+ * يظهر فقط بعد نجاح `onCommit`.
+ *
+ * Issue #17 — حارس إغلاق الصفحة:
+ * نسجّل مستمع `pagehide` (لا `beforeunload` — غير موثوق على متصفّحات الهاتف
+ * التي يستخدمها المالك 95% من الوقت). إن أُغلقت الصفحة قبل الالتزام، يُطلق
+ * `commit()` fire-and-forget كمحاولة أخيرة. `onCommit` يستخدم Next.js server
+ * actions عبر `mutateAsync`؛ وقت تشغيل Next.js client يُرسلها كـ fetch بمنطق
+ * `keepalive: true` افتراضياً للـ server actions، فالطلب سيصل غالباً قبل قطع
+ * الاتصال، لكن دون ضمان. هذا مقايضة مقبولة وفق Issue #17 — إصلاح «أمانة بأفضل
+ * جهد» لا ضمان معاملة. عَلَم `committed` يمنع الإطلاق المزدوج إن تسابقت `pagehide`
+ * مع المؤقّت أو `onDismiss`.
  */
 export function scheduleDeleteWithUndo(
   opts: ScheduleDeleteWithUndoOptions,
@@ -38,15 +54,31 @@ export function scheduleDeleteWithUndo(
   let timer: ReturnType<typeof setTimeout> | null = null;
   let committed = false;
 
+  // Issue #17 — مستمع pagehide: التزام fire-and-forget كمحاولة أخيرة عند إغلاق
+  // الصفحة. يُزال في كل مسار خروج (commit / undo / dismiss) كي لا تتراكم.
+  const onPageHide = () => {
+    if (!committed) {
+      void commit();
+    }
+  };
+  window.addEventListener("pagehide", onPageHide, { once: true });
+
+  const cleanup = () => {
+    window.removeEventListener("pagehide", onPageHide);
+  };
+
   const commit = async () => {
     if (committed) return;
     committed = true;
+    cleanup(); // أزل مستمع pagehide — التزامنا (نجح أم فشل).
     if (timer) {
       clearTimeout(timer);
       timer = null;
     }
     try {
       await opts.onCommit();
+      // Issue #17 — تأكيد الماضي فقط بعد نجاح الخادم.
+      toast.success("تم الحذف");
     } catch (e) {
       opts.onError?.(e);
     }
@@ -67,12 +99,14 @@ export function scheduleDeleteWithUndo(
         }
         // امنع أي commit لاحق — التراجع نهائي ضمن نافذة المهلة.
         committed = true;
+        cleanup(); // أزل مستمع pagehide — اختار المستخدم التراجع.
         opts.onUndo?.();
       },
     },
     onDismiss: () => {
       // أُغلق التنبيه يدوياً (X أو swipe أو بعد انتهاء المهلة) — نفِّذ الحذف مبكراً.
-      // إن كان committed=true مسبقاً (ضغط تراجع أو نفّذ setTimeout) فهذه لا-عملية.
+      // إن كان committed=true مسبقاً (ضغط تراجع أو نفّذ setTimeout أو pagehide)
+      // فهذه لا-عملية. commit() يزيل المستمع داخلياً.
       void commit();
     },
   });

@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Home, MessageSquare, Wallet, Landmark, Settings, Boxes, Clock, Package, Building2 } from "lucide-react";
+import { BarChart3, ClipboardList, Home, MessageSquare, Wallet, Settings, Boxes, Clock, Package, Building2, ShieldCheck } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -63,11 +63,6 @@ export const moreNavItems: NavItem[] = [
     icon: Clock,
   },
   {
-    label: "الحسابات والصناديق",
-    href: "/finance/accounts",
-    icon: Landmark,
-  },
-  {
     label: "الافتتاحي",
     href: "/settings/opening-balance",
     icon: Settings,
@@ -79,4 +74,11 @@ export const moreNavItems: NavItem[] = [
   },
   // Issue #7 — «إدارة فئات المصاريف» نُقِل من هنا إلى زرّ مرئيّ في رأس تبويب
   // المصاريف داخل ExpensesTab.tsx (يفتح FinanceCatalogModal عبر ?manageCatalog=expenses).
+  // Issue #16 — سجل التدقيق: صفحة /settings/audit-log تعرض كل عمليات
+  // create/update/delete المالية. يستخدم ShieldCheck للأيقونة.
+  {
+    label: "سجل التدقيق",
+    href: "/settings/audit-log",
+    icon: ShieldCheck,
+  },
 ];

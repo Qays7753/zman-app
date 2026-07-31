@@ -46,6 +46,26 @@ const SalesTab = dynamic(
   },
 );
 
+const AccountsTab = dynamic(
+  () =>
+    import("@/features/finance/components/AccountsTab").then(
+      (m) => m.AccountsTab,
+    ),
+  {
+    ssr: false,
+    loading: () => <SkeletonList count={3} />,
+  },
+);
+
+const OwnerTab = dynamic(
+  () =>
+    import("@/features/finance/components/OwnerTab").then((m) => m.OwnerTab),
+  {
+    ssr: false,
+    loading: () => <SkeletonList count={3} />,
+  },
+);
+
 const EXPENSE_CATEGORIES = [
   "الكل",
   "رواتب",
@@ -68,6 +88,7 @@ const TABS = [
   { id: "expenses", label: "مصاريفي", icon: Wallet },
   { id: "purchases", label: "مشترياتي", icon: ShoppingCart },
   { id: "sales", label: "مبيعاتي", icon: Banknote },
+  { id: "accounts", label: "حساباتي", icon: Landmark },
 ] as const;
 
 
@@ -165,7 +186,7 @@ export default function FinanceClient() {
       else params.set("source", val);
       router.replace(`${pathname}?${params.toString()}`);
     },
-  }] : activeTab === "owner" ? [{
+  }] : activeTab === "accounts" ? [{
     key: "type",
     label: "النوع",
     value: searchParams.get("type") || "all",
@@ -256,6 +277,12 @@ export default function FinanceClient() {
               {activeTab === "expenses" && <ExpensesTab />}
               {activeTab === "purchases" && <PurchasesTab />}
               {activeTab === "sales" && <SalesTab />}
+              {activeTab === "accounts" && (
+                <div className="space-y-8 flex flex-col">
+                  <AccountsTab />
+                  <OwnerTab />
+                </div>
+              )}
             </>
           )}
         </div>

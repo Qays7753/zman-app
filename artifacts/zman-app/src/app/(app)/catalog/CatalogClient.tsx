@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit3, Plus, Trash2, PackageCheck, History, PackageMinus, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, PackageCheck, History, PackageMinus, AlertTriangle, MoreVertical, Pencil } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { TextArea } from "@/components/shared/TextArea";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { AmountText } from "@/components/shared/AmountText";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
+import { CardActionSheet } from "@/components/shared/CardActionSheet";
 import {
   useCatalogComponents,
   useCreateCatalogComponent,
@@ -51,6 +52,8 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
   const [creating, setCreating] = useState(false);
   const [movementsFor, setMovementsFor] = useState<CatalogComponent | null>(null);
   const [adjustFor, setAdjustFor] = useState<CatalogComponent | null>(null);
+  // Issue #15 — شيت إجراءات سفلي لكل بطاقة كتالوج (تعديل/حذف).
+  const [actionSheetItem, setActionSheetItem] = useState<CatalogComponent | null>(null);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -132,9 +135,9 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
               >
                 <CatalogCard
                   item={item}
-                  onEdit={() => setEditing(item)}
                   onShowMovements={() => setMovementsFor(item)}
                   onAdjustStock={() => setAdjustFor(item)}
+                  onOpenActions={() => setActionSheetItem(item)}
                 />
               </li>
             ))}
@@ -220,20 +223,71 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
           />
         )}
       </ResponsiveModal>
+
+      {/* Issue #15 — شيت إجراءات سفلي لكل بطاقة كتالوج. المساران:
+          - «تعديل» → فتح مودال التعديل (setEditing).
+          - «حذف» → confirm() ثم deleteMutation مباشرة. حذف الكتالوج hard delete
+            (FK RESTRICT) فلا يصلح لنمط التراجع — ذلك للمصاريف/المشتريات فقط. */}
+      <CardActionSheet
+        isOpen={actionSheetItem !== null}
+        onClose={() => setActionSheetItem(null)}
+        title="إجراءات"
+        actions={
+          actionSheetItem
+            ? [
+                {
+                  label: "تعديل",
+                  icon: <Pencil className="w-5 h-5" />,
+                  onClick: () => {
+                    const item = actionSheetItem;
+                    setActionSheetItem(null);
+                    setEditing(item);
+                  },
+                },
+                {
+                  label: "حذف",
+                  icon: <Trash2 className="w-5 h-5" />,
+                  variant: "danger" as const,
+                  onClick: async () => {
+                    const item = actionSheetItem;
+                    setActionSheetItem(null);
+                    const confirmed = window.confirm(
+                      "هل أنت متأكد من حذف هذا المكوّن نهائياً؟ قد يؤثر ذلك على كشوفات حساب الطلبات المرتبطة به.",
+                    );
+                    if (!confirmed) return;
+                    const updatedAt =
+                      item.updatedAt instanceof Date
+                        ? item.updatedAt.toISOString()
+                        : String(item.updatedAt);
+                    const res = await deleteMutation.mutateAsync({
+                      id: item.id,
+                      updatedAt,
+                    });
+                    if (res.status === "ok") {
+                      toast.success("تم حذف المكوّن بنجاح");
+                    } else {
+                      toast.error(res.message);
+                    }
+                  },
+                },
+              ]
+            : []
+        }
+      />
     </>
   );
 }
 
 function CatalogCard({
   item,
-  onEdit,
   onShowMovements,
   onAdjustStock,
+  onOpenActions,
 }: {
   item: CatalogComponent;
-  onEdit: () => void;
   onShowMovements: () => void;
   onAdjustStock: () => void;
+  onOpenActions: () => void;
 }) {
   // Phase 3 — اعرض الرصيد الحالي للأصناف المتتبَّعة فقط (تحسين الأداء: hook معطَّل
   // للأصناف غير المتتبَّعة كي لا تُطلَب استعلامات بلا داعٍ).
@@ -242,7 +296,7 @@ function CatalogCard({
   return (
     <div className="bg-paper border border-hairline rounded-lg shadow-sm p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-ink text-sm truncate">{item.name}</span>
             {item.tracked && (
@@ -258,12 +312,15 @@ function CatalogCard({
             {item.notes ? ` · ${item.notes}` : ""}
           </span>
         </div>
-        <Button
-          variant="icon"
-          onClick={onEdit}
+        {/* Issue #15 — زر ⋯ لفتح شيت الإجراءات السفلي (تعديل/حذف) بدل زر التعديل المباشر. */}
+        <button
+          type="button"
+          onClick={onOpenActions}
+          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
+          aria-label="إجراءات"
         >
-          <Edit3 className="w-4 h-4" />
-        </Button>
+          <MoreVertical className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Phase 3 — شريط الرصيد + الإجراءات */}

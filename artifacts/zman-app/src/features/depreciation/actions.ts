@@ -8,6 +8,11 @@ import { capitalAsset } from "./db";
 import { getCapitalAssetForSource } from "./queries";
 // SA1 (A-2 fix — Round 4) — getAmmanDate لرفض تاريخ الشراء المستقبلي.
 import { getAmmanDate } from "@/lib/utils";
+// Issue #16 — logAction (defensive audit logger). Runs OUTSIDE any caller
+// transaction (these functions aren't wrapped in db.transaction), swallows
+// ALL errors. addCapitalAsset/deleteCapitalAsset/updateCapitalAsset log an
+// audit row on their success path.
+import { logAction } from "../audit/actions";
 
 // ─────────────────────────────────────────────────────────────────────────
 // depreciation/actions — إضافة وقراءة الأصول الرأسمالية المُهلَكة (Phase 4)
@@ -174,6 +179,16 @@ export async function addCapitalAsset(
     revalidatePath("/finance");
     revalidatePath("/reports");
 
+    // Issue #16 — audit log (defensive, never throws). Only logged on actual
+    // INSERT path; the idempotent early-return above (existing asset found)
+    // is a no-op retry, not a new creation.
+    await logAction({
+      action: "create_capital_asset",
+      entityType: "capital_asset",
+      entityId: row.id,
+      changesSnapshot: input,
+    });
+
     return { status: "ok", data: row };
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
@@ -205,6 +220,13 @@ export async function deleteCapitalAsset(id: string): Promise<{
       .where(and(eq(capitalAsset.id, id), isNull(capitalAsset.deletedAt)));
     revalidatePath("/finance");
     revalidatePath("/reports");
+    // Issue #16 — audit log (defensive, never throws).
+    await logAction({
+      action: "delete_capital_asset",
+      entityType: "capital_asset",
+      entityId: id,
+      changesSnapshot: { deleted: true },
+    });
     return { status: "ok" };
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
@@ -353,6 +375,14 @@ export async function updateCapitalAsset(
     revalidatePath("/finance");
     revalidatePath("/reports");
     revalidatePath("/assets");
+
+    // Issue #16 — audit log (defensive, never throws).
+    await logAction({
+      action: "update_capital_asset",
+      entityType: "capital_asset",
+      entityId: id,
+      changesSnapshot: input,
+    });
 
     return { status: "ok", data: updated };
   } catch (error) {

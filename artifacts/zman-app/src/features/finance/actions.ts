@@ -48,6 +48,10 @@ import {
   ownerTransactionInputSchema,
   openingBalanceInputSchema,
 } from "./schema";
+// Issue #16 — logAction (defensive audit logger). Runs OUTSIDE the caller's
+// db.transaction, swallows ALL errors. Imported here so every create/update/
+// delete function below can record an audit row on the success path.
+import { logAction } from "../audit/actions";
 
 // نوع الإرجاع الموحد (Discriminated Union) (§18 rule 8)
 export type ActionResponse<T = unknown> =
@@ -142,7 +146,7 @@ export async function createPurchase(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // التحقق من الـ Idempotency Key (§5.6)
       if (requestId) {
         const [existingKey] = await tx
@@ -284,6 +288,16 @@ export async function createPurchase(
       revalidatePath("/finance");
       return { status: "ok", data: newPurchase };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_purchase",
+        entityType: "purchase",
+        entityId: (result.data as { id: string }).id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -315,7 +329,7 @@ export async function updatePurchase(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(purchase)
@@ -517,6 +531,16 @@ export async function updatePurchase(
       revalidatePath("/finance");
       return { status: "ok", data: updatedPurchase };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "update_purchase",
+        entityType: "purchase",
+        entityId: id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -538,7 +562,7 @@ export async function deletePurchase(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(purchase)
@@ -620,6 +644,16 @@ export async function deletePurchase(
       revalidatePath("/finance");
       return { status: "ok", data: deleted };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_purchase",
+        entityType: "purchase",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -654,7 +688,7 @@ export async function createExpense(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       if (requestId) {
         const [existingKey] = await tx
           .select()
@@ -718,6 +752,16 @@ export async function createExpense(
       revalidatePath("/finance");
       return { status: "ok", data: newExpense };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_expense",
+        entityType: "expense",
+        entityId: (result.data as { id: string }).id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -749,7 +793,7 @@ export async function updateExpense(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(expense)
@@ -873,6 +917,16 @@ export async function updateExpense(
       revalidatePath("/finance");
       return { status: "ok", data: updatedExpense };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "update_expense",
+        entityType: "expense",
+        entityId: id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -894,7 +948,7 @@ export async function deleteExpense(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(expense)
@@ -975,6 +1029,16 @@ export async function deleteExpense(
       revalidatePath("/finance");
       return { status: "ok", data: deleted };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_expense",
+        entityType: "expense",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -1009,7 +1073,7 @@ export async function createSale(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       if (requestId) {
         const [existingKey] = await tx
           .select()
@@ -1075,6 +1139,16 @@ export async function createSale(
       revalidatePath("/finance");
       return { status: "ok", data: newSale };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_sale",
+        entityType: "sale",
+        entityId: (result.data as { id: string }).id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -1106,7 +1180,7 @@ export async function updateSale(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(sale)
@@ -1205,6 +1279,16 @@ export async function updateSale(
       revalidatePath("/finance");
       return { status: "ok", data: updatedSale };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "update_sale",
+        entityType: "sale",
+        entityId: id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -1226,7 +1310,7 @@ export async function deleteSale(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       const [existing] = await tx
         .select()
         .from(sale)
@@ -1278,6 +1362,16 @@ export async function deleteSale(
       revalidatePath("/finance");
       return { status: "ok", data: deleted };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_sale",
+        entityType: "sale",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -1303,7 +1397,7 @@ export async function convertOrderToSale(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // 1. Idempotency check (serves retries first).
       if (requestId) {
         const [existingKey] = await tx
@@ -1468,6 +1562,16 @@ export async function convertOrderToSale(
       revalidatePath("/orders");
       return { status: "ok", data: newSale };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "convert_order_to_sale",
+        entityType: "sale",
+        entityId: (result.data as { id: string }).id,
+        changesSnapshot: { orderId },
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -1498,7 +1602,7 @@ export async function reverseSale(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // 1. قفل صف الطلب
       const [orderRow] = await tx
         .select()
@@ -1586,6 +1690,16 @@ export async function reverseSale(
       revalidatePath("/orders");
       return { status: "ok", data: { orderId, reversed: true } };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "reverse_sale",
+        entityType: "order",
+        entityId: orderId,
+        changesSnapshot: { reversed: true },
+      });
+    }
+    return result;
   } catch (error) {
     return {
       status: "error",
@@ -1818,7 +1932,7 @@ export async function createAccount(rawInput: unknown): Promise<ActionResponse> 
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       const [newAcc] = await tx
         .insert(account)
         .values({
@@ -1845,6 +1959,16 @@ export async function createAccount(rawInput: unknown): Promise<ActionResponse> 
       revalidatePath("/finance");
       return { status: "ok", data: newAcc };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_account",
+        entityType: "account",
+        entityId: (result.data as { id: string }).id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }
@@ -1893,6 +2017,12 @@ export async function archiveAccount(id: string): Promise<ActionResponse> {
     }
 
     revalidatePath("/finance");
+    // Issue #16 — audit log (defensive, never throws).
+    await logAction({
+      action: "archive_account",
+      entityType: "account",
+      entityId: id,
+    });
     return { status: "ok", data: updated };
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
@@ -1917,6 +2047,12 @@ export async function unarchiveAccount(id: string): Promise<ActionResponse> {
     }
 
     revalidatePath("/finance");
+    // Issue #16 — audit log (defensive, never throws).
+    await logAction({
+      action: "unarchive_account",
+      entityType: "account",
+      entityId: id,
+    });
     return { status: "ok", data: updated };
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
@@ -1930,7 +2066,7 @@ export async function deleteAccount(id: string): Promise<ActionResponse> {
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // تحقق من عدم وجود حركات نشطة مرتبطة بالحساب (عدا الأرصدة الافتتاحية إن وجدت)
       const [movementsCount] = await tx
         .select({ count: sql<number>`count(*)::int` })
@@ -1995,6 +2131,16 @@ export async function deleteAccount(id: string): Promise<ActionResponse> {
       revalidatePath("/finance");
       return { status: "ok", data: deleted };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_account",
+        entityType: "account",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }
@@ -2099,7 +2245,7 @@ export async function transferBetweenAccounts(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       if (requestId) {
         const [existingKey] = await tx
           .select()
@@ -2160,6 +2306,16 @@ export async function transferBetweenAccounts(
       revalidatePath("/finance");
       return { status: "ok", data: { transferId } };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_transfer",
+        entityType: "transfer",
+        entityId: (result.data as { transferId: string }).transferId,
+        changesSnapshot: { fromId, toId, amountCents, date, description },
+      });
+    }
+    return result;
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }
@@ -2176,7 +2332,7 @@ export async function deleteTransfer(transferId: string): Promise<ActionResponse
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // تحقق من وجود زوج التحويل النشط
       const movs = await tx
         .select()
@@ -2208,6 +2364,16 @@ export async function deleteTransfer(transferId: string): Promise<ActionResponse
       revalidatePath("/finance");
       return { status: "ok", data: { transferId, reversed: movs.length } };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_transfer",
+        entityType: "transfer",
+        entityId: (result.data as { transferId: string }).transferId,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }
@@ -2236,7 +2402,7 @@ export async function createOwnerTransaction(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       if (requestId) {
         const [existingKey] = await tx
           .select()
@@ -2304,6 +2470,16 @@ export async function createOwnerTransaction(
       revalidatePath("/reports");
       return { status: "ok", data: newTx };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_owner_transaction",
+        entityType: "owner_transaction",
+        entityId: (result.data as { id: string }).id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }
@@ -2339,7 +2515,7 @@ export async function deleteOwnerTransaction(
   }
 
   try {
-    return await db.transaction(async (tx) => {
+    const result: ActionResponse = await db.transaction(async (tx) => {
       // F-22: فحص التزامن المتفائل — اقرأ الصف أولاً وقارن updatedAt إن وُجد.
       const [existing] = await tx
         .select()
@@ -2386,6 +2562,16 @@ export async function deleteOwnerTransaction(
       revalidatePath("/reports");
       return { status: "ok", data: deleted };
     });
+    // Issue #16 — audit log (OUTSIDE transaction, defensive, never throws).
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_owner_transaction",
+        entityType: "owner_transaction",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }
