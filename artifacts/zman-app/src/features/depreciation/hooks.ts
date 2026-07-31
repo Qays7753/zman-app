@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { addCapitalAsset, deleteCapitalAsset } from "./actions";
+import { addCapitalAsset, deleteCapitalAsset, updateCapitalAsset } from "./actions";
 import { getAllCapitalAssets } from "./assetsQueries";
 import { getAmmanDate } from "@/lib/utils";
 
@@ -71,6 +71,39 @@ export function useDeleteCapitalAsset() {
         // إيقاف الإهلاك يُلغي خصم monthly_dep من operatingNetCents في كل قراءة
         // مستقبلية → يجب إبطال كل من finance/reports/dashboard.
         queryClient.invalidateQueries({ queryKey: ["finance"] });
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        queryClient.invalidateQueries({ queryKey: capitalAssetKeys.all });
+      }
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// useUpdateCapitalAsset — تعديل أصل رأسمالي قائم (Issue #11)
+// ─────────────────────────────────────────────────────────────────────────
+// يُستدعى من EditAssetModal في AssetsScreen. يُحدِّث: الاسم + تاريخ الشراء
+// (startDate) + العمر النافع فقط. 🔒 لا يقبل purchaseAmountCents إطلاقاً —
+// القيمة الأصلية تُؤخَذ من الصف الحالي في DB داخل updateCapitalAsset.
+// onSuccess يُبطل استعلامات reports/dashboard/capital-assets لأن
+// monthlyDepreciationCents قد يتغيّر → computeOperatingPnl يتأثر.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface UpdateCapitalAssetVariables {
+  id: string;
+  name: string;
+  purchaseDate: string;
+  usefulLifeMonths: number;
+}
+
+export function useUpdateCapitalAsset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: UpdateCapitalAssetVariables) => updateCapitalAsset(vars),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        // تعديل العمر النافع/تاريخ البدء يُعيد توزيع الإهلاك في القراءات
+        // المستقبلية → يجب إبطال كل من reports/dashboard/capital-assets.
         queryClient.invalidateQueries({ queryKey: ["reports"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         queryClient.invalidateQueries({ queryKey: capitalAssetKeys.all });

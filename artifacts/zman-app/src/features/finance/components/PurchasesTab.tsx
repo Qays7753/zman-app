@@ -13,6 +13,7 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/shared/Button";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
+import { scheduleDeleteWithUndo } from "@/lib/undo-delete";
 import {
   useCreatePurchase,
   useDeletePurchase,
@@ -46,7 +47,10 @@ export function PurchasesTab() {
   const search = searchParams.get("search") || "";
   const newPurchase = searchParams.get("newPurchase") === "true";
   const editId = searchParams.get("editPurchase");
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  // Issue #12 — قائمة معرّفات الصفوف المُخفاة مؤقتاً انتظاراً للحذف النهائي بعد
+  // انتهاء مهلة الـ 5 ثوانٍ للتنبيه. إن ضغط المستخدم «تراجع» يُحذف المعرّف من
+  // هذه المجموعة فيُعاد الصف للظهور.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   // D7 fix — إيقاف الإهلاك لصف capital_asset نشط.
   const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
   // Phase 4 — معلومات الصف الرأسمالي المُنشَأ مؤخراً + إظهار مودال الإهلاك.
@@ -85,6 +89,9 @@ export function PurchasesTab() {
         return true;
       })
     : purchases;
+  // Issue #12 — أخفِ الصفوف المُجدوَلة للحذف مع تراجع (optimistic UI). كل صف
+  // له تنبيه مستقل بمهلة 5 ثوانٍ، فالقائمة قد تحوي أكثر من صف مُخفي في وقت واحد.
+  const visiblePurchases = filteredPurchases.filter((item) => !hiddenIds.has(item.id));
 
   // تحديث محددات الـ URL
   const updateUrl = (params: Record<string, string | null>) => {
@@ -173,20 +180,53 @@ export function PurchasesTab() {
     updateUrl({ newPurchase: null, editPurchase: null });
   };
 
-  const handleConfirmDelete = async () => {
+  // Issue #12 — حذف مع تراجع: يُخفي الصف فوراً (optimistic)، يُظهر تنبيه sonner
+  // بزر «تراجع» لمدة 5 ثوانٍ، ثم يُنفِّذ الحذف الفعلي عبر useDeletePurchase.
+  // إن ضغط المستخدم «تراجع» يُعاد الصف للظهور. إن فشل الحذف (مثل تعارض updatedAt)
+  // يُعاد الصف ويُظهر تنبيه خطأ. رسالة الحذف تُذكِّر بأن حذف فاتورة مُصنَّفة كأصل
+  // رأسمالي يُلغي الإهلاك المرتبط — هذا يحدث تلقائياً في server action deletePurchase.
+  const handleDeleteWithUndo = () => {
     if (!editId) return;
+    const idToDelete = editId;
     const updatedAt = activePurchase?.updatedAt instanceof Date
       ? activePurchase.updatedAt.toISOString()
       : String(activePurchase?.updatedAt || "");
-    const res = await deleteMutation.mutateAsync({ id: editId, updatedAt });
-    if (res.status === "ok") {
-      toast.success("تم حذف المشتريات بنجاح");
-      updateUrl({ editPurchase: null });
-      setDeleteConfirmOpen(false);
-      refetch();
-    } else {
-      toast.error(res.message);
-    }
+    // أغلق مودال التعديل فوراً ليُغادر المستخدم شاشة التحرير بينما التنبيه ظاهر.
+    updateUrl({ editPurchase: null });
+    // أخفِ الصف من القائمة مباشرةً (تحديث متفائل).
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(idToDelete);
+      return next;
+    });
+    scheduleDeleteWithUndo({
+      message: "تم حذف المشتريات",
+      onCommit: async () => {
+        const res = await deleteMutation.mutateAsync({ id: idToDelete, updatedAt });
+        if (res.status !== "ok") {
+          // شامل حالة «عدّلته جهة أخرى» وأي خطأ آخر — ارمه ليلتقطه onError.
+          throw new Error(res.message ?? "فشل الحذف");
+        }
+      },
+      onUndo: () => {
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(idToDelete);
+          return next;
+        });
+      },
+      onError: (e) => {
+        // استعد الصف ثم اعرض رسالة الخطأ (مثل تعارض updatedAt).
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(idToDelete);
+          return next;
+        });
+        const msg = e instanceof Error ? e.message : "فشل الحذف";
+        toast.error(msg);
+        refetch();
+      },
+    });
   };
 
   // D7 fix — تأكيد إيقاف الإهلاك: استدعاء deleteCapitalAsset للمعرّف المُخزَّن.
@@ -210,7 +250,7 @@ export function PurchasesTab() {
         <SkeletonList />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
-      ) : filteredPurchases.length === 0 ? (
+      ) : visiblePurchases.length === 0 ? (
         <EmptyState
           title={search || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مشتريات مسجلة حتى الآن"}
           description={
@@ -249,7 +289,7 @@ export function PurchasesTab() {
             <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: شراء شهري ثابت تقريباً (اشتراك، راتب). «متغيّرة»: شراء يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
           </div>
           <div className="space-y-3">
-            {filteredPurchases.map((item, idx) => (
+            {visiblePurchases.map((item, idx) => (
               // biome-ignore lint/a11y/useSemanticElements: card container is interactive
               <div
                 key={item.id}
@@ -381,7 +421,7 @@ export function PurchasesTab() {
             <Button
               type="button"
               variant="destructive"
-              onClick={() => setDeleteConfirmOpen(true)}
+              onClick={handleDeleteWithUndo}
               icon={<Trash2 className="h-4 w-4" />}
               className="w-full"
             >
@@ -392,22 +432,6 @@ export function PurchasesTab() {
       </ResponsiveModal>
 
 
-
-      {/* تأكيد الحذف
-          SA3 (Round 4 — Part C item 1): رسالة ديناميكية تذكر عاقبة حذف فاتورة
-          مُصنَّفة كأصل رأسمالي (إيقاف الإهلاك المرتبط إن وُجد). */}
-      <ConfirmDialog
-        isOpen={deleteConfirmOpen}
-        title="تأكيد حذف المشتريات"
-        message={
-          activePurchase?.isCapitalAsset
-            ? "سيُحذف سجل هذه الفاتورة نهائياً ولا يمكن التراجع. بما أن الفاتورة مُصنَّفة كأصل رأسمالي، فإن كان لها إهلاك شهري نشط سيُحذف سجل الإهلاك أيضاً ويتوقف خصم الإهلاك من الربح التشغيلي اعتباراً من الآن. الإهلاك المُتراكم سابقاً يبقى في الأرقام التاريخية."
-            : "هل أنت متأكد من رغبتك في حذف فاتورة الشراء هذه؟ لا يمكن التراجع عن هذا الإجراء."
-        }
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteConfirmOpen(false)}
-        isLoading={deleteMutation.isPending}
-      />
 
       {/* D7 fix — تأكيد إيقاف الإهلاك. */}
       <ConfirmDialog

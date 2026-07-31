@@ -16,10 +16,13 @@ import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import {
   AlertCircle,
   ArrowDownRight,
+  ArrowLeft,
   ArrowLeftRight,
   Calendar,
   ClipboardList,
+  Clock,
   Landmark,
+  MessageSquare,
   Plus,
   Settings,
   ShoppingBag,
@@ -59,6 +62,7 @@ import { FinancialAdvisor } from "./FinancialAdvisor";
 import { LiquidityFlowPanel } from "./LiquidityFlowPanel";
 import { MonthlyProfitPanel } from "./MonthlyProfitPanel";
 import { SmartAlertsBar } from "./SmartAlertsBar";
+import { UpcomingDeliveriesCard } from "./UpcomingDeliveriesCard";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -320,6 +324,30 @@ export function DashboardClient() {
 
             {/* ═══ Layer 1: الطبقة الأولى — دائماً ظاهرة ═══ */}
 
+            {/* وصول سريع — كل الحركات + الملاحظات (Issue #10) */}
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/activities"
+                className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-info shrink-0" />
+                  <span className="font-bold text-ink">كل الحركات</span>
+                </span>
+                <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
+              </Link>
+              <Link
+                href="/snippets"
+                className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-info shrink-0" />
+                  <span className="font-bold text-ink">الملاحظات</span>
+                </span>
+                <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
+              </Link>
+            </div>
+
             {/* التنبيهات الذكية */}
             <SmartAlertsBar
               lowStockCount={lowStockCount}
@@ -336,6 +364,9 @@ export function DashboardClient() {
               netProfit={summary?.netProfit ?? 0}
               inventoryValueCents={summary?.inventoryValueCents ?? 0}
             />
+
+            {/* طلبات تحتاج تسليم قريباً (Issue #9) */}
+            <UpcomingDeliveriesCard />
 
             {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
             {summary && (

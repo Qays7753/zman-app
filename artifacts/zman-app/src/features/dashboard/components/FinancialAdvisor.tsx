@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { TrendingUp, TrendingDown, Minus, ChevronDown } from "lucide-react";
-import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 
 interface AdvisorData {
   realCash: number;
@@ -151,40 +150,50 @@ function generateAdvice(d: AdvisorData): { summary: string; sections: { title: s
 }
 
 export function FinancialAdvisor({ data }: { data: AdvisorData }) {
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const advice = generateAdvice(data);
   const health = getHealthState(data);
   const HealthIcon = health.icon;
 
+  // السطر الثاني في العرض المطوي — أوّل سطر من أوّل قسم تحليلي
+  const secondaryLine = advice.sections[0]?.body[0];
+
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full p-4 bg-gradient-to-l from-info/10 to-info/5 rounded-lg border border-info/20 shadow-sm flex items-center justify-between gap-3 hover:border-info/40 transition-all"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <HealthIcon className={`h-5 w-5 ${health.color} shrink-0`} />
-          <span className="text-sm font-bold text-ink">أخبرني عن وضعي المالي</span>
+    <div className="rounded-xl border border-info/20 bg-gradient-to-l from-info/10 to-info/5 overflow-hidden">
+      {/* الرأس: أيقونة الحالة + الملخّص + شارة الحالة */}
+      <div className="p-4">
+        <div className="flex items-start gap-2.5">
+          <HealthIcon className={`h-5 w-5 ${health.color} shrink-0 mt-0.5`} />
+          <p className="text-sm font-bold text-ink leading-relaxed line-clamp-2 min-w-0 flex-1">
+            {advice.summary}
+          </p>
+          <span
+            className={`text-[11px] font-bold ${health.color} shrink-0 mt-1 whitespace-nowrap`}
+          >
+            {health.label}
+          </span>
         </div>
-        <span className="flex items-center gap-1.5 shrink-0">
-          <span className={`text-[11px] font-bold ${health.color} whitespace-nowrap`}>{health.label}</span>
-          <ChevronDown className="h-4 w-4 text-info" />
-        </span>
+        {secondaryLine && !expanded && (
+          <p className="text-xs text-ink-2 mt-1.5 line-clamp-1 ps-7">{secondaryLine}</p>
+        )}
+      </div>
+
+      {/* زرّ التبديل — اقرأ المزيد / إخفاء التفاصيل */}
+      <button
+        type="button"
+        onClick={() => setExpanded((o) => !o)}
+        aria-expanded={expanded}
+        className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 border-t border-info/15 bg-info/5 hover:bg-info/10 transition-colors text-sm font-bold text-info"
+      >
+        <span>{expanded ? "إخفاء التفاصيل" : "اقرأ المزيد"}</span>
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+        />
       </button>
 
-      <ResponsiveModal
-        isOpen={open}
-        onClose={() => setOpen(false)}
-        title="تحليل وضعك المالي"
-      >
-        <div className="space-y-4 p-4">
-          {/* summary line */}
-          <div className="flex items-center gap-2 p-3 bg-info/5 rounded-lg border border-info/15">
-            <HealthIcon className={`h-5 w-5 ${health.color} shrink-0`} />
-            <p className="text-sm font-bold text-ink">{advice.summary}</p>
-          </div>
-
-          {/* sections */}
+      {/* الأقسام التفصيلية — تظهر عند التوسيع */}
+      {expanded && (
+        <div className="space-y-4 p-4 border-t border-info/15 bg-paper">
           {advice.sections.map((section, i) => (
             <div key={i} className="space-y-2">
               <h3 className="text-sm font-bold text-info border-b border-info/15 pb-1">
@@ -192,7 +201,9 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
               </h3>
               <div className="space-y-1.5">
                 {section.body.map((line, j) => (
-                  <p key={j} className="text-xs text-ink/70 leading-relaxed">{line}</p>
+                  <p key={j} className="text-xs text-ink/70 leading-relaxed">
+                    {line}
+                  </p>
                 ))}
               </div>
             </div>
@@ -202,7 +213,7 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
             هذا التحليل وصفي — يشرح وضعك الحالي بلغة بسيطة. القرار النهائي لك.
           </p>
         </div>
-      </ResponsiveModal>
-    </>
+      )}
+    </div>
   );
 }

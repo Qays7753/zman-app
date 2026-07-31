@@ -210,3 +210,152 @@ export async function deleteCapitalAsset(id: string): Promise<{
     return { status: "error", message: mapDbError(error) };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// updateCapitalAsset — تعديل أصل رأسمالي قائم (Issue #11)
+// ─────────────────────────────────────────────────────────────────────────
+// يسمح بتعديل: الاسم، تاريخ الشراء (startDate)، والعمر النافع فقط.
+//
+// 🔒 القاعدة الأساسية: لا يمكن تعديل purchaseAmountCents إطلاقاً.
+//   - Input type لا يحتوي الحقل أصلاً (ضمان على مستوى TypeScript).
+//   - الدالة تجلب الصف الحالي من DB لتأخذ قيمته الأصلية.
+//   - monthlyDepreciationCents يُعاد حسابه = floor(amount / newLife).
+//
+// عند تغيير usefulLifeMonths أو purchaseDate، يُعاد حساب الإهلاك المستقبلي
+// عند القراءة (computeOperatingPnl) — لا أثر رجعي على الإهلاك المتراكم
+// السابق لأن accumulatedDepreciationCents يُحسب من startedAt + usefulLifeMonths
+// في كل قراءة (INV-22). تعديل usefulLifeMonths يغيّر السقف (متى يصل لـ 100%)
+// ويُعيد توزيع الفلس المتبقّي على الأشهر المتبقية.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type UpdateCapitalAssetResponse =
+  | { status: "ok"; data: { id: string; monthlyDepreciationCents: number; usefulLifeMonths: number } }
+  | { status: "error"; message: string };
+
+interface UpdateCapitalAssetInput {
+  id: string;
+  name: string;
+  purchaseDate: string; // YYYY-MM-DD — "startDate" في وصف الـ issue
+  usefulLifeMonths: number;
+}
+
+/**
+ * تعديل أصل رأسمالي قائم: الاسم + تاريخ الشراء + العمر النافع فقط.
+ *
+ * 🔒 لا يقبل purchaseAmountCents إطلاقاً — القيمة الأصلية تُؤخَذ من الصف
+ *    الحالي في DB. هذا هو الضمان التقني أن القيمة الأصلية لا تُغيَّر.
+ *
+ * المنطق:
+ *   1. تحقق المدخلات (نفس قواعد addCapitalAsset: name ≤ 200،
+ *      usefulLifeMonths 1..600، purchaseDate صيغة YYYY-MM-DD وغير مستقبلي).
+ *   2. جلب الصف الحالي WHERE deletedAt IS NULL. إن لم يُوجَد → خطأ.
+ *   3. استخدام purchaseAmountCents من الصف الحالي (لا يُقبَل من input).
+ *   4. إعادة حساب monthlyDepreciationCents = floor(amount / newLife).
+ *   5. تحديث: name, purchaseDate, usefulLifeMonths, monthlyDepreciationCents,
+ *      startedAt = new Date(purchaseDate + "T00:00:00Z"), updatedAt = now().
+ *   6. revalidatePath /finance و/reports و/assets.
+ *
+ * @returns الصف المُحدَّث مع monthlyDepreciationCents الجديد للعرض.
+ */
+export async function updateCapitalAsset(
+  input: UpdateCapitalAssetInput,
+): Promise<UpdateCapitalAssetResponse> {
+  const { id, name, purchaseDate, usefulLifeMonths } = input;
+
+  // 1. تحقق المدخلات — نفس قواعد addCapitalAsset.
+  if (!id || typeof id !== "string") {
+    return { status: "error", message: "معرّف الأصل مطلوب" };
+  }
+  if (!name || name.trim().length === 0) {
+    return { status: "error", message: "اسم الأصل مطلوب" };
+  }
+  if (name.trim().length > 200) {
+    return { status: "error", message: "اسم الأصل لا يتعدى 200 حرف" };
+  }
+  if (!Number.isInteger(usefulLifeMonths) || usefulLifeMonths < 1) {
+    return {
+      status: "error",
+      message: "العمر النافع يجب أن يكون عدداً صحيحاً موجباً (≥ 1 شهر)",
+    };
+  }
+  if (usefulLifeMonths > 600) {
+    return {
+      status: "error",
+      message: "العمر النافع لا يتعدى 600 شهر (50 سنة)",
+    };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(purchaseDate)) {
+    return {
+      status: "error",
+      message: "تاريخ الشراء يجب أن يكون بتنسيق YYYY-MM-DD",
+    };
+  }
+
+  // ارفض تاريخ الشراء المستقبلي (نفس قاعدة addCapitalAsset — SA1 A-2 fix).
+  const today = getAmmanDate();
+  if (purchaseDate > today) {
+    return {
+      status: "error",
+      message:
+        "تاريخ الشراء لا يمكن أن يكون في المستقبل — حدّد تاريخاً اليوم أو قبل اليوم",
+    };
+  }
+
+  try {
+    // 2. جلب الصف الحالي. 🔒 نأخذ purchaseAmountCents من هنا — لا من input.
+    const [existing] = await db
+      .select({
+        id: capitalAsset.id,
+        purchaseAmountCents: capitalAsset.purchaseAmountCents,
+      })
+      .from(capitalAsset)
+      .where(and(eq(capitalAsset.id, id), isNull(capitalAsset.deletedAt)))
+      .limit(1);
+
+    if (!existing) {
+      return {
+        status: "error",
+        message: "الأصل غير موجود أو محذوف",
+      };
+    }
+
+    // 3. إعادة حساب monthlyDepreciationCents من القيمة الأصلية الثابتة.
+    //    Math.floor (لا Math.round) يضمن useful_life_months × monthly_dep
+    //    ≤ purchase_amount (لا إهلاك أكثر من 100%). نفس قاعدة addCapitalAsset.
+    const monthlyDepreciationCents = Math.floor(
+      existing.purchaseAmountCents / usefulLifeMonths,
+    );
+
+    // 4. تحديث الصف. startedAt = purchaseDate (يحافظ على الأثر الرجعي الصحيح
+    //    للإهلاك — SA1 A-2 fix). updatedAt = now().
+    const [updated] = await db
+      .update(capitalAsset)
+      .set({
+        name: name.trim(),
+        purchaseDate,
+        usefulLifeMonths,
+        monthlyDepreciationCents,
+        startedAt: new Date(`${purchaseDate}T00:00:00Z`),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(capitalAsset.id, id), isNull(capitalAsset.deletedAt)))
+      .returning({
+        id: capitalAsset.id,
+        monthlyDepreciationCents: capitalAsset.monthlyDepreciationCents,
+        usefulLifeMonths: capitalAsset.usefulLifeMonths,
+      });
+
+    if (!updated) {
+      return { status: "error", message: "فشل تحديث الأصل الرأسمالي" };
+    }
+
+    // إبطال مفتاح استعلامات التقارير والـ dashboard (computeOperatingPnl يتأثر).
+    revalidatePath("/finance");
+    revalidatePath("/reports");
+    revalidatePath("/assets");
+
+    return { status: "ok", data: updated };
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}

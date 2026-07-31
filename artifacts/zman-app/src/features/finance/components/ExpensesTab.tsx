@@ -13,6 +13,7 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import { Button } from "@/components/shared/Button";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
+import { scheduleDeleteWithUndo } from "@/lib/undo-delete";
 
 import {
   useCreateExpense,
@@ -45,7 +46,10 @@ export function ExpensesTab() {
   const category = searchParams.get("category") || "all";
   const newExpense = searchParams.get("newExpense") === "true";
   const editId = searchParams.get("editExpense");
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  // Issue #12 — قائمة معرّفات الصفوف المُخفاة مؤقتاً انتظاراً للحذف النهائي بعد
+  // انتهاء مهلة الـ 5 ثوانٍ للتنبيه. إن ضغط المستخدم «تراجع» يُحذف المعرّف من
+  // هذه المجموعة فيُعاد الصف للظهور.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   // D7 fix — إيقاف الإهلاك لصف capital_asset نشط. نُخزِّن المعرّف فقط ونفتح
   // ConfirmDialog للتأكيد قبل استدعاء deleteCapitalAsset.
   const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
@@ -88,6 +92,9 @@ export function ExpensesTab() {
         return true;
       })
     : expenses;
+  // Issue #12 — أخفِ الصفوف المُجدوَلة للحذف مع تراجع (optimistic UI). كل صف
+  // له تنبيه مستقل بمهلة 5 ثوانٍ، فالقائمة قد تحوي أكثر من صف مُخفي في وقت واحد.
+  const visibleExpenses = filteredExpenses.filter((item) => !hiddenIds.has(item.id));
 
   // تحديث محددات الـ URL
   const updateUrl = (params: Record<string, string | null>) => {
@@ -174,20 +181,53 @@ export function ExpensesTab() {
     updateUrl({ newExpense: null, editExpense: null });
   };
 
-  const handleConfirmDelete = async () => {
+  // Issue #12 — حذف مع تراجع: يُخفي الصف فوراً (optimistic)، يُظهر تنبيه sonner
+  // بزر «تراجع» لمدة 5 ثوانٍ، ثم يُنفِّذ الحذف الفعلي عبر useDeleteExpense.
+  // إن ضغط المستخدم «تراجع» يُعاد الصف للظهور. إن فشل الحذف (مثل تعارض updatedAt)
+  // يُعاد الصف ويُظهر تنبيه خطأ. لا يؤثر على صفوف هدر المخزون (isInventoryWriteoff)
+  // لأنها محروسة في الواجهة بدون زر حذف.
+  const handleDeleteWithUndo = () => {
     if (!editId) return;
+    const idToDelete = editId;
     const updatedAt = activeExpense?.updatedAt instanceof Date
       ? activeExpense.updatedAt.toISOString()
       : String(activeExpense?.updatedAt || "");
-    const res = await deleteMutation.mutateAsync({ id: editId, updatedAt });
-    if (res.status === "ok") {
-      toast.success("تم حذف المصروف بنجاح");
-      updateUrl({ editExpense: null });
-      setDeleteConfirmOpen(false);
-      refetch();
-    } else {
-      toast.error(res.message);
-    }
+    // أغلق مودال التعديل فوراً ليُغادر المستخدم شاشة التحرير بينما التنبيه ظاهر.
+    updateUrl({ editExpense: null });
+    // أخفِ الصف من القائمة مباشرةً (تحديث متفائل).
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(idToDelete);
+      return next;
+    });
+    scheduleDeleteWithUndo({
+      message: "تم حذف المصروف",
+      onCommit: async () => {
+        const res = await deleteMutation.mutateAsync({ id: idToDelete, updatedAt });
+        if (res.status !== "ok") {
+          // شامل حالة «عدّلته جهة أخرى» وأي خطأ آخر — ارمه ليلتقطه onError.
+          throw new Error(res.message ?? "فشل الحذف");
+        }
+      },
+      onUndo: () => {
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(idToDelete);
+          return next;
+        });
+      },
+      onError: (e) => {
+        // استعد الصف ثم اعرض رسالة الخطأ (مثل تعارض updatedAt).
+        setHiddenIds((prev) => {
+          const next = new Set(prev);
+          next.delete(idToDelete);
+          return next;
+        });
+        const msg = e instanceof Error ? e.message : "فشل الحذف";
+        toast.error(msg);
+        refetch();
+      },
+    });
   };
 
   // D7 fix — تأكيد إيقاف الإهلاك: استدعاء deleteCapitalAsset للمعرّف المُخزَّن.
@@ -226,7 +266,7 @@ export function ExpensesTab() {
         <SkeletonList />
       ) : isError ? (
         <ErrorState onRetry={refetch} />
-      ) : filteredExpenses.length === 0 ? (
+      ) : visibleExpenses.length === 0 ? (
         <EmptyState
           title={search || category !== "all" || natureFilter ? "لا توجد نتائج بحث مطابقة" : "لا توجد مصاريف مسجلة حتى الآن"}
           description={
@@ -265,7 +305,7 @@ export function ExpensesTab() {
             <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: مصروف شهري ثابت تقريباً (إيجار، راتب). «متغيّرة»: مصروف يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
           </div>
           <div className="space-y-3">
-            {filteredExpenses.map((item, idx) => {
+            {visibleExpenses.map((item, idx) => {
               // SA-B (R5-3) — صفوف هدر/تلف المخزون مُشتقّة تلقائياً من
               // adjustStock؛ لا يجوز تعديلها أو حذفها من هنا (يكسر IC-1).
               // اجعل الصف للقراءة فقط: لا role=button، لا onClick، لا hover،
@@ -439,7 +479,7 @@ export function ExpensesTab() {
             <Button
               type="button"
               variant="destructive"
-              onClick={() => setDeleteConfirmOpen(true)}
+              onClick={handleDeleteWithUndo}
               icon={<Trash2 className="h-4 w-4" />}
               className="w-full"
             >
@@ -450,16 +490,6 @@ export function ExpensesTab() {
       </ResponsiveModal>
 
 
-
-      {/* تأكيد الحذف */}
-      <ConfirmDialog
-        isOpen={deleteConfirmOpen}
-        title="تأكيد حذف المصروف"
-        message="هل أنت متأكد من رغبتك في حذف هذا المصروف؟ لا يمكن التراجع عن هذا الإجراء."
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteConfirmOpen(false)}
-        isLoading={deleteMutation.isPending}
-      />
 
       {/* D7 fix — تأكيد إيقاف الإهلاك. النص يُوضِّح أن الإهلاك المتراكم سابقاً
           يبقى في الأرقام التاريخية، وأن الإيقاف يؤثر فقط على المستقبل. */}

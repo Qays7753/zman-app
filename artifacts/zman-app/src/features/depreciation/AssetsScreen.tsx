@@ -1,27 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import {
   Building2,
   AlertCircle,
   CheckCircle2,
   Clock,
   StopCircle,
+  Pencil,
+  Lock,
 } from "lucide-react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { Button } from "@/components/shared/Button";
+import { TextField } from "@/components/shared/TextField";
 import { cn } from "@/lib/utils";
-import { useCapitalAssets, useDeleteCapitalAsset } from "./hooks";
+import {
+  useCapitalAssets,
+  useDeleteCapitalAsset,
+  useUpdateCapitalAsset,
+} from "./hooks";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import type { CapitalAssetWithDepreciation } from "./assetsQueries";
 import { toast } from "sonner";
+
+// ─────────────────────────────────────────────────────────────────────────
+// Issue #11 — مخطّط التحقّق لنموذج تعديل الأصل الرأسمالي.
+// 🔒 لا يوجد حقل purchaseAmountCents إطلاقاً — القيمة الأصلية لا تُعدَّل.
+// ─────────────────────────────────────────────────────────────────────────
+const editAssetSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "الاسم مطلوب")
+    .max(200, "الاسم طويل جداً"),
+  purchaseDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ غير صالح"),
+  usefulLifeMonths: z.coerce
+    .number()
+    .int("يجب أن يكون عدداً صحيحاً")
+    .min(1, "الحد الأدنى شهر واحد")
+    .max(600, "الحد الأقصى 600 شهر"),
+});
+
+type EditAssetFormValues = z.infer<typeof editAssetSchema>;
 
 export function AssetsScreen() {
   const { data: assets, isLoading, isError, refetch } = useCapitalAssets();
   const deleteAsset = useDeleteCapitalAsset();
   const [confirmStop, setConfirmStop] = useState<CapitalAssetWithDepreciation | null>(null);
+  // Issue #11 — أصل قيد التعديل (الاسم + تاريخ الشراء + العمر النافع فقط).
+  // 🔒 purchaseAmountCents لا يُمرَّر للسيرفر إطلاقاً — يُعرض للقراءة فقط.
+  const [editingAsset, setEditingAsset] = useState<CapitalAssetWithDepreciation | null>(null);
 
   const activeAssets = assets?.filter((a) => !a.isFullyDepreciated && !a.isPending) ?? [];
   const doneAssets = assets?.filter((a) => a.isFullyDepreciated) ?? [];
@@ -76,6 +112,7 @@ export function AssetsScreen() {
                     key={asset.id}
                     asset={asset}
                     onStop={() => setConfirmStop(asset)}
+                    onEdit={() => setEditingAsset(asset)}
                   />
                 ))}
               </div>
@@ -94,6 +131,7 @@ export function AssetsScreen() {
                     key={asset.id}
                     asset={asset}
                     onStop={() => setConfirmStop(asset)}
+                    onEdit={() => setEditingAsset(asset)}
                     fullyDepreciated
                   />
                 ))}
@@ -113,6 +151,7 @@ export function AssetsScreen() {
                     key={asset.id}
                     asset={asset}
                     onStop={() => setConfirmStop(asset)}
+                    onEdit={() => setEditingAsset(asset)}
                     pending
                   />
                 ))}
@@ -121,6 +160,20 @@ export function AssetsScreen() {
           )}
         </div>
       )}
+
+      {/* مودال تعديل بيانات الأصل (Issue #11) */}
+      <ResponsiveModal
+        isOpen={!!editingAsset}
+        onClose={() => setEditingAsset(null)}
+        title="تعديل بيانات الأصل"
+      >
+        {editingAsset && (
+          <EditAssetForm
+            asset={editingAsset}
+            onClose={() => setEditingAsset(null)}
+          />
+        )}
+      </ResponsiveModal>
 
       {/* مودال تأكيد الإيقاف */}
       <ResponsiveModal
@@ -188,11 +241,13 @@ export function AssetsScreen() {
 function AssetCard({
   asset,
   onStop,
+  onEdit,
   fullyDepreciated = false,
   pending = false,
 }: {
   asset: CapitalAssetWithDepreciation;
   onStop: () => void;
+  onEdit: () => void;
   fullyDepreciated?: boolean;
   pending?: boolean;
 }) {
@@ -233,17 +288,27 @@ function AssetCard({
           </p>
         </div>
 
-        {/* زر إيقاف الإهلاك */}
-        {!fullyDepreciated && (
+        {/* أزرار التعديل والإيقاف — أهداف لمس ≥ 44px */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
             type="button"
-            onClick={onStop}
-            className="flex-shrink-0 flex items-center gap-1 text-[11px] text-alert font-medium hover:bg-alert/5 rounded-lg px-2 py-1 transition-colors"
+            onClick={onEdit}
+            className="flex items-center gap-1 text-[11px] text-ink-2 font-medium hover:bg-canvas rounded-lg px-2 min-h-[44px] min-w-[44px] transition-colors"
           >
-            <StopCircle className="w-3.5 h-3.5" />
-            إيقاف
+            <Pencil className="w-3.5 h-3.5" />
+            تعديل
           </button>
-        )}
+          {!fullyDepreciated && (
+            <button
+              type="button"
+              onClick={onStop}
+              className="flex items-center gap-1 text-[11px] text-alert font-medium hover:bg-alert/5 rounded-lg px-2 min-h-[44px] min-w-[44px] transition-colors"
+            >
+              <StopCircle className="w-3.5 h-3.5" />
+              إيقاف
+            </button>
+          )}
+        </div>
       </div>
 
       {/* شريط التقدم */}
@@ -313,5 +378,123 @@ function InfoRow({
       <span className="text-ink-3">{label}</span>
       <span className="text-ink font-medium">{value}</span>
     </div>
+  );
+}
+
+// ─── نموذج تعديل الأصل الرأسمالي (Issue #11) ──────────────────────────────
+// 🔒 يعرض القيمة الأصلية للقراءة فقط. لا يرسل purchaseAmountCents للسيرفر إطلاقاً.
+// يُحرِّر: الاسم + تاريخ الشراء (startDate) + العمر النافع فقط.
+// ─────────────────────────────────────────────────────────────────────────
+
+function EditAssetForm({
+  asset,
+  onClose,
+}: {
+  asset: CapitalAssetWithDepreciation;
+  onClose: () => void;
+}) {
+  const updateAsset = useUpdateCapitalAsset();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<EditAssetFormValues>({
+    resolver: zodResolver(editAssetSchema),
+    defaultValues: {
+      name: asset.name,
+      purchaseDate: asset.purchaseDate,
+      usefulLifeMonths: asset.usefulLifeMonths,
+    },
+  });
+
+  // إعادة ضبط قيم النموذج عند فتح المودال لأصل مختلف (نمط SA3 من
+  // DepreciationPromptModal). بدون هذا تبقى قيم الأصل السابق ظاهرة.
+  useEffect(() => {
+    reset({
+      name: asset.name,
+      purchaseDate: asset.purchaseDate,
+      usefulLifeMonths: asset.usefulLifeMonths,
+    });
+  }, [asset, reset]);
+
+  const onSubmit = async (values: EditAssetFormValues) => {
+    const res = await updateAsset.mutateAsync({
+      id: asset.id,
+      name: values.name,
+      purchaseDate: values.purchaseDate,
+      usefulLifeMonths: values.usefulLifeMonths,
+      // 🔒 لا نُمرِّر purchaseAmountCents إطلاقاً.
+    });
+    if (res.status === "ok") {
+      toast.success("تم حفظ التعديلات");
+      onClose();
+    } else {
+      toast.error(res.message ?? "فشل التحديث");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
+      {/* القيمة الأصلية — للقراءة فقط */}
+      <div className="rounded-xl bg-canvas border border-hairline px-4 py-3 space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-ink-3">القيمة الأصلية</span>
+          <span className="text-sm font-semibold text-ink tabular-nums">
+            <AmountText amount={asset.purchaseAmountCents} />
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-3">
+          <Lock className="w-3 h-3 flex-shrink-0" />
+          <span>لا يمكن تعديل القيمة الأصلية</span>
+        </div>
+      </div>
+
+      <TextField
+        label="اسم الأصل *"
+        placeholder="مثال: ماكينة خياطة"
+        error={errors.name?.message}
+        {...register("name")}
+      />
+
+      <TextField
+        label="تاريخ الشراء *"
+        type="date"
+        error={errors.purchaseDate?.message}
+        {...register("purchaseDate")}
+      />
+
+      <TextField
+        label="العمر النافع (أشهر) *"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={600}
+        step={1}
+        helperText="بين شهر واحد و600 شهر (50 سنة)"
+        error={errors.usefulLifeMonths?.message}
+        {...register("usefulLifeMonths")}
+      />
+
+      <div className="flex gap-3 pt-2">
+        <Button
+          type="button"
+          variant="secondary"
+          className="flex-1"
+          onClick={onClose}
+          disabled={updateAsset.isPending}
+        >
+          إلغاء
+        </Button>
+        <Button
+          type="submit"
+          className="flex-1"
+          isLoading={updateAsset.isPending}
+        >
+          حفظ التعديلات
+        </Button>
+      </div>
+    </form>
   );
 }
