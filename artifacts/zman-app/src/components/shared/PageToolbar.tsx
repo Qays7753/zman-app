@@ -192,9 +192,12 @@ export function PageToolbar({
         )}
 
         {/* حجز مساحة زر الفلتر عند غيابه (منع قفز التخطيط بين التبويبات) */}
+        {/* !leading: عند وجود تبويبات في `leading`، لا معنى لحجز مساحة */}
+        {/* الأزرار الغائبة — التبويبات نفسها تملأ الفراغ. */}
         {!filterSlot &&
           (!filters || filters.length === 0) &&
-          reserveFilterSpace && (
+          reserveFilterSpace &&
+          !leading && (
             <span className="w-11 h-11 shrink-0" aria-hidden="true" />
           )}
 
@@ -212,7 +215,9 @@ export function PageToolbar({
         )}
 
         {/* حجز مساحة زر البحث عند غيابه (يثبّت شكل الهيدر بين التبويبات) */}
-        {!search && reserveSearchSpace && (
+        {/* !leading: عند وجود تبويبات في `leading`، لا معنى لحجز مساحة */}
+        {/* زر البحث الغائب — التبويبات نفسها تملأ الفراغ. */}
+        {!search && reserveSearchSpace && !leading && (
           <>
             <span className="w-2 shrink-0" aria-hidden="true" />
             <span className="w-11 h-11 shrink-0" aria-hidden="true" />

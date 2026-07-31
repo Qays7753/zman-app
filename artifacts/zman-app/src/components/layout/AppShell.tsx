@@ -66,6 +66,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
     context = useAppShell();
   } catch {
     // خارج Provider
+    console.warn("AppShellContext used outside Provider");
   }
 
   const title = propTitle !== undefined ? propTitle : context ? context.title : "Zman";

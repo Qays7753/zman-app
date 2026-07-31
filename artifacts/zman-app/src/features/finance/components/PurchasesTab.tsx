@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -92,9 +92,10 @@ export function PurchasesTab() {
         return true;
       })
     : purchases;
-  // Issue #12 — أخفِ الصفوف المُجدوَلة للحذف مع تراجع (optimistic UI). كل صف
-  // له تنبيه مستقل بمهلة 5 ثوانٍ، فالقائمة قد تحوي أكثر من صف مُخفي في وقت واحد.
-  const visiblePurchases = filteredPurchases.filter((item) => !hiddenIds.has(item.id));
+  // Task B (Round 5) — بدلاً من إخفاء الصفوف المُجدوَلة للحذف تماماً، نُبقيها
+  // ظاهرة بمظهر «قيد الحذف»: شفافية منخفضة، مؤشّر لمس معطّل، وسبنر دوّار مكان
+  // زر ⋯. زر «تراجع» يعيش في تنبيه sonner خارج شجرة الصف.
+  const visiblePurchases = filteredPurchases;
 
   // تحديث محددات الـ URL
   const updateUrl = (params: Record<string, string | null>) => {
@@ -298,7 +299,9 @@ export function PurchasesTab() {
               <div
                 key={item.id}
                 style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
-                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 transition-all animate-fade-slide-in"
+                className={`p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 transition-all animate-fade-slide-in ${
+                  hiddenIds.has(item.id) ? "opacity-50 pointer-events-none" : ""
+                }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -336,15 +339,21 @@ export function PurchasesTab() {
                   <span className="font-bold text-ink text-base flex-shrink-0">
                     <AmountText amount={item.totalCents} />
                   </span>
-                  {/* Issue #15 — زر ⋯ لفتح شيت الإجراءات السفلي (تعديل/حذف). */}
-                  <button
-                    type="button"
-                    onClick={() => setActionSheetItem(item)}
-                    className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
-                    aria-label="إجراءات"
-                  >
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
+                  {/* Task B (Round 5) — أثناء مهلة التراجع (5 ثوانٍ) أعرض سبنراً دوّاراً
+                      بدل زر ⋯ لمطابقة نمط «isLoading» في زر الإرسال بالفورم.
+                      Issue #15 — زر ⋯ لفتح شيت الإجراءات السفلي (تعديل/حذف). */}
+                  {hiddenIds.has(item.id) ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-ink-3 flex-shrink-0" />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setActionSheetItem(item)}
+                      className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
+                      aria-label="إجراءات"
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex justify-between items-center text-xs text-ink/60">
                   <span>المورد: {item.supplier || "غير محدد"}</span>

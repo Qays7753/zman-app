@@ -238,6 +238,7 @@ export default function FinanceClient() {
                       key={tab.id}
                       label={tab.label}
                       isActive={isActive}
+                      variant="tab"
                       onClick={() => handleTabChange(tab.id)}
                     >
                       <Icon className="h-5 w-5 shrink-0" />

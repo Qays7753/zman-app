@@ -33,7 +33,8 @@ import {
   useUpdatePurchase,
   useExpenseCategoryCatalog,
 } from "../hooks";
-import { useAddCapitalAsset } from "@/features/depreciation/hooks";
+import { useAddCapitalAsset, useUpdateCapitalAsset } from "@/features/depreciation/hooks";
+import { getCapitalAssetForSource } from "@/features/depreciation/queries";
 import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
 import { useCatalogComponents } from "@/features/catalog/hooks";
 import { useComponentStock } from "@/features/inventory/hooks";
@@ -170,6 +171,11 @@ export function SmartFinanceForm({
   const updateExpense = useUpdateExpense();
   const updatePurchase = useUpdatePurchase();
   const addCapitalAsset = useAddCapitalAsset();
+  // Task C (Round 5) — مزامنة الأصل الرأسمالي المرتبط عند تعديل الأصل في وضع
+  // «أصل للورشة». 🔒 useUpdateCapitalAsset لا يقبل purchaseAmountCents إطلاقاً —
+  // النوع UpdateCapitalAssetVariables يفرض ذلك. نُحدِّث الاسم + تاريخ الشراء فقط،
+  // ونُحافِظ على usefulLifeMonths القائم (لا يمكن تعديله من هنا — مسار /assets).
+  const updateCapitalAsset = useUpdateCapitalAsset();
 
   // ── مودال الإهلاك (وضع «أصل للورشة»)  ───────────────────────────────────
   const [pendingAsset, setPendingAsset] = useState<{
@@ -560,11 +566,6 @@ export function SmartFinanceForm({
         throw e;
       }
       // ── وضع التعديل: نُحدِّث المصروف الأساسي (isCapitalAsset=true) ──
-      // TODO (Issue #1): لا يوجد useUpdateCapitalAsset بعد. لذلك لا يمكن تعديل
-      // إعدادات الإهلاك (usefulLifeMonths) لسجل capital_asset مرتبط من هنا.
-      // السلوك الحالي: يُحدِّث المصروف الأساسي ويُحافِظ على الارتباط القائم كما هو.
-      // لتفعيل الإهلاك على أصل غير مُهلَّك، يمكن للمستخدم إيقاف الإهلاك ثم إعادة
-      // إنشائه (لكن هذا خارج نطاق نموذج التعديل).
       if (isEditing && initialData) {
         const res = await updateExpense.mutateAsync({
           id: initialData.id,
@@ -579,6 +580,22 @@ export function SmartFinanceForm({
           },
         });
         if (res.status === "ok") {
+          // Sync name + purchaseDate to the linked capital_asset (if any).
+          // 🔒 Never pass purchaseAmountCents — UpdateCapitalAssetVariables type enforces this.
+          try {
+            const linkedAsset = await getCapitalAssetForSource("expense", initialData.id);
+            if (linkedAsset) {
+              await updateCapitalAsset.mutateAsync({
+                id: linkedAsset.id,
+                name: values.name,
+                purchaseDate: values.date,
+                usefulLifeMonths: linkedAsset.usefulLifeMonths, // unchanged
+              });
+            }
+          } catch {
+            // Non-fatal: the expense was already updated successfully. Capital-asset sync
+            // is best-effort. A failure here is logged by the mutation's onError path.
+          }
           try { localStorage.removeItem(DRAFT_KEYS.asset); } catch { /* ignore */ }
           toast.success("تم تحديث الأصل");
           // لا نُعيد فتح DepreciationPromptModal في وضع التعديل (الارتباط القائم
@@ -970,7 +987,7 @@ export function SmartFinanceForm({
               <div className="p-3 bg-canvas/40 rounded-lg border border-hairline flex items-center justify-between text-sm">
                 <span className="text-ink/60">سعر الوحدة:</span>
                 <strong className="text-info" dir="ltr">
-                  {formatFilsToJod(Math.floor(total / qty))}
+                  {formatFilsToJod(Math.round(total / qty))}
                 </strong>
               </div>
             ) : null;
@@ -1069,8 +1086,7 @@ export function SmartFinanceForm({
             </label>
             {assetForm.watch("wantDepreciation") && (
               <p className="text-[11px] text-ink/50 mt-1.5 leading-relaxed pe-2">
-                بعد الحفظ، ستُحدَّد عدد أشهر الإهلاك ويُخصَم مبلغ شهري ثابت من الربح
-                التشغيلي. إن تركته بدون تحديد، يُسجَّل كإضافة رأسمالية مرة واحدة.
+                مثلاً: ثلاجة بـ 600 دينار / 24 شهر = 25 دينار تُخصم من ربحك شهرياً
               </p>
             )}
           </div>

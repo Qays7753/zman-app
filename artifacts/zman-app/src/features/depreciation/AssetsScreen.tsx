@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
-  Building2,
   AlertCircle,
   CheckCircle2,
   Clock,
@@ -18,6 +18,7 @@ import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/shared/Button";
 import { TextField } from "@/components/shared/TextField";
 import { CardActionSheet } from "@/components/shared/CardActionSheet";
@@ -54,6 +55,7 @@ const editAssetSchema = z.object({
 type EditAssetFormValues = z.infer<typeof editAssetSchema>;
 
 export function AssetsScreen() {
+  const router = useRouter();
   const { data: assets, isLoading, isError, refetch } = useCapitalAssets();
   const deleteAsset = useDeleteCapitalAsset();
   const [confirmStop, setConfirmStop] = useState<CapitalAssetWithDepreciation | null>(null);
@@ -93,17 +95,17 @@ export function AssetsScreen() {
       )}
 
       {!isLoading && !isError && (assets?.length ?? 0) === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-canvas flex items-center justify-center">
-            <Building2 className="w-7 h-7 text-ink-3" />
-          </div>
-          <p className="text-sm font-medium text-ink-2">
-            لا توجد أصول رأسمالية مُسجَّلة بعد
-          </p>
-          <p className="text-xs text-ink-3 max-w-[240px]">
-            عند تسجيل مصروف أو شراء رأسمالي وتفعيل «توزيع شهري (إهلاك)»، يظهر الأصل هنا
-          </p>
-        </div>
+        <EmptyState
+          title="لا توجد أصول رأسمالية مُسجَّلة بعد"
+          description="عند تسجيل مصروف أو شراء رأسمالي وتفعيل «توزيع شهري (إهلاك)»، يظهر الأصل هنا"
+          steps={[
+            "سجّل مصروفاً واختر وضع «أصل للورشة»",
+            "فعّل خيار «توزيع الإهلاك شهرياً»",
+            "حدّد العمر النافع بالأشهر بعد الحفظ",
+          ]}
+          actionLabel="أضف أول أصل"
+          onAction={() => router.push("/finance?newExpense=true")}
+        />
       )}
 
       {!isLoading && !isError && (assets?.length ?? 0) > 0 && (

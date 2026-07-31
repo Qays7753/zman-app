@@ -30,6 +30,12 @@ export default function QueryProvider({
             refetchOnWindowFocus: true,
             refetchOnReconnect: true,
           },
+          // Task A — إعادة محاولة واحدة للـ mutations عند الأخطاء الشبكية العابرة.
+          // نترك retryDelay يرث الافتراضي (exponential backoff) لأن المحاولة واحدة
+          // فلا داعي لتخصيصه. queries.retry يبقى 3 — لا تغيير.
+          mutations: {
+            retry: 1,
+          },
         },
       }),
   );

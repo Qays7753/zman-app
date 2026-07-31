@@ -54,6 +54,12 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
   const [adjustFor, setAdjustFor] = useState<CatalogComponent | null>(null);
   // Issue #15 — شيت إجراءات سفلي لكل بطاقة كتالوج (تعديل/حذف).
   const [actionSheetItem, setActionSheetItem] = useState<CatalogComponent | null>(null);
+  // Round 5 — حالة حذف المكوّن عبر ConfirmDialog (بدل window.confirm).
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState<CatalogComponent | null>(null);
+  // Round 5 — حالة تأكيد إلغاء التتبّع لصنف له رصيد > 0 (مرفوعة من البطاقة).
+  const [confirmUntrackItem, setConfirmUntrackItem] = useState<
+    { item: CatalogComponent; stock: number } | null
+  >(null);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -72,6 +78,25 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
   const handleSearch = useCallback((q: string) => {
     setSearch(q);
   }, []);
+
+  // Round 5 — مُعالج تبديل التتبّع على البطاقة. عند محاولة إلغاء التتبّع لصنف له
+  // رصيد > 0، اعرض ConfirmDialog (مرفوعة من البطاقة) قبل التنفيذ. وإلا فنفّذ مباشرة.
+  const handleToggleTracked = async (
+    item: CatalogComponent,
+    next: boolean,
+    currentStock: number,
+  ) => {
+    if (!next && item.tracked && currentStock > 0) {
+      setConfirmUntrackItem({ item, stock: currentStock });
+      return;
+    }
+    const res = await updateMutation.mutateAsync({ ...item, tracked: next });
+    if (res.status !== "ok") {
+      toast.error(res.message);
+    } else if (next) {
+      toast.info("تم التفعيل. لتسجيل رصيد افتتاحي افتح بطاقة الصنف");
+    }
+  };
 
   const pageAction = useMemo(() => {
     if (hideHeader) return null;
@@ -138,6 +163,8 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
                   onShowMovements={() => setMovementsFor(item)}
                   onAdjustStock={() => setAdjustFor(item)}
                   onOpenActions={() => setActionSheetItem(item)}
+                  onToggleTracked={(next, currentStock) => handleToggleTracked(item, next, currentStock)}
+                  isTogglingTracked={updateMutation.isPending}
                 />
               </li>
             ))}
@@ -248,31 +275,66 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
                   label: "حذف",
                   icon: <Trash2 className="w-5 h-5" />,
                   variant: "danger" as const,
-                  onClick: async () => {
+                  onClick: () => {
                     const item = actionSheetItem;
                     setActionSheetItem(null);
-                    const confirmed = window.confirm(
-                      "هل أنت متأكد من حذف هذا المكوّن نهائياً؟ قد يؤثر ذلك على كشوفات حساب الطلبات المرتبطة به.",
-                    );
-                    if (!confirmed) return;
-                    const updatedAt =
-                      item.updatedAt instanceof Date
-                        ? item.updatedAt.toISOString()
-                        : String(item.updatedAt);
-                    const res = await deleteMutation.mutateAsync({
-                      id: item.id,
-                      updatedAt,
-                    });
-                    if (res.status === "ok") {
-                      toast.success("تم حذف المكوّن بنجاح");
-                    } else {
-                      toast.error(res.message);
-                    }
+                    setConfirmDeleteItem(item);
                   },
                 },
               ]
             : []
         }
+      />
+
+      {/* Round 5 — تأكيد حذف المكوّن نهائياً (بديل window.confirm في الشيت). */}
+      <ConfirmDialog
+        isOpen={confirmDeleteItem !== null}
+        title="حذف المكوّن نهائياً"
+        message="سيُحذف هذا المكوّن نهائياً من الكتالوج. قد تظلّ كشوفات حساب الطلبات السابقة المرتبطة به قائمة، لكن أي تعديل لاحق للطلبات لن يجد هذا الصنف. لا يمكن التراجع عن هذا الإجراء."
+        confirmLabel="نعم، حذف نهائي"
+        cancelLabel="إلغاء"
+        onConfirm={async () => {
+          if (!confirmDeleteItem) return;
+          const item = confirmDeleteItem;
+          const updatedAt = item.updatedAt instanceof Date
+            ? item.updatedAt.toISOString()
+            : String(item.updatedAt);
+          const res = await deleteMutation.mutateAsync({ id: item.id, updatedAt });
+          if (res.status === "ok") {
+            toast.success("تم حذف المكوّن بنجاح");
+            setConfirmDeleteItem(null);
+          } else {
+            toast.error(res.message);
+          }
+        }}
+        onCancel={() => setConfirmDeleteItem(null)}
+        isLoading={deleteMutation.isPending}
+      />
+
+      {/* Round 5 — تأكيد إلغاء التتبّع لصنف له رصيد > 0 (مرفوعة من البطاقة). */}
+      <ConfirmDialog
+        isOpen={confirmUntrackItem !== null}
+        title="تأكيد إلغاء التتبّع"
+        message={
+          confirmUntrackItem
+            ? `ستفقد التتبّع. الرصيد الحالي ${confirmUntrackItem.stock} ${confirmUntrackItem.item.unit} سيُعامَل كصفر للطلبات الجديدة. سيتم حذف سجل الحركات ناعماً. هل أنت متأكد؟`
+            : ""
+        }
+        confirmLabel="نعم، ألغِ التتبّع"
+        cancelLabel="إلغاء"
+        onConfirm={async () => {
+          if (!confirmUntrackItem) return;
+          const item = confirmUntrackItem.item;
+          const res = await updateMutation.mutateAsync({ ...item, tracked: false });
+          if (res.status === "ok") {
+            toast.success("تم إلغاء التتبّع");
+            setConfirmUntrackItem(null);
+          } else {
+            toast.error(res.message);
+          }
+        }}
+        onCancel={() => setConfirmUntrackItem(null)}
+        isLoading={updateMutation.isPending}
       />
     </>
   );
@@ -283,11 +345,17 @@ function CatalogCard({
   onShowMovements,
   onAdjustStock,
   onOpenActions,
+  onToggleTracked,
+  isTogglingTracked,
 }: {
   item: CatalogComponent;
   onShowMovements: () => void;
   onAdjustStock: () => void;
   onOpenActions: () => void;
+  /** Round 5 — يُستدعى عند تبديل التتبّع من البطاقة مباشرةً. `currentStock` 
+   *  يُمرَّر من خطاف الرصيد الموجود في البطاقة (لتفادي تكرار الاستعلام في الأب). */
+  onToggleTracked: (next: boolean, currentStock: number) => void;
+  isTogglingTracked?: boolean;
 }) {
   // Phase 3 — اعرض الرصيد الحالي للأصناف المتتبَّعة فقط (تحسين الأداء: hook معطَّل
   // للأصناف غير المتتبَّعة كي لا تُطلَب استعلامات بلا داعٍ).
@@ -299,12 +367,20 @@ function CatalogCard({
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-ink text-sm truncate">{item.name}</span>
-            {item.tracked && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info-soft text-info border border-info/30 flex items-center gap-1">
-                <PackageCheck className="w-3 h-3" />
-                متتبَّع
-              </span>
-            )}
+            {/* Round 5 — مفتاح تبديل التتبّع على البطاقة مباشرةً (بدل فتح المودال).
+                يظهر دائماً حتى يمكن تفعيل التتبّع من البطاقة، ويتغيّر اللون عبر
+                has-[:checked] حسب حالة الإدخال. */}
+            <label className="flex items-center gap-1.5 min-h-[44px] cursor-pointer text-[10px] px-1.5 py-0.5 rounded-full border border-info/30 has-[:checked]:bg-info-soft has-[:checked]:text-info text-ink-3">
+              <PackageCheck className="w-3 h-3" />
+              <span>{item.tracked ? "متتبَّع" : "تفعيل التتبع"}</span>
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={item.tracked}
+                onChange={(e) => onToggleTracked(e.target.checked, stock ?? 0)}
+                disabled={isTogglingTracked}
+              />
+            </label>
           </div>
           <span className="text-xs text-ink/60 flex items-center gap-1">
             <AmountText amount={item.defaultCostCents} />

@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Boxes, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Boxes, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -96,9 +96,11 @@ export function ExpensesTab() {
         return true;
       })
     : expenses;
-  // Issue #12 — أخفِ الصفوف المُجدوَلة للحذف مع تراجع (optimistic UI). كل صف
-  // له تنبيه مستقل بمهلة 5 ثوانٍ، فالقائمة قد تحوي أكثر من صف مُخفي في وقت واحد.
-  const visibleExpenses = filteredExpenses.filter((item) => !hiddenIds.has(item.id));
+  // Task B (Round 5) — بدلاً من إخفاء الصفوف المُجدوَلة للحذف تماماً (مما يُفقد
+  // المستخدم الإحساس بأن شيئاً يحدث)، نُبقيها ظاهرة بمظهر «قيد الحذف»: شفافية
+  // منخفضة، مؤشّر لمس معطّل، وسبنر دوّار مكان زر ⋯. زر «تراجع» يعيش في تنبيه
+  // sonner خارج شجرة الصف، فلا يتأثّر بـ pointer-events-none على الصف.
+  const visibleExpenses = filteredExpenses;
 
   // تحديث محددات الـ URL
   const updateUrl = (params: Record<string, string | null>) => {
@@ -324,7 +326,7 @@ export function ExpensesTab() {
               style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
               className={`p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 transition-colors animate-fade-slide-in ${
                 isWriteoff ? "cursor-default" : "hover:border-ink/20"
-              }`}
+              } ${hiddenIds.has(item.id) ? "opacity-50 pointer-events-none" : ""}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-ink text-base flex-1 min-w-0 truncate">
@@ -333,9 +335,12 @@ export function ExpensesTab() {
                 <span className="font-bold text-ink text-base flex-shrink-0">
                   <AmountText amount={item.amountCents} />
                 </span>
-                {/* Issue #15 — زر ⋯ لفتح شيت الإجراءات السفلي (تعديل/حذف).
-                    صفوف هدر المخزون للقراءة فقط فلا تحصل على الزر. */}
-                {!isWriteoff && (
+                {/* Task B (Round 5) — أثناء مهلة التراجع (5 ثوانٍ) أعرض سبنراً دوّاراً
+                    بدل زر ⋯ لمطابقة نمط «isLoading» في زر الإرسال بالفورم.
+                    Issue #15 — صفوف هدر المخزون للقراءة فقط فلا تحصل على زر ⋯ أصلاً. */}
+                {hiddenIds.has(item.id) ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-ink-3 flex-shrink-0" />
+                ) : !isWriteoff ? (
                   <button
                     type="button"
                     onClick={() => setActionSheetItem(item)}
@@ -344,7 +349,7 @@ export function ExpensesTab() {
                   >
                     <MoreVertical className="w-5 h-5" />
                   </button>
-                )}
+                ) : null}
               </div>
               <div className="flex justify-between items-center text-xs text-ink/60 font-medium">
                 <div className="flex items-center gap-1.5">

@@ -113,7 +113,7 @@ export function OwnerTab() {
       {/* قائمة المعاملات */}
       <div className="bg-paper rounded-lg border border-hairline shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-sm">
+          <table className="w-full text-start text-sm">
             <thead className="bg-canvas border-b border-hairline text-ink/65 text-xs font-bold">
               <tr>
                 <th className="p-4">التاريخ</th>
@@ -159,7 +159,7 @@ export function OwnerTab() {
                         type="button"
                         onClick={() => setDeleteTarget({ id: tx.id, updatedAt: tx.updatedAt.toISOString() })}
                         disabled={deleteTxMutation.isPending}
-                        className="text-alert hover:bg-alert/10 p-1.5 rounded transition"
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-alert hover:bg-alert/10 rounded transition disabled:opacity-50"
                         title="حذف السجل والتراجع عنه"
                       >
                         <Trash2 className="h-4 w-4" />

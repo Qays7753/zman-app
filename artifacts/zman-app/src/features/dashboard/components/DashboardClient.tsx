@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { GlobalSearch } from "./GlobalSearch";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
@@ -67,7 +67,6 @@ import { UpcomingDeliveriesCard } from "./UpcomingDeliveriesCard";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function DashboardClient() {
-  const [_isPending, _startTransition] = useTransition();
 
   // ── فترات التاريخ ─────────────────────────────────────────────────────────
   const presets = [
