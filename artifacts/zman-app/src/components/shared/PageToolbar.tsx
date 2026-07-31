@@ -39,12 +39,6 @@ interface PageToolbarProps {
   menuItems?: ToolbarMenuItem[];
   /** فلتر مخصّص يحلّ محلّ زر الفلتر الافتراضي (نفس الموضع) — مثل StatusFilterSheet */
   filterSlot?: React.ReactNode;
-  /** يحجز مساحة زر البحث حتى لو غاب (يثبّت شكل الهيدر بين التبويبات) */
-  reserveSearchSpace?: boolean;
-  /** يحجز مساحة زر الفلتر حتى لو غاب (يمنع قفز التخطيط بين تبويبات مختلفة) */
-  reserveFilterSpace?: boolean;
-  /** يحجز مساحة زر الإعدادات حتى لو غاب */
-  reserveMenuSpace?: boolean;
   /** عناصر تظهر أول الشريط (مثل مبدّل قائمة/تقويم) */
   leading?: React.ReactNode;
   /** الإجراء الأساسي (زر الإضافة) — يظهر آخر الشريط */
@@ -54,16 +48,15 @@ interface PageToolbarProps {
 /**
  * شريط أدوات موحّد لهيدر الصفحات. كل صفحة تمرّر ما يلزمها فقط:
  * بحث متوسّع + قائمة فلاتر منسدلة + قائمة إعدادات + إجراء أساسي.
- * يلتزم RTL، أهداف لمس 44px، وإغلاق عند الضغط خارجاً / Escape.
+ * كل صفحة تمرّر ما يلزمها فقط. الأزرار الغائبة لا تترك أثراً (لا حجز مساحة)
+ * — ترتيب المنافل ثابت عبر كل الشاشات. يلتزم RTL، أهداف لمس 44px، وإغلاق
+ * عند الضغط خارجاً / Escape.
  */
 export function PageToolbar({
   search,
   filters,
   menuItems,
   filterSlot,
-  reserveSearchSpace = false,
-  reserveFilterSpace = false,
-  reserveMenuSpace = false,
   leading,
   trailing,
 }: PageToolbarProps) {
@@ -191,16 +184,6 @@ export function PageToolbar({
           </div>
         )}
 
-        {/* حجز مساحة زر الفلتر عند غيابه (منع قفز التخطيط بين التبويبات) */}
-        {/* !leading: عند وجود تبويبات في `leading`، لا معنى لحجز مساحة */}
-        {/* الأزرار الغائبة — التبويبات نفسها تملأ الفراغ. */}
-        {!filterSlot &&
-          (!filters || filters.length === 0) &&
-          reserveFilterSpace &&
-          !leading && (
-            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
-          )}
-
         {/* فاصل بسيط قبل البحث */}
         {search && <span className="w-2 shrink-0" aria-hidden="true" />}
 
@@ -212,16 +195,6 @@ export function PageToolbar({
           >
             <Search className="w-5 h-5" />
           </HeaderIconButton>
-        )}
-
-        {/* حجز مساحة زر البحث عند غيابه (يثبّت شكل الهيدر بين التبويبات) */}
-        {/* !leading: عند وجود تبويبات في `leading`، لا معنى لحجز مساحة */}
-        {/* زر البحث الغائب — التبويبات نفسها تملأ الفراغ. */}
-        {!search && reserveSearchSpace && !leading && (
-          <>
-            <span className="w-2 shrink-0" aria-hidden="true" />
-            <span className="w-11 h-11 shrink-0" aria-hidden="true" />
-          </>
         )}
 
         {/* فاصل بسيط قبل مبدّل العرض */}
@@ -260,8 +233,6 @@ export function PageToolbar({
               </div>
             )}
           </div>
-        ) : reserveMenuSpace ? (
-          <span className="w-11 h-11 shrink-0" aria-hidden="true" />
         ) : null}
       </div>
     </div>

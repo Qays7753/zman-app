@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, ShoppingCart, Wallet, Plus, Landmark, User, Settings, Loader2 } from "lucide-react";
+import { Banknote, ShoppingCart, Wallet, Plus, User, Settings, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition, useState, useEffect, useCallback, useRef } from "react";
@@ -84,11 +84,12 @@ const SALE_SOURCES = [
 ];
 
 /* ─── أنواع التبويبات اليومية ─── */
+// Issue R6 — «حساباتي» نُقل من التبويبات الظاهرة إلى قائمة «المزيد» (nav.ts: moreNavItems).
+// يبقى مسار /finance?tab=accounts و /finance/accounts يعملان عبر الفرع التحتي في JSX.
 const TABS = [
   { id: "expenses", label: "مصاريفي", icon: Wallet },
   { id: "purchases", label: "مشترياتي", icon: ShoppingCart },
   { id: "sales", label: "مبيعاتي", icon: Banknote },
-  { id: "accounts", label: "حساباتي", icon: Landmark },
 ] as const;
 
 
@@ -229,7 +230,7 @@ export default function FinanceClient() {
         action={
           <PageToolbar
             leading={
-              <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar max-w-full">
+              <div className="flex items-center gap-0.5">
                 {TABS.map((tab) => {
                   const isActive = tab.id === activeTab;
                   const Icon = tab.icon;
@@ -259,10 +260,7 @@ export default function FinanceClient() {
                       ? "البحث في بيان المبيعات..."
                       : "البحث...",
             }}
-            reserveSearchSpace={true}
             filters={filters || undefined}
-            reserveFilterSpace={true}
-            reserveMenuSpace={false}
           />
         }
       />

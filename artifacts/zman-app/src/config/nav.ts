@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Home, MessageSquare, Wallet, Settings, Boxes, Clock, Package, Building2, ShieldCheck } from "lucide-react";
+import { BarChart3, ClipboardList, Home, MessageSquare, Wallet, Settings, Boxes, Clock, Package, Building2, ShieldCheck, Landmark } from "lucide-react";
 
 export interface NavItem {
   label: string;
@@ -66,6 +66,13 @@ export const moreNavItems: NavItem[] = [
     label: "الافتتاحي",
     href: "/settings/opening-balance",
     icon: Settings,
+  },
+  // Round 6 — «الحسابات والصناديق» نُقل من تبويبات /finance الظاهرة إلى قائمة «المزيد».
+  // يُعيد الطريق /finance/accounts التوجيه إلى /finance?tab=accounts تلقائياً (انظر app/(app)/finance/accounts/page.tsx).
+  {
+    label: "الحسابات والصناديق",
+    href: "/finance/accounts",
+    icon: Landmark,
   },
   {
     label: "إدارة أصناف المشتريات",

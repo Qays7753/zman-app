@@ -12,9 +12,9 @@ interface HeaderIconButtonProps
    * شكل الزر:
    *   - "icon" (الافتراضي): زر مربّع 44×44 بحافة كاملة._byte-identical مع
    *     الإصدار السابق — أيّ تغيير هنا يكسر PageToolbar (بحث/فلتر/إعدادات).
-   *   - "tab": زر تبويب بعرض مرن (محتوى-مُحرَّك) وارتفاع ≥44px. أيقونة فوق
-   *     نص، ومؤشّر نشط بشريط سفلي 2px (بدلاً من خلفية ملوّنة). يُستخدَم في
-   *     تبويبات FinanceClient (مصاريفي/مشترياتي/مبيعاتي/حساباتي).
+   *   - "tab": زر تبويب بعرض مرن بمحتوى-مُحرَّك، بحد أدنى 44×44، بلا حشوة
+   *     أفقية وبلا حاوية حدود — مطابق لنمط شريط التنقل السفلي في AppShell.tsx
+   *     (أيقونة + نص 11px + شريط سفلي 2px).
    */
   variant?: "icon" | "tab";
 }
@@ -39,7 +39,7 @@ export const HeaderIconButton = React.forwardRef<
       aria-label={label}
       className={cn(
         isTab
-          ? "relative min-h-[44px] px-2.5 rounded-lg border flex flex-col items-center justify-center gap-0.5 shrink-0 transition-all duration-[120ms] ease-out active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          ? "relative min-h-[44px] min-w-[44px] rounded-lg flex flex-col items-center justify-center gap-0.5 shrink-0 transition-all duration-[120ms] ease-out active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
           : "relative w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg border flex items-center justify-center shrink-0 transition-all duration-[120ms] ease-out active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info",
         isActive
           ? isTab
