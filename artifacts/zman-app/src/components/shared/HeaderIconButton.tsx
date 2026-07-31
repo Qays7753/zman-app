@@ -12,9 +12,18 @@ interface HeaderIconButtonProps
    * شكل الزر:
    *   - "icon" (الافتراضي): زر مربّع 44×44 بحافة كاملة._byte-identical مع
    *     الإصدار السابق — أيّ تغيير هنا يكسر PageToolbar (بحث/فلتر/إعدادات).
-   *   - "tab": زر تبويب بعرض مرن بمحتوى-مُحرَّك، بحد أدنى 44×44، بلا حشوة
-   *     أفقية وبلا حاوية حدود — مطابق لنمط شريط التنقل السفلي في AppShell.tsx
-   *     (أيقونة + نص 11px + شريط سفلي 2px).
+   *   - "tab": زر تبويب بنفس لغة "icon" (إطار + خلفية + نصف قطر) لكن
+   *     بعرض 60px كحدّ أدنى ليتّسع للنص، وأيقونة 16px فوق نص 11px.
+   *     (60 لا 68: ثلاثة تبويبات + بحث + فلتر + الفواصل = 336px المتاحة
+   *     على شاشة 360px بالضبط — 68 كانت تفيض 8px.)
+   *
+   *     لماذا لا نُطابق شريط التنقل السفلي حرفياً: ذاك في شريط h-16 (64px)
+   *     فتتنفّس فيه أيقونة 20px مع نص. الهيدر h-14 (56px) والزر 44px — نفس
+   *     المقاسات تختنق هنا. لذلك أيقونة 16px و gap-px بدل gap-0.5.
+   *
+   *     الحالة النشطة تأخذ نفس مظهر "icon" النشط (إطار info + خلفية
+   *     info-soft) وتزيد شريطاً سفلياً 2px — فيبقى التمييز قائماً حتى مع
+   *     تجاهل اللون (شمس / عمى ألوان)، ويبقى الصفّ متجانساً بصرياً.
    */
   variant?: "icon" | "tab";
 }
@@ -39,15 +48,15 @@ export const HeaderIconButton = React.forwardRef<
       aria-label={label}
       className={cn(
         isTab
-          ? "relative min-h-[44px] min-w-[44px] rounded-lg flex flex-col items-center justify-center gap-0.5 shrink-0 transition-all duration-[120ms] ease-out active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          ? "relative h-11 min-h-[44px] min-w-[60px] px-2 rounded-lg border flex flex-col items-center justify-center gap-px leading-none shrink-0 transition-all duration-[120ms] ease-out active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info"
           : "relative w-11 h-11 min-h-[44px] min-w-[44px] rounded-lg border flex items-center justify-center shrink-0 transition-all duration-[120ms] ease-out active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info",
+        // النشط: نفس لغة الأدوات (إطار + خلفية info-soft) — والتبويب يزيد
+        // عليها شريطاً سفلياً 2px ليبقى مميَّزاً حتى لو تجاهلنا اللون.
         isActive
           ? isTab
-            ? "text-info border-b-2 border-info"
+            ? "border-info bg-info-soft text-info border-b-2 font-bold"
             : "border-info bg-info-soft text-info"
-          : isTab
-            ? "text-ink-2 hover:text-ink border-b-2 border-transparent"
-            : "border-hairline bg-paper text-ink-2 hover:text-ink hover:bg-canvas",
+          : "border-hairline bg-paper text-ink-2 hover:text-ink hover:bg-canvas",
         className,
       )}
       {...props}
