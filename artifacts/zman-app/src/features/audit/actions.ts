@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { db } from "@/lib/db/client";
 import { auditLog } from "./db";
 
@@ -26,20 +25,20 @@ interface LogActionInput {
  *     caller must inspect.
  *   - Returns void (Promise<void>).
  *
- * userId best-effort: this app has a single-owner auth model (cookie
- * `zman_session` holds the PASSCODE). We record it for completeness; if
- * cookies() is unavailable (e.g. called outside a request context) we leave
- * userId null and still log the action.
+ * 🔒 userId: قيمة ثابتة "owner" — لا تُقرأ من الكوكي إطلاقاً.
+ *
+ * السبب: كوكي `zman_session` يحمل قيمة PASSCODE نفسها حرفياً
+ * (انظر `src/app/login/actions.ts:12`). قراءتها هنا تكتب كلمة السر نصّاً
+ * صريحاً في كل صف من `audit_log` — أي أن قاعدة البيانات تصير مخزناً دائماً
+ * لكلمة السر، ويكفي تسريب نسخة احتياطية واحدة لكشفها.
+ *
+ * والمقابل صفر: النظام أحادي المستخدم (المالك فقط)، فلا معلومة تُكتسب من
+ * تسجيل «مَن» — الجواب دائماً هو نفسه. القيمة الثابتة تحفظ شكل العمود
+ * لأي توسّع مستقبلي متعدّد المستخدمين بلا أي مخاطرة اليوم.
  */
 export async function logAction(input: LogActionInput): Promise<void> {
   try {
-    let userId: string | null = null;
-    try {
-      const cookieStore = await cookies();
-      userId = cookieStore.get("zman_session")?.value ?? null;
-    } catch {
-      // cookies() unavailable — leave userId null. The audit row is still useful.
-    }
+    const userId = "owner";
 
     await db.insert(auditLog).values({
       action: input.action,
@@ -53,7 +52,7 @@ export async function logAction(input: LogActionInput): Promise<void> {
     // Common swallowed cases:
     //   - "relation \"audit_log\" does not exist" (migration 0026 not applied yet)
     //   - transient DB connectivity errors
-    //   - cookies() unavailable outside request context
+    //   - أخطاء اتصال عابرة بقاعدة البيانات
     console.warn("[audit] logAction failed (non-fatal):", e);
   }
 }
