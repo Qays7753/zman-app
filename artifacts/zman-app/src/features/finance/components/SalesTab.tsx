@@ -66,7 +66,8 @@ export function SalesTab() {
 
 
 
-  const handleCreate = async (fields: NewSale) => {
+  // يُرجِع نجاح الحفظ إلى SaleForm ليقرّر مسح المسودّة — لا تُمسح عند الرفض.
+  const handleCreate = async (fields: NewSale): Promise<boolean> => {
     const res = await createMutation.mutateAsync({
       values: fields,
       requestId: crypto.randomUUID(),
@@ -75,13 +76,14 @@ export function SalesTab() {
       toast.success("تم تسجيل المبيعات بنجاح");
       updateUrl({ newSale: null });
       refetch();
-    } else {
-      toast.error(res.message);
+      return true;
     }
+    toast.error(res.message);
+    return false;
   };
 
-  const handleUpdate = async (fields: NewSale) => {
-    if (!editId) return;
+  const handleUpdate = async (fields: NewSale): Promise<boolean> => {
+    if (!editId) return false;
     const updatedAt = activeSale?.updatedAt instanceof Date
       ? activeSale.updatedAt.toISOString()
       : String(activeSale?.updatedAt || "");
@@ -94,9 +96,10 @@ export function SalesTab() {
       toast.success("تم تحديث بيانات المبيعات بنجاح");
       updateUrl({ editSale: null });
       refetch();
-    } else {
-      toast.error(res.message);
+      return true;
     }
+    toast.error(res.message);
+    return false;
   };
 
   const handleConfirmDelete = async () => {

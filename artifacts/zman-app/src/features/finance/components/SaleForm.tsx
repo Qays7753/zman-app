@@ -15,7 +15,14 @@ import type { NewSale, Sale } from "../types";
 
 interface SaleFormProps {
   initialData?: Sale | null;
-  onSubmit: (values: NewSale) => void;
+  /**
+   * يُرجِع true عند نجاح الحفظ على الخادم، و false عند رفضه.
+   *
+   * ⚠️ التوقيع مقصود: المستدعي (SalesTab) يعالج الخطأ داخلياً بـ toast.error
+   * ولا يرمي استثناءً — فلولا قيمة الإرجاع لما استطاع النموذج تمييز النجاح
+   * من الفشل، ولمَسَح المسودّة حتى عند الرفض (فقدان إدخال المالك).
+   */
+  onSubmit: (values: NewSale) => Promise<boolean>;
   onDelete?: () => void;
   isSubmitting: boolean;
 }
@@ -121,7 +128,10 @@ export function SaleForm({
 
   // Issue #5 — غلاف محلي لـ onSubmit يحرسه assertOnline. يُبقي المنطق داخل
   // SaleForm بدلاً من تعديل الأب (SalesTab) فيكون مكان صيانة واحد.
-  // Issue #7 — بعد نجاح الإرسال (لم يُلقِ onSubmit خطأً)، امسح المسودة.
+  // Issue #7 — امسح المسودّة فقط بعد تأكيد الخادم أن الحفظ نجح.
+  // كان الكود يمسحها بمجرّد عودة onSubmit، لكن SalesTab يبتلع الخطأ بـ
+  // toast.error ولا يرمي — فكانت مبيعة يرفضها الخادم تمحو مسودّة المالك.
+  // نفس نمط SmartFinanceForm و OrderForm: المسح داخل فحص النتيجة.
   const handleFormSubmit = async (values: NewSale) => {
     try {
       assertOnline();
@@ -132,8 +142,10 @@ export function SaleForm({
       }
       throw e;
     }
-    await onSubmit(values);
-    try { localStorage.removeItem(SALE_DRAFT_KEY); } catch { /* ignore */ }
+    const ok = await onSubmit(values);
+    if (ok) {
+      try { localStorage.removeItem(SALE_DRAFT_KEY); } catch { /* ignore */ }
+    }
   };
 
   return (
