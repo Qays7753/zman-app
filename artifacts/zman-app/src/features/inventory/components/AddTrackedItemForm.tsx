@@ -119,9 +119,15 @@ export function AddTrackedItemForm({ onDone }: AddTrackedItemFormProps) {
             className="w-full h-12 px-4 py-2 rounded-md border border-hairline-2 bg-paper text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink/10"
           />
           <p className="text-[11px] text-ink-3">
-            سيُدرَج حركة <code className="font-mono">in</code> بقيمة هذا الرقم عند الحفظ.
-            يمكن تعديل الرصيد لاحقاً عبر «تعديل سريع للمخزون».
+            الكمية الموجودة عندك الآن. يمكن تعديلها لاحقاً عبر «تعديل سريع للمخزون».
           </p>
+          {openingStock > 0 && (
+            <p className="text-[11px] leading-relaxed text-warn-deep bg-warn-soft border border-warn/30 rounded-lg p-2.5">
+              <strong>يدخل بتكلفة صفر.</strong> تكلفة هذه الكمية حُسبت مصروفاً وقت
+              شرائها، فلا تُحتسب مرّة ثانية. النتيجة: عند بيعها لن تُخصم لها تكلفة،
+              فيظهر ربح أعلى من الحقيقي مؤقتاً — يتصحّح تلقائياً بعد نفاد هذه الكمية.
+            </p>
+          )}
         </div>
       </div>
 
