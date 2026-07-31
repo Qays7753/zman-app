@@ -1,1 +1,0 @@
-- [costCents vs unitCostCents](component-field-mapping.md) — form schema uses costCents, DB/API type uses unitCostCents; actions must map between them
