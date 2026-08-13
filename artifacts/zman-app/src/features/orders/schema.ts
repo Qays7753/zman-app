@@ -1,5 +1,22 @@
 import { z } from "zod";
 
+/**
+ * رقم هاتف اختياري. حقول الإدخال في المتصفّح تُرجع سلسلة فارغة لا `undefined`
+ * عند تركها فارغة، فنُطبّعها هنا إلى `null` — لتصل قاعدة البيانات قيمة واحدة
+ * تعني «لا رقم» بدل قيمتين (`''` و`NULL`) تكسران أي فحص لاحق مثل
+ * `if (order.customerPhone)` أو فرز/بحث على العمود.
+ */
+const optionalPhone = (tooLongMessage: string) =>
+  z
+    .string()
+    .max(32, tooLongMessage)
+    .nullable()
+    .optional()
+    .transform((val) => {
+      const trimmed = (val ?? "").trim();
+      return trimmed.length > 0 ? trimmed : null;
+    });
+
 export const orderComponentInputSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(1, "اسم المكوّن مطلوب").max(200, "اسم المكوّن طويل جداً"),
@@ -26,15 +43,9 @@ export const createOrderSchema = z.object({
     .string()
     .min(1, "اسم العميل مطلوب")
     .max(200, "اسم العميل طويل جداً"),
-  customerPhone: z
-    .string()
-    .min(1, "رقم الهاتف مطلوب")
-    .max(32, "رقم الهاتف طويل جداً"),
-  customerPhoneAlt: z
-    .string()
-    .max(32, "رقم الهاتف البديل طويل جداً")
-    .nullable()
-    .optional(),
+  // كلا رقمي الهاتف اختياريان (لا واحد إجباري ولا الاثنان).
+  customerPhone: optionalPhone("رقم الهاتف طويل جداً"),
+  customerPhoneAlt: optionalPhone("رقم الهاتف البديل طويل جداً"),
   productName: z
     .string()
     .min(1, "اسم المنتج مطلوب")
@@ -86,15 +97,9 @@ export const updateOrderSchema = z.object({
     .string()
     .min(1, "اسم العميل مطلوب")
     .max(200, "اسم العميل طويل جداً"),
-  customerPhone: z
-    .string()
-    .min(1, "رقم الهاتف مطلوب")
-    .max(32, "رقم الهاتف طويل جداً"),
-  customerPhoneAlt: z
-    .string()
-    .max(32, "رقم الهاتف البديل طويل جداً")
-    .nullable()
-    .optional(),
+  // كلا رقمي الهاتف اختياريان (لا واحد إجباري ولا الاثنان).
+  customerPhone: optionalPhone("رقم الهاتف طويل جداً"),
+  customerPhoneAlt: optionalPhone("رقم الهاتف البديل طويل جداً"),
   productName: z
     .string()
     .min(1, "اسم المنتج مطلوب")

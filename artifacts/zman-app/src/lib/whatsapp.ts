@@ -3,7 +3,7 @@ import { formatFilsToJod } from "./money";
 /**
  * تنظيف رقم الهاتف وتحويله للصيغة الدولية الافتراضية (الأردن 962)
  */
-export function cleanPhoneNumber(phone: string): string {
+export function cleanPhoneNumber(phone: string | null | undefined): string {
   if (!phone) return "";
 
   // إزالة أي رموز غير رقمية
@@ -45,12 +45,30 @@ export function fillTemplate(
 }
 
 /**
+ * هل يملك الطلب رقماً صالحاً للإرسال عبر واتساب؟ الرقمان اختياريان، فقد لا
+ * يوجد أيٌّ منهما. تُستعمل في الواجهة لإخفاء زر واتساب بدل فتح رابط مكسور.
+ */
+export function hasWhatsAppNumber(order: {
+  customerPhone?: string | null;
+  customerPhoneAlt?: string | null;
+}): boolean {
+  return (
+    cleanPhoneNumber(order.customerPhone).length > 0 ||
+    cleanPhoneNumber(order.customerPhoneAlt).length > 0
+  );
+}
+
+/**
  * إنشاء رابط wa.me الموجه لتطبيق WhatsApp مع نص رسالة جاهز (§18 rule 14)
+ *
+ * الرقم الأساسي اختياري: إن كان فارغاً نرجع للرقم البديل. إن غاب الاثنان
+ * فلا رابط — تتحقّق الواجهة عبر hasWhatsAppNumber قبل عرض الزر أصلاً.
  */
 export function buildOrderWhatsAppLink(
   order: {
     customerName: string;
-    customerPhone: string;
+    customerPhone?: string | null;
+    customerPhoneAlt?: string | null;
     productName: string;
     quantity: number;
     totalPriceCents: number;
@@ -59,7 +77,9 @@ export function buildOrderWhatsAppLink(
   },
   templateText?: string
 ): string {
-  const cleanPhone = cleanPhoneNumber(order.customerPhone);
+  const cleanPhone =
+    cleanPhoneNumber(order.customerPhone) ||
+    cleanPhoneNumber(order.customerPhoneAlt);
   const defaultTemplate = `مرحباً سيد/ة {customerName}،
 
 يسعدنا تأكيد تفاصيل طلبك كالتالي:

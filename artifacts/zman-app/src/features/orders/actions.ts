@@ -118,8 +118,9 @@ export async function createOrder(rawInput: unknown): Promise<ActionResponse> {
         .insert(order)
         .values({
           customerName,
+          // كلاهما اختياري — الـ zod schema طبّعها إلى null إن تُركت فارغة.
           customerPhone,
-          customerPhoneAlt: customerPhoneAlt || null,
+          customerPhoneAlt,
           productName,
           quantity,
           totalCostCents,
@@ -353,8 +354,9 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
         .update(order)
         .set({
           customerName,
+          // كلاهما اختياري — الـ zod schema طبّعها إلى null إن تُركت فارغة.
           customerPhone,
-          customerPhoneAlt: customerPhoneAlt || null,
+          customerPhoneAlt,
           productName,
           quantity,
           totalCostCents,

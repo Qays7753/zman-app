@@ -7,7 +7,7 @@ import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { SkeletonList } from "@/components/shared/SkeletonList";
-import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
+import { buildOrderWhatsAppLink, hasWhatsAppNumber } from "@/lib/whatsapp";
 import { useInfiniteOrders } from "../hooks";
 import type { Order } from "../types";
 import { OrderCard } from "./OrderCard";
@@ -154,17 +154,19 @@ export function OrderList({
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex items-center justify-center gap-2">
-                        {/* إرسال واتساب */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            window.open(buildOrderWhatsAppLink(ord), "_blank")
-                          }
-                          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-canvas text-info transition-colors"
-                          title="إرسال تفاصيل واتساب"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
+                        {/* إرسال واتساب — رقما الهاتف اختياريان، فلا زر بلا رقم */}
+                        {hasWhatsAppNumber(ord) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              window.open(buildOrderWhatsAppLink(ord), "_blank")
+                            }
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-canvas text-info transition-colors"
+                            title="إرسال تفاصيل واتساب"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                        )}
                         {/* تعديل الطلب */}
                         <button
                           type="button"

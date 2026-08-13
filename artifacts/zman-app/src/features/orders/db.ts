@@ -16,7 +16,9 @@ export const order = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     customerName: text("customer_name").notNull(),
-    customerPhone: text("customer_phone").notNull(),
+    // كلا الرقمين اختياريان: قد يأتي الطلب من زبون حاضر في الورشة بلا رقم.
+    // NULL = لا رقم (لا نُخزّن سلسلة فارغة — انظر migration 0027).
+    customerPhone: text("customer_phone"),
     customerPhoneAlt: text("customer_phone_alt"),
     productName: text("product_name").notNull(),
     quantity: integer("quantity").notNull().default(1),

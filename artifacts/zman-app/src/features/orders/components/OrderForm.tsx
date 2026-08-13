@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, TrendingDown, TrendingUp, AlertTriangle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
@@ -25,6 +25,54 @@ interface OrderFormProps {
   onCancel: () => void;
 }
 
+// Phase 1: قاعدة بيانات تُعيد catalogComponentId كـ string | null (Drizzle يستنتج
+// null للأعمدة nullable). Zod تستعمل .optional() (= string | undefined). نُحوّل
+// null → undefined لمطابقة نموذج الإدخال عند تعبئة defaultValues/reset. actions.ts
+// يُحوّل undefined → null عند الكتابة للـ DB (?? null).
+const toFormComponents = (comps: OrderWithComponents["components"] | undefined) =>
+  (comps || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    costCents: c.costCents,
+    quantity: c.quantity,
+    catalogComponentId: c.catalogComponentId ?? undefined,
+  }));
+
+// قيم النموذج المشتقّة من طلب قائم. مُستخدَمة في defaultValues وفي reset معاً
+// حتى لا ينحرف التعريفان (كانا مكرّرين حرفياً قبل هذا).
+// رقما الهاتف nullable في قاعدة البيانات وحقول الإدخال لا تقبل null — نُحوّلهما
+// إلى "" هنا، والـ zod schema يُعيدهما إلى null عند الحفظ.
+const toEditValues = (data: OrderWithComponents) => ({
+  id: data.id,
+  updatedAt: data.updatedAt ? new Date(data.updatedAt).toISOString() : "",
+  customerName: data.customerName,
+  customerPhone: data.customerPhone || "",
+  customerPhoneAlt: data.customerPhoneAlt || "",
+  productName: data.productName,
+  quantity: data.quantity,
+  components: toFormComponents(data.components),
+  additionalCostsCents: data.additionalCostsCents ?? 0,
+  totalPriceCents: data.totalPriceCents,
+  notes: data.notes || "",
+  deliveryDate: data.deliveryDate || "",
+  receivedDate: data.receivedDate
+    ? new Date(data.receivedDate).toLocaleDateString("en-CA")
+    : new Date().toLocaleDateString("en-CA"),
+  depositCents: data.depositCents ?? 0,
+  depositDate: data.depositDate || "",
+  deliveryPaidCents: data.deliveryPaidCents ?? 0,
+  additionalProfitCents: data.additionalProfitCents ?? 0,
+});
+
+// نموذج واحد يخدم الإنشاء والتعديل: الإنشاء يحمل requestId، والتعديل يحمل
+// id/updatedAt. نجعل الثلاثة اختيارية في نوع القيم حتى يقبل useForm الفرعين
+// بلا cast — فتبقى reset() و setValue() مفحوصتين فعلياً.
+type OrderFormValues = Omit<ReturnType<typeof toEditValues>, "id" | "updatedAt"> & {
+  id?: string;
+  updatedAt?: string;
+  requestId?: string;
+};
+
 export function OrderForm({
   initialData,
   onSubmitSuccess,
@@ -44,21 +92,6 @@ export function OrderForm({
 
   const schema = isEditMode ? updateOrderSchema : createOrderSchema;
 
-  // Phase 1: قاعدة بيانات تُعيد catalogComponentId كـ string | null (Drizzle يستنتج
-  // null للأعمدة nullable). Zod تستعمل .optional() (= string | undefined). نُحوّل
-  // null → undefined لمطابقة نموذج الإدخال عند تعبئة defaultValues/reset. actions.ts
-  // يُحوّل undefined → null عند الكتابة للـ DB (?? null).
-  const toFormComponents = (
-    comps: OrderWithComponents["components"] | undefined,
-  ) =>
-    (comps || []).map((c) => ({
-      id: c.id,
-      name: c.name,
-      costCents: c.costCents,
-      quantity: c.quantity,
-      catalogComponentId: c.catalogComponentId ?? undefined,
-    }));
-
   const {
     register,
     handleSubmit,
@@ -68,34 +101,17 @@ export function OrderForm({
     setValue,
     reset,
     formState: { errors, isDirty },
-  } = useForm({
+    // القيم الخام في الحقول (OrderFormValues) تختلف عن مخرجات zod بعد التحويل
+    // (CreateOrderInput | UpdateOrderInput) — مثلاً "" في حقل الهاتف تصير null.
+    // المعامل الثالث لـ useForm هو نوع القيم المحوَّلة التي يستقبلها onSubmit.
+  } = useForm<OrderFormValues, unknown, CreateOrderInput | UpdateOrderInput>({
+    // الـ schema يُختار وقت التشغيل بين إنشاء/تعديل، ولا يستطيع نظام الأنواع
+    // التعبير عن ذلك — لذا يبقى الـ resolver بلا نوع كما كان.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(schema as any),
+    resolver: zodResolver(schema as any) as any,
     mode: "onBlur",
     defaultValues: isEditMode
-      ? {
-          id: initialData.id,
-          updatedAt: initialData.updatedAt
-            ? new Date(initialData.updatedAt).toISOString()
-            : "",
-          customerName: initialData.customerName,
-          customerPhone: initialData.customerPhone,
-          customerPhoneAlt: initialData.customerPhoneAlt || "",
-          productName: initialData.productName,
-          quantity: initialData.quantity,
-          components: toFormComponents(initialData.components),
-          additionalCostsCents: initialData.additionalCostsCents ?? 0,
-          totalPriceCents: initialData.totalPriceCents,
-          notes: initialData.notes || "",
-          deliveryDate: initialData.deliveryDate || "",
-          receivedDate: initialData.receivedDate
-            ? new Date(initialData.receivedDate).toLocaleDateString("en-CA")
-            : new Date().toLocaleDateString("en-CA"),
-          depositCents: initialData.depositCents ?? 0,
-          depositDate: initialData.depositDate || "",
-          deliveryPaidCents: initialData.deliveryPaidCents ?? 0,
-          additionalProfitCents: initialData.additionalProfitCents ?? 0,
-        }
+      ? toEditValues(initialData)
       : {
           requestId,
           customerName: "",
@@ -116,33 +132,32 @@ export function OrderForm({
         },
   });
 
-  // إعادة ضبط قيم النموذج عند تحميل أو تغيير بيانات التعديل
+  // ── إعادة الضبط عند تبديل الطلب المُعدَّل — لا عند كل إعادة جلب ──────────
+  //
+  // 🔴 الخطأ الذي كان هنا: الـ effect كان يعتمد على `initialData` نفسه. البيانات
+  // تأتي من `useOrder` (React Query) والـ QueryClient مضبوط على
+  // `refetchOnWindowFocus: true` مع `staleTime: 30s`، وكل mutation في التطبيق
+  // يُبطل `orderKeys.all` — أي أن الاستعلام يُعاد جلبه كثيراً، وكل إعادة جلب
+  // تُنتج **كائناً جديداً** حتى لو لم يتغيّر أي حقل. فيُطلق الـ effect
+  // ويستدعي reset() فيمحو ما كتبه المالك قبل أن يضغط «حفظ».
+  //
+  // على الهاتف كان هذا يحدث في كل مرة يخرج فيها من التطبيق ويعود (أو يفتح
+  // الكيبورد ويغلقه) أثناء التعديل — تختفي التعديلات وترجع البيانات القديمة.
+  //
+  // الإصلاح: نُعيد الضبط فقط عند تغيّر **هوية** الطلب (id)، لا عند تغيّر
+  // مرجع الكائن. القيم الأولية تُحمَّل أصلاً عبر defaultValues (الحاوية لا
+  // تُركّب النموذج قبل وصول البيانات)، وOrdersClient يمرّر key={editId} فيُعاد
+  // تركيب المكوّن عند تبديل الطلب — فهذا الحارس شبكة أمان مزدوجة.
+  //
+  // ملاحظة عن التزامن: عدم مزامنة `updatedAt` مع الخادم أثناء التعديل مقصود.
+  // إن عدّل جهاز آخر نفس الطلب، يفشل الحفظ برسالة «عدّلته جهة أخرى» بدل أن
+  // يدهس تعديل الآخر بصمت — وهو سلوك التزامن المتفائل المطلوب.
+  const loadedOrderIdRef = useRef<string | null>(initialData?.id ?? null);
   useEffect(() => {
-    if (initialData) {
-      reset({
-        id: initialData.id,
-        updatedAt: initialData.updatedAt
-          ? new Date(initialData.updatedAt).toISOString()
-          : "",
-        customerName: initialData.customerName,
-        customerPhone: initialData.customerPhone,
-        customerPhoneAlt: initialData.customerPhoneAlt || "",
-        productName: initialData.productName,
-        quantity: initialData.quantity,
-        components: toFormComponents(initialData.components),
-        additionalCostsCents: initialData.additionalCostsCents ?? 0,
-        totalPriceCents: initialData.totalPriceCents,
-        notes: initialData.notes || "",
-        deliveryDate: initialData.deliveryDate || "",
-        receivedDate: initialData.receivedDate
-          ? new Date(initialData.receivedDate).toLocaleDateString("en-CA")
-          : new Date().toLocaleDateString("en-CA"),
-        depositCents: initialData.depositCents ?? 0,
-        depositDate: initialData.depositDate || "",
-        deliveryPaidCents: initialData.deliveryPaidCents ?? 0,
-        additionalProfitCents: initialData.additionalProfitCents ?? 0,
-      });
-    }
+    if (!initialData) return;
+    if (loadedOrderIdRef.current === initialData.id) return;
+    loadedOrderIdRef.current = initialData.id;
+    reset(toEditValues(initialData));
   }, [initialData, reset]);
 
   // ── مسودة localStorage (Issue #7) — إنشاء فقط، لا تُ persist في وضع التعديل ──
@@ -314,7 +329,7 @@ export function OrderForm({
 
           <TextField
             id="customer-phone"
-            label="رقم الهاتف"
+            label="رقم الهاتف (اختياري)"
             type="tel"
             inputMode="tel"
             autoComplete="tel"

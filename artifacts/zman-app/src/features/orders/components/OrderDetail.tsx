@@ -21,7 +21,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { Button } from "@/components/shared/Button";
 import { cn } from "@/lib/utils";
-import { buildOrderWhatsAppLink } from "@/lib/whatsapp";
+import { buildOrderWhatsAppLink, hasWhatsAppNumber } from "@/lib/whatsapp";
 import { useConvertOrderToSale, useReverseSale } from "../../finance/hooks";
 import { useDeleteOrder, useOrder, useUpdateOrderStatus, useMessageTemplate } from "../hooks";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -243,10 +243,14 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             <h3 className="text-xl font-bold text-ink leading-tight">
               {orderData.customerName}
             </h3>
-            <span className="text-sm text-ink-2 block mt-1" dir="ltr">
-              {orderData.customerPhone}
-              {orderData.customerPhoneAlt && ` / ${orderData.customerPhoneAlt}`}
-            </span>
+            {/* رقما الهاتف اختياريان — قد لا يوجد أيٌّ منهما */}
+            {(orderData.customerPhone || orderData.customerPhoneAlt) && (
+              <span className="text-sm text-ink-2 block mt-1" dir="ltr">
+                {[orderData.customerPhone, orderData.customerPhoneAlt]
+                  .filter(Boolean)
+                  .join(" / ")}
+              </span>
+            )}
           </div>
 
           <StatusBadge
@@ -491,13 +495,16 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
 
       {/* زر التراسل السريع والاتفاق: شريط سفلي لاصق في الهاتف للإبهام ومرن بالديسكتوب (§9.1) */}
       <div className="sticky bottom-0 bg-paper border-t border-hairline p-4 flex flex-col gap-3 lg:static lg:p-0 lg:bg-transparent lg:border-none z-sticky lg:z-auto">
-        <Button
-          onClick={handleWhatsApp}
-          className="w-full py-3"
-          icon={<MessageSquare className="w-5 h-5" />}
-        >
-          <span>إرسال تفاصيل العرض عبر واتساب</span>
-        </Button>
+        {/* رقما الهاتف اختياريان — لا زر واتساب بلا رقم */}
+        {hasWhatsAppNumber(orderData) && (
+          <Button
+            onClick={handleWhatsApp}
+            className="w-full py-3"
+            icon={<MessageSquare className="w-5 h-5" />}
+          >
+            <span>إرسال تفاصيل العرض عبر واتساب</span>
+          </Button>
+        )}
         {orderData.status !== "delivered" &&
           orderData.status !== "cancelled" && (
             <Button
