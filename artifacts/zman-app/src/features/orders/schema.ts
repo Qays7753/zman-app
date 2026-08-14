@@ -1,10 +1,16 @@
 import { z } from "zod";
 
 /**
- * رقم هاتف اختياري. حقول الإدخال في المتصفّح تُرجع سلسلة فارغة لا `undefined`
- * عند تركها فارغة، فنُطبّعها هنا إلى `null` — لتصل قاعدة البيانات قيمة واحدة
- * تعني «لا رقم» بدل قيمتين (`''` و`NULL`) تكسران أي فحص لاحق مثل
- * `if (order.customerPhone)` أو فرز/بحث على العمود.
+ * رقم هاتف اختياري — يُطبَّع إلى سلسلة فارغة `""` عند غيابه، لا إلى `NULL`.
+ *
+ * لماذا `""` لا `NULL`؟ عمود `order.customer_phone` في قاعدة الإنتاج ما زال
+ * `NOT NULL`، و`""` تُحقّق هذا القيد بينما `NULL` تكسره. أي أن جعل الرقم
+ * اختيارياً بهذه الطريقة **لا يحتاج أي تعديل على قاعدة البيانات** — لا
+ * migration ولا ALTER TABLE. القيد `char_length(...) <= 32` يمرّ أيضاً.
+ *
+ * `""` هي القيمة الوحيدة التي تعني «لا رقم» في الكود الجديد. الصفوف القديمة
+ * قد تحمل `NULL` في العمود البديل (كان nullable من قبل)، فكل قراءة تستعمل
+ * `|| ""` أو `hasWhatsAppNumber()` وكلاهما يتعامل مع الاثنتين سواءً بسواء.
  */
 const optionalPhone = (tooLongMessage: string) =>
   z
@@ -12,10 +18,7 @@ const optionalPhone = (tooLongMessage: string) =>
     .max(32, tooLongMessage)
     .nullable()
     .optional()
-    .transform((val) => {
-      const trimmed = (val ?? "").trim();
-      return trimmed.length > 0 ? trimmed : null;
-    });
+    .transform((val) => (val ?? "").trim());
 
 export const orderComponentInputSchema = z.object({
   id: z.string().uuid().optional(),

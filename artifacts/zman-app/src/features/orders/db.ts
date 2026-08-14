@@ -16,9 +16,11 @@ export const order = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     customerName: text("customer_name").notNull(),
-    // كلا الرقمين اختياريان: قد يأتي الطلب من زبون حاضر في الورشة بلا رقم.
-    // NULL = لا رقم (لا نُخزّن سلسلة فارغة — انظر migration 0027).
-    customerPhone: text("customer_phone"),
+    // كلا الرقمين اختياريان في الواجهة: قد يأتي الطلب من زبون حاضر في الورشة
+    // بلا رقم. العمود يبقى NOT NULL عمداً — «لا رقم» تُخزَّن سلسلة فارغة `""`
+    // (انظر optionalPhone في schema.ts). هكذا صار الرقم اختيارياً **بلا أي
+    // migration**: `""` تُحقّق NOT NULL بينما NULL كانت ستكسره.
+    customerPhone: text("customer_phone").notNull(),
     customerPhoneAlt: text("customer_phone_alt"),
     productName: text("product_name").notNull(),
     quantity: integer("quantity").notNull().default(1),
