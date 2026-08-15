@@ -22,9 +22,13 @@ import {
   cashMovement,
   ownerTransaction,
   openingBalance,
+  receivable,
+  receivablePayment,
   type Account,
   type OwnerTransaction,
   type OpeningBalance,
+  type Receivable,
+  type ReceivablePayment,
 } from "./db";
 // Phase 3 — value import من catalog/db لجلب الصنف المرتبط في createPurchase.
 import { catalogComponent } from "../catalog/db";
@@ -47,6 +51,8 @@ import {
   accountInputSchema,
   ownerTransactionInputSchema,
   openingBalanceInputSchema,
+  receivableInputSchema,
+  receivablePaymentInputSchema,
 } from "./schema";
 // Issue #16 — logAction (defensive audit logger). Runs OUTSIDE the caller's
 // db.transaction, swallows ALL errors. Imported here so every create/update/
@@ -2825,7 +2831,424 @@ export async function lockOpeningBalance(id: string): Promise<ActionResponse> {
 }
 
 // -------------------------------------------------------------
-// 9. فحص السلامة المالية (Financial Integrity Check)
+// 9. إجراءات الذمم المدينة وسدادها (Receivables Actions)
+// -------------------------------------------------------------
+
+export async function createReceivable(
+  rawInput: unknown,
+  requestId?: string,
+): Promise<ActionResponse<Receivable>> {
+  const { success } = await checkRateLimit();
+  if (!success) {
+    return {
+      status: "error",
+      message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة",
+    };
+  }
+
+  const parsed = receivableInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "بيانات الإدخال غير صالحة",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result: ActionResponse<Receivable> = await db.transaction(async (tx) => {
+      if (requestId) {
+        const [existingKey] = await tx
+          .select()
+          .from(idempotencyKey)
+          .where(eq(idempotencyKey.requestId, requestId));
+
+        if (existingKey) {
+          if (existingKey.action === "create_receivable") {
+            const [r] = await tx
+              .select()
+              .from(receivable)
+              .where(and(eq(receivable.id, existingKey.targetId), isNull(receivable.deletedAt)));
+            if (r) return { status: "ok", data: r };
+          }
+          return { status: "error", message: "معرف الطلب مستخدم لعملية أخرى" };
+        }
+      }
+
+      // التحقق من الحساب المالي
+      const [acc] = await tx
+        .select()
+        .from(account)
+        .where(and(eq(account.id, parsed.data.accountId), isNull(account.deletedAt)));
+
+      if (!acc) {
+        return { status: "error", message: "الحساب المالي غير موجود أو محذوف" };
+      }
+
+      const [newRec] = await tx
+        .insert(receivable)
+        .values({
+          date: parsed.data.date,
+          personName: parsed.data.personName.trim(),
+          amountCents: parsed.data.amountCents,
+          accountId: parsed.data.accountId,
+          notes: parsed.data.notes?.trim() || "",
+        })
+        .returning();
+
+      if (!newRec) throw new Error("فشل تسجيل الذمة المدينة");
+
+      // إدراج حركة الصندوق (خروج نقد دون مساس بالربح — ذمة مدينة)
+      await tx.insert(cashMovement).values({
+        date: newRec.date,
+        accountId: newRec.accountId,
+        direction: "out",
+        amountCents: newRec.amountCents,
+        sourceType: "receivable",
+        sourceId: newRec.id,
+        description: `دَين لشخص: ${newRec.personName}${newRec.notes ? ` — ${newRec.notes}` : ""}`,
+      });
+
+      if (requestId) {
+        await tx.insert(idempotencyKey).values({
+          requestId,
+          action: "create_receivable",
+          targetId: newRec.id,
+        });
+      }
+
+      revalidatePath("/finance");
+      revalidatePath("/reports");
+      return { status: "ok", data: newRec };
+    });
+
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_receivable",
+        entityType: "receivable",
+        entityId: result.data.id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+export async function deleteReceivable(
+  id: string,
+  updatedAt?: string,
+): Promise<ActionResponse<Receivable>> {
+  const { success } = await checkRateLimit();
+  if (!success) {
+    return {
+      status: "error",
+      message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة",
+    };
+  }
+
+  try {
+    const result: ActionResponse<Receivable> = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(receivable)
+        .where(and(eq(receivable.id, id), isNull(receivable.deletedAt)))
+        .for("update");
+
+      if (!existing) {
+        return { status: "error", message: "السجل غير موجود أو تم حذفه مسبقاً" };
+      }
+
+      if (updatedAt) {
+        const clientTime = new Date(updatedAt).getTime();
+        const dbTime = new Date(existing.updatedAt).getTime();
+        if (clientTime !== dbTime) {
+          return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
+        }
+      }
+
+      const now = new Date();
+
+      // حذف ناعم للدين
+      const [deleted] = await tx
+        .update(receivable)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(eq(receivable.id, id))
+        .returning();
+
+      // جلب معرفات الدفعات المرتبطة لحذفها وحذف حركات الصندوق التابعة
+      const payments = await tx
+        .select({ id: receivablePayment.id })
+        .from(receivablePayment)
+        .where(and(eq(receivablePayment.receivableId, id), isNull(receivablePayment.deletedAt)));
+
+      const paymentIds = payments.map((p) => p.id);
+
+      // حذف ناعم للدفعات المرتبطة
+      if (paymentIds.length > 0) {
+        await tx
+          .update(receivablePayment)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(and(eq(receivablePayment.receivableId, id), isNull(receivablePayment.deletedAt)));
+      }
+
+      // حذف ناعم لحركة الصندوق الخاصة بالإقراض
+      await tx
+        .update(cashMovement)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(cashMovement.sourceType, "receivable"),
+            eq(cashMovement.sourceId, id),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+
+      // حذف ناعم لحركات الصندوق الخاصة بالدفعات
+      for (const pId of paymentIds) {
+        await tx
+          .update(cashMovement)
+          .set({ deletedAt: now, updatedAt: now })
+          .where(
+            and(
+              eq(cashMovement.sourceType, "receivable_payment"),
+              eq(cashMovement.sourceId, pId),
+              isNull(cashMovement.deletedAt),
+            ),
+          );
+      }
+
+      revalidatePath("/finance");
+      revalidatePath("/reports");
+      return { status: "ok", data: deleted };
+    });
+
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_receivable",
+        entityType: "receivable",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+export async function createReceivablePayment(
+  rawInput: unknown,
+  requestId?: string,
+): Promise<ActionResponse<ReceivablePayment>> {
+  const { success } = await checkRateLimit();
+  if (!success) {
+    return {
+      status: "error",
+      message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة",
+    };
+  }
+
+  const parsed = receivablePaymentInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "بيانات الإدخال غير صالحة",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result: ActionResponse<ReceivablePayment> = await db.transaction(async (tx) => {
+      if (requestId) {
+        const [existingKey] = await tx
+          .select()
+          .from(idempotencyKey)
+          .where(eq(idempotencyKey.requestId, requestId));
+
+        if (existingKey) {
+          if (existingKey.action === "create_receivable_payment") {
+            const [p] = await tx
+              .select()
+              .from(receivablePayment)
+              .where(and(eq(receivablePayment.id, existingKey.targetId), isNull(receivablePayment.deletedAt)));
+            if (p) return { status: "ok", data: p };
+          }
+          return { status: "error", message: "معرف الطلب مستخدم لعملية أخرى" };
+        }
+      }
+
+      // جلب الدين الأصلي والتحقق من وجوده
+      const [rec] = await tx
+        .select()
+        .from(receivable)
+        .where(and(eq(receivable.id, parsed.data.receivableId), isNull(receivable.deletedAt)))
+        .for("update");
+
+      if (!rec) {
+        return { status: "error", message: "سجل الدَّين غير موجود أو تم حذفه" };
+      }
+
+      // التحقق من الحساب المالي
+      const [acc] = await tx
+        .select()
+        .from(account)
+        .where(and(eq(account.id, parsed.data.accountId), isNull(account.deletedAt)));
+
+      if (!acc) {
+        return { status: "error", message: "الحساب المالي المستلم غير موجود أو محذوف" };
+      }
+
+      // حساب المتبقي من الدين
+      const [paidSum] = await tx
+        .select({ total: sum(receivablePayment.amountCents) })
+        .from(receivablePayment)
+        .where(
+          and(
+            eq(receivablePayment.receivableId, rec.id),
+            isNull(receivablePayment.deletedAt),
+          ),
+        );
+
+      const existingPaidCents = Number(paidSum?.total) || 0;
+      const remainingCents = Math.max(0, rec.amountCents - existingPaidCents);
+
+      if (remainingCents <= 0) {
+        return { status: "error", message: "هذا الدَّين مسدَّد بالكامل بالفعل" };
+      }
+
+      if (parsed.data.amountCents > remainingCents) {
+        return {
+          status: "error",
+          message: `مبلغ الدفعة (${(parsed.data.amountCents / 1000).toFixed(3)} د.أ) يتجاوز المبلغ المتبقي (${(remainingCents / 1000).toFixed(3)} د.أ)`,
+        };
+      }
+
+      const [newPayment] = await tx
+        .insert(receivablePayment)
+        .values({
+          receivableId: rec.id,
+          date: parsed.data.date,
+          amountCents: parsed.data.amountCents,
+          accountId: parsed.data.accountId,
+          notes: parsed.data.notes?.trim() || "",
+        })
+        .returning();
+
+      if (!newPayment) throw new Error("فشل تسجيل دفعة السداد");
+
+      // إدراج حركة الصندوق (دخول نقد كاسترداد دين دون مساس بالربح)
+      await tx.insert(cashMovement).values({
+        date: newPayment.date,
+        accountId: newPayment.accountId,
+        direction: "in",
+        amountCents: newPayment.amountCents,
+        sourceType: "receivable_payment",
+        sourceId: newPayment.id,
+        description: `سداد دفعة دين: ${rec.personName}${newPayment.notes ? ` — ${newPayment.notes}` : ""}`,
+      });
+
+      if (requestId) {
+        await tx.insert(idempotencyKey).values({
+          requestId,
+          action: "create_receivable_payment",
+          targetId: newPayment.id,
+        });
+      }
+
+      revalidatePath("/finance");
+      revalidatePath("/reports");
+      return { status: "ok", data: newPayment };
+    });
+
+    if (result.status === "ok") {
+      await logAction({
+        action: "create_receivable_payment",
+        entityType: "receivable_payment",
+        entityId: result.data.id,
+        changesSnapshot: parsed.data,
+      });
+    }
+    return result;
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+export async function deleteReceivablePayment(
+  id: string,
+  updatedAt?: string,
+): Promise<ActionResponse<ReceivablePayment>> {
+  const { success } = await checkRateLimit();
+  if (!success) {
+    return {
+      status: "error",
+      message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة",
+    };
+  }
+
+  try {
+    const result: ActionResponse<ReceivablePayment> = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(receivablePayment)
+        .where(and(eq(receivablePayment.id, id), isNull(receivablePayment.deletedAt)))
+        .for("update");
+
+      if (!existing) {
+        return { status: "error", message: "دفعة السداد غير موجودة أو تم حذفها" };
+      }
+
+      if (updatedAt) {
+        const clientTime = new Date(updatedAt).getTime();
+        const dbTime = new Date(existing.updatedAt).getTime();
+        if (clientTime !== dbTime) {
+          return { status: "error", message: "تم تحديث البيانات من جهة أخرى" };
+        }
+      }
+
+      const now = new Date();
+
+      const [deleted] = await tx
+        .update(receivablePayment)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(eq(receivablePayment.id, id))
+        .returning();
+
+      // حذف حركة الصندوق التابعة للدفعة
+      await tx
+        .update(cashMovement)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(cashMovement.sourceType, "receivable_payment"),
+            eq(cashMovement.sourceId, id),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+
+      revalidatePath("/finance");
+      revalidatePath("/reports");
+      return { status: "ok", data: deleted };
+    });
+
+    if (result.status === "ok") {
+      await logAction({
+        action: "delete_receivable_payment",
+        entityType: "receivable_payment",
+        entityId: id,
+        changesSnapshot: { deleted: true },
+      });
+    }
+    return result;
+  } catch (error) {
+    return { status: "error", message: mapDbError(error) };
+  }
+}
+
+// -------------------------------------------------------------
+// 10. فحص السلامة المالية (Financial Integrity Check)
 // -------------------------------------------------------------
 
 export async function runFinancialIntegrityCheckAction(

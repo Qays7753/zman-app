@@ -3,7 +3,7 @@
 import { count, desc, isNull, sql, sum, gte, and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import type { ActionResponse } from "../finance/actions";
-import { expense, purchase, sale, account, cashMovement, ownerTransaction, openingBalance } from "../finance/db";
+import { expense, purchase, sale, account, cashMovement, ownerTransaction, openingBalance, receivable, receivablePayment } from "../finance/db";
 import { order } from "../orders/db";
 // Phase 3-revised (D4 fix) — catalogMovement لحساب inventoryValueCents و
 // cogsCentsToDate في getFinancialPosition. لا حاجة لـ JOIN catalog_component لأن
@@ -126,6 +126,8 @@ export async function downloadReport(
 | :--- | :--- |
 | نقدية الصندوق | ${formatFilsToJod(p.assets.cashCents)} |
 | أرصدة البنك | ${formatFilsToJod(p.assets.bankCents)} |
+| قيمة المخزون | ${formatFilsToJod(p.assets.inventoryValueCents)} |
+| ذمم مدينة (ديون مستردة) | ${formatFilsToJod(p.assets.receivablesCents)} |
 | **إجمالي الأصول** | **${formatFilsToJod(p.assets.totalCents)}** |
 
 ---
@@ -609,6 +611,11 @@ export type FinancialPositionData = {
      * (وليست تقدير defaultCostCents كما كانت قبل D4). تُضاف لـ totalCents.
      */
     inventoryValueCents: number;
+    /**
+     * الذمم المدينة (الديون النقدية للأشخاص غير المسددة حتى asOfDate).
+     * أصل متداول يُضاف لـ totalCents ولا يمس الربح التشغيلي.
+     */
+    receivablesCents: number;
     totalCents: number;
   };
   liabilities: {
@@ -741,7 +748,34 @@ export async function getFinancialPosition(
         );
       const inventoryValueCents = Number(inventoryValRow?.inventoryValueCents) || 0;
 
-      const totalAssets = totalCashCents + totalBankCents + inventoryValueCents;
+      // الذمم المدينة (الديون النقدية للأشخاص غير المسددة حتى asOfDate)
+      const [recSumRes] = await tx
+        .select({ total: sum(receivable.amountCents) })
+        .from(receivable)
+        .where(
+          and(
+            isNull(receivable.deletedAt),
+            sql`${receivable.date} <= ${asOfDate}`,
+          ),
+        );
+      const recOriginalCents = Number(recSumRes?.total) || 0;
+
+      const [recPaySumRes] = await tx
+        .select({ total: sum(receivablePayment.amountCents) })
+        .from(receivablePayment)
+        .innerJoin(receivable, eq(receivablePayment.receivableId, receivable.id))
+        .where(
+          and(
+            isNull(receivablePayment.deletedAt),
+            isNull(receivable.deletedAt),
+            sql`${receivablePayment.date} <= ${asOfDate}`,
+            sql`${receivable.date} <= ${asOfDate}`,
+          ),
+        );
+      const recPaidCents = Number(recPaySumRes?.total) || 0;
+      const receivablesCents = Math.max(0, recOriginalCents - recPaidCents);
+
+      const totalAssets = totalCashCents + totalBankCents + inventoryValueCents + receivablesCents;
 
       // 2. التزامات عربون العملاء غير الموصلة (Customer deposits deferred)
       const [depositsRes] = await tx
@@ -992,6 +1026,7 @@ export async function getFinancialPosition(
             cashCents: totalCashCents,
             bankCents: totalBankCents,
             inventoryValueCents,
+            receivablesCents,
             totalCents: totalAssets,
           },
           liabilities: {

@@ -10,6 +10,8 @@ import {
   purchase,
   sale,
   openingBalance,
+  receivable,
+  receivablePayment,
 } from "./db";
 import { order, orderComponent } from "../orders/db";
 // Phase 3 — IC-12 يجمع رصيد catalog_movement مع defaultCostCents من catalog_component.
@@ -68,7 +70,7 @@ export async function runFinancialIntegrityCheck(
   // 21 ساعة في اليوم لكنه يخالف getMonthlyProfit لمدة 3 ساعات عند منتصف الشهر.
   const effectiveDate = asOfDate ?? getAmmanDate();
 
-  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14] =
+  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14, ic15] =
     await Promise.all([
       checkIC1EquityDrift(effectiveDate),
       checkIC2OrphanMovements(),
@@ -87,9 +89,11 @@ export async function runFinancialIntegrityCheck(
       checkIC13PnlSourcesConsistency(effectiveDate),
       // Phase 4 — IC-14: القيمة الدفترية للأصول الرأسمالية المُهلَكة. WARN فقط.
       checkIC14CapitalAssetValuation(effectiveDate),
+      // Phase 5 — IC-15: تطابق حركات الذمم المدينة وسدادها مع دفتر الصندوق.
+      checkIC15ReceivablesLedgerReconciliation(effectiveDate),
     ]);
 
-  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14];
+  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14, ic15];
 
   const overallStatus: IntegrityCheckStatus = results.some(
     (r) => r.status === "FAIL",
@@ -356,6 +360,36 @@ async function checkIC2OrphanMovements(): Promise<IntegrityCheckResult> {
       ),
     );
 
+  const orphanReceivables = await db
+    .select({ id: cashMovement.id })
+    .from(cashMovement)
+    .leftJoin(
+      receivable,
+      and(eq(cashMovement.sourceId, receivable.id), isNull(receivable.deletedAt)),
+    )
+    .where(
+      and(
+        eq(cashMovement.sourceType, "receivable"),
+        isNull(cashMovement.deletedAt),
+        isNull(receivable.id),
+      ),
+    );
+
+  const orphanReceivablePayments = await db
+    .select({ id: cashMovement.id })
+    .from(cashMovement)
+    .leftJoin(
+      receivablePayment,
+      and(eq(cashMovement.sourceId, receivablePayment.id), isNull(receivablePayment.deletedAt)),
+    )
+    .where(
+      and(
+        eq(cashMovement.sourceType, "receivable_payment"),
+        isNull(cashMovement.deletedAt),
+        isNull(receivablePayment.id),
+      ),
+    );
+
   // F-19: تحقق إضافي — تطابق المبالغ (وليس فقط العدد) لكل زوج تحويل.
   const transferImbalance = await db
     .select({ sourceId: cashMovement.sourceId })
@@ -379,6 +413,8 @@ async function checkIC2OrphanMovements(): Promise<IntegrityCheckResult> {
     ...orphanExpenses.map((r) => `expense-mv:${r.id}`),
     ...orphanDeposits.map((r) => `deposit-mv:${r.id}`),
     ...orphanOwner.map((r) => `owner-mv:${r.id}`),
+    ...orphanReceivables.map((r) => `receivable-mv:${r.id}`),
+    ...orphanReceivablePayments.map((r) => `receivable-pmt-mv:${r.id}`),
     ...transferImbalance.map((r) => `transfer:${r.sourceId ?? "?"}`),
   ];
 
@@ -1319,3 +1355,90 @@ async function checkIC14CapitalAssetValuation(
     suggestedFixAr,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-15 — تطابق حركات الذمم المدينة مع سجل الديون والدفعات (INV-1, INV-11)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC15ReceivablesLedgerReconciliation(
+  asOfDate: string,
+): Promise<IntegrityCheckResult> {
+  // 1. إجمالي الإقراض من جدول receivable
+  const [recTotalRow] = await db
+    .select({ total: sum(receivable.amountCents) })
+    .from(receivable)
+    .where(
+      and(
+        isNull(receivable.deletedAt),
+        sql`${receivable.date} <= ${asOfDate}`,
+      ),
+    );
+  const recOriginalCents = Number(recTotalRow?.total) || 0;
+
+  // 2. إجمالي حركات الصندوق لخروج الديون
+  const [movOutRow] = await db
+    .select({ total: sum(cashMovement.amountCents) })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        eq(cashMovement.direction, "out"),
+        eq(cashMovement.sourceType, "receivable"),
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+        sql`${cashMovement.date} <= ${asOfDate}`,
+      ),
+    );
+  const movOutCents = Number(movOutRow?.total) || 0;
+
+  // 3. إجمالي السداد من جدول receivable_payment
+  const [payTotalRow] = await db
+    .select({ total: sum(receivablePayment.amountCents) })
+    .from(receivablePayment)
+    .innerJoin(receivable, eq(receivablePayment.receivableId, receivable.id))
+    .where(
+      and(
+        isNull(receivablePayment.deletedAt),
+        isNull(receivable.deletedAt),
+        sql`${receivablePayment.date} <= ${asOfDate}`,
+        sql`${receivable.date} <= ${asOfDate}`,
+      ),
+    );
+  const payTotalCents = Number(payTotalRow?.total) || 0;
+
+  // 4. إجمالي حركات الصندوق لدخول سداد الديون
+  const [movInRow] = await db
+    .select({ total: sum(cashMovement.amountCents) })
+    .from(cashMovement)
+    .innerJoin(account, eq(cashMovement.accountId, account.id))
+    .where(
+      and(
+        eq(cashMovement.direction, "in"),
+        eq(cashMovement.sourceType, "receivable_payment"),
+        isNull(cashMovement.deletedAt),
+        isNull(account.deletedAt),
+        sql`${cashMovement.date} <= ${asOfDate}`,
+      ),
+    );
+  const movInCents = Number(movInRow?.total) || 0;
+
+  const outDrift = recOriginalCents - movOutCents;
+  const inDrift = payTotalCents - movInCents;
+  const totalDrift = Math.abs(outDrift) + Math.abs(inDrift);
+
+  const status: IntegrityCheckStatus = totalDrift === 0 ? "PASS" : "FAIL";
+
+  return {
+    id: "IC-15",
+    invariantId: "INV-11",
+    status,
+    titleAr: "تطابق حركات الذمم المدينة مع دفتر الصندوق (ديون + دفعات)",
+    descriptionAr: `إجمالي الديون المسجلة: ${(recOriginalCents / 1000).toFixed(3)} د.أ مقابل حركات خروج: ${(movOutCents / 1000).toFixed(3)} د.أ. إجمالي دفعات السداد: ${(payTotalCents / 1000).toFixed(3)} د.أ مقابل حركات دخول: ${(movInCents / 1000).toFixed(3)} د.أ. (الذمم المتبقية: ${((recOriginalCents - payTotalCents) / 1000).toFixed(3)} د.أ).`,
+    driftCents: totalDrift,
+    suggestedFixAr:
+      totalDrift !== 0
+        ? `يوجد انحراف بين سجلات الذمم المدينة وحركات الصندوق قدره ${(totalDrift / 1000).toFixed(3)} د.أ. تحقّق من وجود حركات ذمم يتيمة أو محذوفة جزئياً.`
+        : undefined,
+  };
+}
+

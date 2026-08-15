@@ -12,8 +12,8 @@ import {
 } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/client";
-import { expense, purchase, sale } from "./db";
-import type { Expense, Purchase, Sale } from "./types";
+import { expense, purchase, sale, receivable, receivablePayment, account } from "./db";
+import type { Expense, Purchase, Sale, Receivable, ReceivablePayment, ReceivableWithPayments } from "./types";
 import { order } from "@/features/orders/db";
 // D7 fix — capital_asset لإظهار زر «إيقاف الإهلاك» على الصفوف التي لها أصل نشط.
 import { capitalAsset } from "../depreciation/db";
@@ -38,10 +38,10 @@ export interface GetSalesFilters extends GetFinanceFilters {
   source?: "manual" | "order";
 }
 
-export type PaymentKind = "expense" | "purchase";
+export type PaymentKind = "expense" | "purchase" | "receivable";
 
 export interface GetPaymentsFilters extends GetFinanceFilters {
-  filter?: "all" | "expense" | "purchase" | "asset";
+  filter?: "all" | "expense" | "purchase" | "asset" | "receivable";
   category?: string;
   nature?: string;
 }
@@ -62,6 +62,12 @@ export interface PaymentItem {
   costNature: string | null;
   isInventoryWriteoff: boolean;
   activeCapitalAssetId: string | null;
+  personName?: string | null;
+  paidAmountCents?: number | null;
+  remainingCents?: number | null;
+  debtStatus?: "open" | "paid" | null;
+  accountId?: string | null;
+  accountName?: string | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -141,6 +147,23 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
     purchaseConds.push(eq(purchase.isCapitalAsset, true));
   }
 
+  // Receivable conditions
+  const receivableConds: (SQL | undefined)[] = [isNull(receivable.deletedAt)];
+  if (filters.startDate) {
+    receivableConds.push(sql`${receivable.date} >= ${filters.startDate}`);
+  }
+  if (filters.endDate) {
+    receivableConds.push(sql`${receivable.date} <= ${filters.endDate}`);
+  }
+  if (filters.search) {
+    receivableConds.push(
+      or(
+        like(receivable.personName, `%${filters.search}%`),
+        like(receivable.notes, `%${filters.search}%`),
+      ),
+    );
+  }
+
   // Cursor handling
   if (filters.cursor) {
     const [cursorTime, cursorId] = filters.cursor.split("|");
@@ -150,6 +173,9 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
     );
     purchaseConds.push(
       sql`(${purchase.createdAt}, ${purchase.id}) < (${cursorTime}::timestamptz, ${cursorId})`,
+    );
+    receivableConds.push(
+      sql`(${receivable.createdAt}, ${receivable.id}) < (${cursorTime}::timestamptz, ${cursorId})`,
     );
   }
 
@@ -251,15 +277,69 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
     return { items, nextCursor };
   }
 
+  // If filter is strictly "receivable", query receivable table only
+  if (activeTabFilter === "receivable") {
+    const rows = await db
+      .select({
+        id: receivable.id,
+        date: receivable.date,
+        title: receivable.personName,
+        amountCents: receivable.amountCents,
+        category: sql<string | null>`'دَين لشخص'`,
+        description: receivable.notes,
+        supplier: sql<string | null>`null`,
+        quantity: sql<number | null>`null`,
+        unitCostCents: sql<number | null>`null`,
+        notes: receivable.notes,
+        isCapitalAsset: sql<boolean>`false`,
+        costNature: sql<string | null>`null`,
+        isInventoryWriteoff: sql<boolean>`false`,
+        activeCapitalAssetId: sql<string | null>`null`,
+        personName: receivable.personName,
+        accountId: receivable.accountId,
+        accountName: account.name,
+        paidAmountCents: sql<number>`coalesce((
+          select sum(${receivablePayment.amountCents})
+          from ${receivablePayment}
+          where ${receivablePayment.receivableId} = ${receivable.id}
+            and ${receivablePayment.deletedAt} is null
+        ), 0)`,
+        createdAt: receivable.createdAt,
+        updatedAt: receivable.updatedAt,
+        deletedAt: receivable.deletedAt,
+      })
+      .from(receivable)
+      .leftJoin(account, eq(receivable.accountId, account.id))
+      .where(and(...receivableConds))
+      .orderBy(desc(receivable.createdAt), desc(receivable.id))
+      .limit(limit + 1);
 
+    const items: PaymentItem[] = rows.map((r) => {
+      const paid = Number(r.paidAmountCents) || 0;
+      const remaining = Math.max(0, r.amountCents - paid);
+      return {
+        ...r,
+        kind: "receivable" as const,
+        paidAmountCents: paid,
+        remainingCents: remaining,
+        debtStatus: remaining <= 0 ? ("paid" as const) : ("open" as const),
+      };
+    });
 
-  // Otherwise ("all" or "asset"), UNION ALL both tables
+    let nextCursor: string | undefined;
+    if (items.length > limit) {
+      items.pop();
+      const lastItem = items[items.length - 1];
+      nextCursor = lastItem
+        ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
+        : undefined;
+    }
+    return { items, nextCursor };
+  }
+
+  // Otherwise ("all" or "asset"), UNION ALL tables
   const expenseQuery = db
     .select({
-      // 🔴 كل عمود محسوب هنا يجب أن يحمل .as() صريحاً. بدونه يُسمّيه PostgreSQL
-      // `?column?`، فتصل الحقول للتطبيق كـ undefined، ويصير `order by id` ملتبساً
-      // (‏ORDER BY "id" is ambiguous) فيفشل الاستعلام كلّه وقت التشغيل — والبناء
-      // لا يكشف ذلك. الأسماء أدناه snake_case لأنها أسماء أعمدة SQL فعلية.
       id: expense.id,
       kind: sql<string>`'expense'`.as("kind"),
       date: expense.date,
@@ -284,14 +364,15 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
           and ${capitalAsset.deletedAt} is null
         limit 1
       )`.as("active_capital_asset_id"),
+      personName: sql<string | null>`null::text`.as("person_name"),
+      accountId: sql<string | null>`null::uuid`.as("account_id"),
+      paidAmountCents: sql<number | null>`null::integer`.as("paid_amount_cents"),
     })
     .from(expense)
     .where(and(...expenseConds));
 
   const purchaseQuery = db
     .select({
-      // ترتيب الأعمدة وأسماؤها يجب أن يطابقا expenseQuery حرفياً — UNION ALL
-      // يطابق بالموضع، والأسماء تأتي من الطرف الأول.
       id: purchase.id,
       kind: sql<string>`'purchase'`.as("kind"),
       date: purchase.date,
@@ -316,11 +397,50 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
           and ${capitalAsset.deletedAt} is null
         limit 1
       )`.as("active_capital_asset_id"),
+      personName: sql<string | null>`null::text`.as("person_name"),
+      accountId: sql<string | null>`null::uuid`.as("account_id"),
+      paidAmountCents: sql<number | null>`null::integer`.as("paid_amount_cents"),
     })
     .from(purchase)
     .where(and(...purchaseConds));
 
-  const unionQuery = unionAll(expenseQuery, purchaseQuery);
+  const receivableQuery = db
+    .select({
+      id: receivable.id,
+      kind: sql<string>`'receivable'`.as("kind"),
+      date: receivable.date,
+      title: sql<string>`${receivable.personName}`.as("title"),
+      amountCents: receivable.amountCents,
+      category: sql<string | null>`'دَين لشخص'::text`.as("category"),
+      description: sql<string | null>`${receivable.notes}`.as("description"),
+      supplier: sql<string | null>`null::text`.as("supplier"),
+      quantity: sql<number | null>`null::integer`.as("quantity"),
+      unitCostCents: sql<number | null>`null::integer`.as("unit_cost_cents"),
+      notes: sql<string | null>`${receivable.notes}`.as("notes"),
+      isCapitalAsset: sql<boolean>`false`.as("is_capital_asset"),
+      costNature: sql<string | null>`null::text`.as("cost_nature"),
+      isInventoryWriteoff: sql<boolean>`false`.as("is_inventory_writeoff"),
+      createdAt: receivable.createdAt,
+      updatedAt: receivable.updatedAt,
+      deletedAt: sql<Date | null>`${receivable.deletedAt}`.as("deleted_at"),
+      activeCapitalAssetId: sql<string | null>`null::uuid`.as("active_capital_asset_id"),
+      personName: sql<string | null>`${receivable.personName}`.as("person_name"),
+      accountId: sql<string | null>`${receivable.accountId}`.as("account_id"),
+      paidAmountCents: sql<number | null>`(
+        select coalesce(sum(${receivablePayment.amountCents}), 0)::integer
+        from ${receivablePayment}
+        where ${receivablePayment.receivableId} = ${receivable.id}
+          and ${receivablePayment.deletedAt} is null
+      )`.as("paid_amount_cents"),
+    })
+    .from(receivable)
+    .where(and(...receivableConds));
+
+  const unionQuery =
+    activeTabFilter === "asset"
+      ? unionAll(expenseQuery, purchaseQuery)
+      : unionAll(expenseQuery, purchaseQuery, receivableQuery);
+
   const rows = await db
     .select()
     .from(unionQuery.as("unified_payments"))
@@ -328,30 +448,45 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
     .orderBy(desc(sql`unified_payments.created_at`), desc(sql`unified_payments.id`))
     .limit(limit + 1);
 
-  const items: PaymentItem[] = rows.map((r: any) => ({
-    id: r.id,
-    kind: r.kind as PaymentKind,
-    date: r.date,
-    title: r.title,
-    // 🔴 قاعدة مُتحقَّق منها بالتشغيل على قاعدة حقيقية: Drizzle يُعيد المفاتيح
-    // بأسماء TypeScript دائماً — حتى للأعمدة المحسوبة. الـ .as("snake_case")
-    // ضروري لـ SQL نفسه (بدونه `?column?` و«ORDER BY id is ambiguous»)، لكنه
-    // لا يُغيّر اسم المفتاح هنا. لا تقرأ snake_case في هذا التعيين.
-    amountCents: Number(r.amountCents),
-    category: r.category,
-    description: r.description,
-    supplier: r.supplier,
-    quantity: r.quantity != null ? Number(r.quantity) : null,
-    unitCostCents: r.unitCostCents != null ? Number(r.unitCostCents) : null,
-    notes: r.notes,
-    isCapitalAsset: Boolean(r.isCapitalAsset),
-    costNature: r.costNature,
-    isInventoryWriteoff: Boolean(r.isInventoryWriteoff),
-    activeCapitalAssetId: r.activeCapitalAssetId,
-    createdAt: new Date(r.createdAt),
-    updatedAt: new Date(r.updatedAt),
-    deletedAt: r.deletedAt ? new Date(r.deletedAt) : null,
-  }));
+  const items: PaymentItem[] = rows.map((r: any) => {
+    const paid = r.paidAmountCents != null ? Number(r.paidAmountCents) : null;
+    const remaining =
+      r.kind === "receivable" && paid != null
+        ? Math.max(0, Number(r.amountCents) - paid)
+        : null;
+    const debtStatus =
+      r.kind === "receivable"
+        ? remaining != null && remaining <= 0
+          ? ("paid" as const)
+          : ("open" as const)
+        : null;
+
+    return {
+      id: r.id,
+      kind: r.kind as PaymentKind,
+      date: r.date,
+      title: r.title,
+      amountCents: Number(r.amountCents),
+      category: r.category,
+      description: r.description,
+      supplier: r.supplier,
+      quantity: r.quantity != null ? Number(r.quantity) : null,
+      unitCostCents: r.unitCostCents != null ? Number(r.unitCostCents) : null,
+      notes: r.notes,
+      isCapitalAsset: Boolean(r.isCapitalAsset),
+      costNature: r.costNature,
+      isInventoryWriteoff: Boolean(r.isInventoryWriteoff),
+      activeCapitalAssetId: r.activeCapitalAssetId,
+      personName: r.personName,
+      paidAmountCents: paid,
+      remainingCents: remaining,
+      debtStatus,
+      accountId: r.accountId,
+      createdAt: new Date(r.createdAt),
+      updatedAt: new Date(r.updatedAt),
+      deletedAt: r.deletedAt ? new Date(r.deletedAt) : null,
+    };
+  });
 
   // 🔴 الـ cursor يُشتقّ من **آخر صفّ مُعاد فعلاً**، لا من الصفّ الزائد المحذوف.
   // الشرط في الصفحة التالية `<` حصري، فاشتقاقه من الصفّ المحذوف يُسقطه نهائياً —
@@ -364,7 +499,6 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
       ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
       : undefined;
   }
-
   return { items, nextCursor };
 }
 
@@ -602,3 +736,165 @@ export async function getSale(id: string): Promise<Sale | null> {
 export async function getExpenseCategories(): Promise<string[]> {
   return ["رواتب", "إيجار", "فواتير", "مواد خام", "تسويق", "صيانة", "أخرى"];
 }
+
+// 4. استعلامات الذمم المدينة (Receivables)
+export async function getReceivables(filters?: {
+  search?: string;
+  status?: "all" | "open" | "paid";
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  cursor?: string;
+}): Promise<{ items: ReceivableWithPayments[]; nextCursor?: string }> {
+  const limit = filters?.limit ?? 50;
+  const conds: (SQL | undefined)[] = [isNull(receivable.deletedAt)];
+
+  if (filters?.startDate) {
+    conds.push(sql`${receivable.date} >= ${filters.startDate}`);
+  }
+  if (filters?.endDate) {
+    conds.push(sql`${receivable.date} <= ${filters.endDate}`);
+  }
+  if (filters?.search) {
+    conds.push(
+      or(
+        like(receivable.personName, `%${filters.search}%`),
+        like(receivable.notes, `%${filters.search}%`),
+      ),
+    );
+  }
+  if (filters?.cursor) {
+    const [cursorTime, cursorId] = filters.cursor.split("|");
+    conds.push(
+      sql`(${receivable.createdAt}, ${receivable.id}) < (${cursorTime}::timestamptz, ${cursorId})`,
+    );
+  }
+
+  const rows = await db
+    .select({
+      id: receivable.id,
+      date: receivable.date,
+      personName: receivable.personName,
+      amountCents: receivable.amountCents,
+      accountId: receivable.accountId,
+      notes: receivable.notes,
+      deletedAt: receivable.deletedAt,
+      createdAt: receivable.createdAt,
+      updatedAt: receivable.updatedAt,
+    })
+    .from(receivable)
+    .where(and(...conds))
+    .orderBy(desc(receivable.createdAt), desc(receivable.id))
+    .limit(limit + 1);
+
+  const recIds = rows.map((r) => r.id);
+  const payments =
+    recIds.length > 0
+      ? await db
+          .select({
+            id: receivablePayment.id,
+            receivableId: receivablePayment.receivableId,
+            date: receivablePayment.date,
+            amountCents: receivablePayment.amountCents,
+            accountId: receivablePayment.accountId,
+            accountName: account.name,
+            notes: receivablePayment.notes,
+            deletedAt: receivablePayment.deletedAt,
+            createdAt: receivablePayment.createdAt,
+            updatedAt: receivablePayment.updatedAt,
+          })
+          .from(receivablePayment)
+          .leftJoin(account, eq(receivablePayment.accountId, account.id))
+          .where(
+            and(
+              sql`${receivablePayment.receivableId} in (${sql.join(recIds.map((id) => sql`${id}::uuid`), sql`, `)})`,
+              isNull(receivablePayment.deletedAt),
+            ),
+          )
+          .orderBy(desc(receivablePayment.date), desc(receivablePayment.createdAt))
+      : [];
+
+  const paymentsByRecId: Record<string, typeof payments> = {};
+  for (const p of payments) {
+    if (!paymentsByRecId[p.receivableId]) {
+      paymentsByRecId[p.receivableId] = [];
+    }
+    paymentsByRecId[p.receivableId].push(p);
+  }
+
+  let items: ReceivableWithPayments[] = rows.map((r) => {
+    const pList = (paymentsByRecId[r.id] || []).map((p) => ({
+      ...p,
+      accountName: p.accountName ?? undefined,
+    }));
+    const paidAmountCents = pList.reduce((acc, p) => acc + p.amountCents, 0);
+    const remainingCents = Math.max(0, r.amountCents - paidAmountCents);
+    const status: "open" | "paid" = remainingCents <= 0 ? "paid" : "open";
+    return {
+      ...r,
+      paidAmountCents,
+      remainingCents,
+      status,
+      payments: pList,
+    };
+  });
+
+  if (filters?.status && filters.status !== "all") {
+    items = items.filter((item) => item.status === filters.status);
+  }
+
+  let nextCursor: string | undefined;
+  if (items.length > limit) {
+    items.pop();
+    const lastItem = items[items.length - 1];
+    nextCursor = lastItem
+      ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
+      : undefined;
+  }
+
+  return { items, nextCursor };
+}
+
+export async function getReceivableById(id: string): Promise<ReceivableWithPayments | null> {
+  const [row] = await db
+    .select()
+    .from(receivable)
+    .where(and(eq(receivable.id, id), isNull(receivable.deletedAt)));
+
+  if (!row) return null;
+
+  const payments = await db
+    .select({
+      id: receivablePayment.id,
+      receivableId: receivablePayment.receivableId,
+      date: receivablePayment.date,
+      amountCents: receivablePayment.amountCents,
+      accountId: receivablePayment.accountId,
+      accountName: account.name,
+      notes: receivablePayment.notes,
+      deletedAt: receivablePayment.deletedAt,
+      createdAt: receivablePayment.createdAt,
+      updatedAt: receivablePayment.updatedAt,
+    })
+    .from(receivablePayment)
+    .leftJoin(account, eq(receivablePayment.accountId, account.id))
+    .where(and(eq(receivablePayment.receivableId, id), isNull(receivablePayment.deletedAt)))
+    .orderBy(desc(receivablePayment.date), desc(receivablePayment.createdAt));
+
+  const pList = payments.map((p) => ({
+    ...p,
+    accountName: p.accountName ?? undefined,
+  }));
+  const paidAmountCents = pList.reduce((acc, p) => acc + p.amountCents, 0);
+  const remainingCents = Math.max(0, row.amountCents - paidAmountCents);
+  const status: "open" | "paid" = remainingCents <= 0 ? "paid" : "open";
+
+  return {
+    ...row,
+    paidAmountCents,
+    remainingCents,
+    status,
+    payments: pList,
+  };
+}
+

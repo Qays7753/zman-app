@@ -614,6 +614,22 @@ export default function ReportsPage() {
                           <AmountText amount={positionData.assets.bankCents} />
                         </span>
                       </div>
+                      {positionData.assets.inventoryValueCents > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-ink/65 font-medium">قيمة المخزون</span>
+                          <span className="font-mono font-bold text-ink">
+                            <AmountText amount={positionData.assets.inventoryValueCents} />
+                          </span>
+                        </div>
+                      )}
+                      {positionData.assets.receivablesCents > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-ink/65 font-medium">ذمم مدينة (ديون مستردة)</span>
+                          <span className="font-mono font-bold text-ink">
+                            <AmountText amount={positionData.assets.receivablesCents} />
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-sm pt-2 border-t border-hairline font-bold text-info">
                         <span>إجمالي الأصول</span>
                         <span className="font-mono">
