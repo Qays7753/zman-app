@@ -80,7 +80,7 @@ export const moreNavItems: NavItem[] = [
     icon: Boxes,
   },
   // Issue #7 — «إدارة فئات المصاريف» نُقِل من هنا إلى زرّ مرئيّ في رأس تبويب
-  // المصاريف داخل ExpensesTab.tsx (يفتح FinanceCatalogModal عبر ?manageCatalog=expenses).
+  // المدفوعات داخل PaymentsTab.tsx (يفتح FinanceCatalogModal عبر ?manageCatalog=expenses).
   // Issue #16 — سجل التدقيق: صفحة /settings/audit-log تعرض كل عمليات
   // create/update/delete المالية. يستخدم ShieldCheck للأيقونة.
   {
