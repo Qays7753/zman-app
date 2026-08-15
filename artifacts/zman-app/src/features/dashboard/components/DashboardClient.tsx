@@ -531,8 +531,8 @@ export function DashboardClient() {
 
           <QuickLink href="/finance?tab=accounts&newAccount=true" icon={<Landmark className="h-6 w-6 text-info" />} label="حساب جديد" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=accounts&newTransfer=true" icon={<ArrowLeftRight className="h-6 w-6 text-info" />} label="تحويل بيني" onClick={() => setIsFabOpen(false)} />
-          <QuickLink href="/finance?tab=owner&newOwnerTx=true" icon={<User className="h-6 w-6 text-alert" />} label="سحب / حقن مالك" onClick={() => setIsFabOpen(false)} />
-          <QuickLink href="/finance?tab=opening" icon={<Settings className="h-6 w-6 text-warn-deep" />} label="أرصدة البداية" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/finance?tab=accounts&newOwnerTx=true" icon={<User className="h-6 w-6 text-alert" />} label="سحب / حقن مالك" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/settings/opening-balance" icon={<Settings className="h-6 w-6 text-warn-deep" />} label="أرصدة البداية" onClick={() => setIsFabOpen(false)} />
         </div>
       </ResponsiveModal>
     </>

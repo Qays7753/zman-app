@@ -27,6 +27,17 @@ import { SmartFinanceForm } from "./SmartFinanceForm";
 import { useDeleteCapitalAsset } from "@/features/depreciation/hooks";
 import { cn } from "@/lib/utils";
 
+const EXPENSE_CATEGORIES = [
+  "الكل",
+  "رواتب",
+  "إيجار",
+  "كهرباء ومياه",
+  "نقل وتوصيل",
+  "تعبئة وتغليف",
+  "صيانة وأدوات",
+  "أخرى",
+] as const;
+
 const FILTER_CHIPS = [
   { id: "all", label: "الكل" },
   { id: "expense", label: "مصاريف" },
@@ -203,18 +214,37 @@ export function PaymentsTab() {
           })}
         </div>
 
-        {/* زر إدارة الفئات يظهر عند تفعيل فلتر المصاريف */}
+        {/* أدوات إضافية تظهر عند تفعيل فلتر المصاريف */}
         {filter === "expense" && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => updateUrl({ manageCatalog: "expenses" })}
-            icon={<Boxes className="w-3.5 h-3.5" />}
-            className="text-xs shrink-0"
-          >
-            إدارة الفئات
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <select
+              value={category}
+              onChange={(e) =>
+                updateUrl({
+                  category: e.target.value === "all" || e.target.value === "الكل" ? null : e.target.value,
+                })
+              }
+              className="text-xs h-9 min-h-[36px] rounded-lg border border-hairline bg-paper px-2.5 text-ink focus:outline-none focus:ring-1 focus:ring-info font-medium"
+              aria-label="تصفية حسب فئة المصروف"
+            >
+              {EXPENSE_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat === "الكل" ? "all" : cat}>
+                  {cat === "الكل" ? "كل الفئات" : cat}
+                </option>
+              ))}
+            </select>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => updateUrl({ manageCatalog: "expenses" })}
+              icon={<Boxes className="w-3.5 h-3.5" />}
+              className="text-xs shrink-0 min-h-[36px]"
+            >
+              إدارة الفئات
+            </Button>
+          </div>
         )}
       </div>
 

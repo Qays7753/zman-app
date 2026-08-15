@@ -1,15 +1,13 @@
 "use client";
 
-import { Banknote, ShoppingCart, Wallet, Plus, User, Settings, Loader2 } from "lucide-react";
+import { Banknote, Wallet, ArrowRight, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState, useEffect, useCallback, useRef } from "react";
+import { useTransition, useState, useEffect, useCallback } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { SkeletonList } from "@/components/shared/SkeletonList";
-import { Button } from "@/components/shared/Button";
 import { FinanceCatalogModal } from "@/features/finance/components/FinanceCatalogModal";
 import { useOpeningBalance } from "@/features/finance/hooks";
-import { cn } from "@/lib/utils";
 import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 import { PageToolbar } from "@/components/shared/PageToolbar";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
@@ -55,17 +53,6 @@ const OwnerTab = dynamic(
   },
 );
 
-const EXPENSE_CATEGORIES = [
-  "الكل",
-  "رواتب",
-  "إيجار",
-  "كهرباء ومياه",
-  "نقل وتوصيل",
-  "تعبئة وتغليف",
-  "صيانة وأدوات",
-  "أخرى",
-];
-
 const SALE_SOURCES = [
   { value: "all", label: "الكل" },
   { value: "manual", label: "يدوي" },
@@ -88,11 +75,13 @@ export default function FinanceClient() {
   const { isLoading: opBalLoading } = useOpeningBalance();
   const rawTab = searchParams.get("tab");
 
-  // دعم التوافق العكسي للروابط القديمة
+  // دعم التوافق العكسي للروابط القديمة والتوجيه الذكي
   const activeTab =
     rawTab === "expenses" || rawTab === "purchases" || rawTab === "payments"
       ? "payments"
-      : rawTab || "sales";
+      : rawTab === "owner"
+        ? "accounts"
+        : rawTab || "sales";
 
   const isReady = !opBalLoading || searchParams.has("tab");
 
@@ -104,6 +93,14 @@ export default function FinanceClient() {
       if (!params.has("filter")) {
         params.set("filter", rawTab === "expenses" ? "expense" : "purchase");
       }
+      router.replace(`${pathname}?${params.toString()}`);
+    } else if (rawTab === "opening") {
+      // توجيه رابط الأرصدة الافتتاحية القديم لمكانه الصحيح
+      router.replace("/settings/opening-balance");
+    } else if (rawTab === "owner") {
+      // توجيه رابط سحب/حقن المالك إلى تبويب الحسابات مع الحفاظ على المعاملات
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "accounts");
       router.replace(`${pathname}?${params.toString()}`);
     }
   }, [rawTab, pathname, router, searchParams]);
@@ -130,7 +127,7 @@ export default function FinanceClient() {
     return () => clearTimeout(t);
   }, [searchInput, currentQuery, pathname, router, searchParams]);
 
-  /* ─── تبديل التبويبات ─── */
+  /* ─── تبديل التبويبات وتنظيف المعاملات ─── */
   const handleTabChange = useCallback((tabId: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tabId);
@@ -138,6 +135,9 @@ export default function FinanceClient() {
     params.delete("category");
     params.delete("source");
     params.delete("filter");
+    params.delete("type");
+    params.delete("nature");
+    params.delete("manageCatalog");
     params.delete("newPayment");
     params.delete("newPurchase");
     params.delete("editPurchase");
@@ -145,6 +145,9 @@ export default function FinanceClient() {
     params.delete("editExpense");
     params.delete("newSale");
     params.delete("editSale");
+    params.delete("newAccount");
+    params.delete("newTransfer");
+    params.delete("newOwnerTx");
     startTransition(() => {
       router.push(`${pathname}?${params.toString()}`);
     });
@@ -164,25 +167,10 @@ export default function FinanceClient() {
     }
   };
 
-  const isActionableTab = activeTab !== "opening";
+  const isActionableTab = activeTab === "payments" || activeTab === "sales" || activeTab === "accounts";
 
-  // فلاتر ديناميكية حسب التبويب والرقاقة
-  const currentFilter = searchParams.get("filter");
-  const filters = (activeTab === "payments" && currentFilter === "expense") ? [{
-    key: "category",
-    label: "الفئة",
-    value: searchParams.get("category") || "all",
-    options: EXPENSE_CATEGORIES.map((cat) => ({
-      value: cat === "الكل" ? "all" : cat,
-      label: cat,
-    })),
-    onChange: (val: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (val === "all") params.delete("category");
-      else params.set("category", val);
-      router.replace(`${pathname}?${params.toString()}`);
-    },
-  }] : activeTab === "sales" ? [{
+  // فلاتر ديناميكية حسب التبويب (تبويب المدفوعات يدير فلاتره داخلياً لمنع قفز الهيدر)
+  const filters = activeTab === "sales" ? [{
     key: "source",
     label: "المصدر",
     value: searchParams.get("source") || "all",
@@ -214,11 +202,8 @@ export default function FinanceClient() {
   const handleAdd = useCallback(() => {
     const paramMap: Record<string, string> = {
       payments: "newPayment",
-      expenses: "newPayment",
-      purchases: "newPayment",
       sales: "newSale",
       accounts: "newAccount",
-      owner: "newOwnerTx",
     };
     const queryParam = paramMap[activeTab];
     if (!queryParam) return;
@@ -229,11 +214,8 @@ export default function FinanceClient() {
 
   const addLabel: Record<string, string> = {
     payments: "تسجيل جديد",
-    expenses: "تسجيل جديد",
-    purchases: "تسجيل جديد",
     sales: "مبيعات جديدة",
     accounts: "حساب جديد",
-    owner: "معاملة مالك جديدة",
   };
 
   /* ─── التقديم ─── */
@@ -244,23 +226,36 @@ export default function FinanceClient() {
         action={
           <PageToolbar
             leading={
-              <div className="flex items-center gap-0.5">
-                {TABS.map((tab) => {
-                  const isActive = tab.id === activeTab;
-                  const Icon = tab.icon;
-                  return (
-                    <HeaderIconButton
-                      key={tab.id}
-                      label={tab.label}
-                      isActive={isActive}
-                      variant="tab"
-                      onClick={() => handleTabChange(tab.id)}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                    </HeaderIconButton>
-                  );
-                })}
-              </div>
+              activeTab === "accounts" ? (
+                <div className="flex items-center gap-2">
+                  <HeaderIconButton
+                    label="العودة للمالية"
+                    variant="tab"
+                    onClick={() => handleTabChange("payments")}
+                  >
+                    <ArrowRight className="h-4 w-4 shrink-0 rtl:rotate-0" />
+                  </HeaderIconButton>
+                  <span className="text-sm font-bold text-ink whitespace-nowrap">الحسابات والصناديق</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-0.5">
+                  {TABS.map((tab) => {
+                    const isActive = tab.id === activeTab;
+                    const Icon = tab.icon;
+                    return (
+                      <HeaderIconButton
+                        key={tab.id}
+                        label={tab.label}
+                        isActive={isActive}
+                        variant="tab"
+                        onClick={() => handleTabChange(tab.id)}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                      </HeaderIconButton>
+                    );
+                  })}
+                </div>
+              )
             }
             search={{
               value: searchInput,
@@ -270,7 +265,7 @@ export default function FinanceClient() {
                   ? "البحث في المدفوعات (مصاريف، مشتريات)..."
                   : activeTab === "sales"
                     ? "البحث في بيان المبيعات..."
-                    : "البحث...",
+                    : "البحث في الحسابات والمعاملات...",
             }}
             filters={filters || undefined}
           />

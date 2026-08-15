@@ -158,10 +158,31 @@ export function AccountsTab() {
 
   return (
     <div className="space-y-6">
-      {/* الأزرار العلوية */}
-      <div>
-        <h2 className="text-base font-bold text-ink">الحسابات النقدية والبنكية</h2>
-        <p className="text-xs text-ink/50 mt-0.5">إدارة الخزائن النقدية، الحسابات البنكية وحركات التحويل البيني</p>
+      {/* رأس قسم الحسابات والإجراءات */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold text-ink">الحسابات النقدية والبنكية</h2>
+          <p className="text-xs text-ink/50 mt-0.5">إدارة الخزائن النقدية، الحسابات البنكية وحركات التحويل البيني</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => updateUrl({ newTransfer: "true" })}
+            className="text-xs min-h-[36px]"
+          >
+            تحويل بيني
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => updateUrl({ newAccount: "true" })}
+            className="text-xs min-h-[36px]"
+          >
+            حساب جديد
+          </Button>
+        </div>
       </div>
 
       {/* قائمة الحسابات */}
