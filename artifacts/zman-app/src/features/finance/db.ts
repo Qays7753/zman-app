@@ -302,7 +302,7 @@ export const cashMovement = pgTable(
       .references(() => account.id),
     direction: text("direction").notNull(), // 'in' | 'out'
     amountCents: integer("amount_cents").notNull(),
-    sourceType: text("source_type").notNull(), // 'sale' | 'expense' | 'purchase' | 'deposit' | 'owner_draw' | 'owner_inject' | 'opening' | 'transfer'
+    sourceType: text("source_type").notNull(), // 'sale' | 'expense' | 'purchase' | 'deposit' | 'owner_draw' | 'owner_inject' | 'opening' | 'transfer' | 'receivable' | 'receivable_payment'
     sourceId: uuid("source_id"),
     description: text("description").notNull().default(""),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -319,7 +319,7 @@ export const cashMovement = pgTable(
       check("cash_movement_amount_positive", sql`${table.amountCents} > 0`),
       check(
         "cash_movement_source_type_enum",
-        sql`${table.sourceType} in ('sale', 'expense', 'purchase', 'deposit', 'owner_draw', 'owner_inject', 'opening', 'transfer')`,
+        sql`${table.sourceType} in ('sale', 'expense', 'purchase', 'deposit', 'owner_draw', 'owner_inject', 'opening', 'transfer', 'receivable', 'receivable_payment')`,
       ),
       check(
         "cash_movement_description_length",
@@ -402,4 +402,83 @@ export const openingBalance = pgTable(
 );
 
 export type OpeningBalance = typeof openingBalance.$inferSelect;
+
+// 10. Receivable Table (الذمم المدينة / الديون النقدية للأشخاص)
+export const receivable = pgTable(
+  "receivable",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    date: date("date").notNull().default(sql`CURRENT_DATE`),
+    personName: text("person_name").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => account.id, { onDelete: "restrict" }),
+    notes: text("notes").notNull().default(""),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check("receivable_person_name_length", sql`char_length(${table.personName}) <= 200`),
+    check("receivable_amount_positive", sql`${table.amountCents} > 0`),
+    check("receivable_notes_length", sql`char_length(${table.notes}) <= 1000`),
+    index("receivable_date_idx")
+      .on(table.date.desc())
+      .where(sql`deleted_at is null`),
+    index("receivable_person_name_idx")
+      .on(table.personName)
+      .where(sql`deleted_at is null`),
+    index("receivable_account_id_idx")
+      .on(table.accountId)
+      .where(sql`deleted_at is null`),
+  ],
+);
+
+export type Receivable = typeof receivable.$inferSelect;
+export type NewReceivable = typeof receivable.$inferInsert;
+
+// 11. Receivable Payment Table (دفعات سداد الديون النقدية)
+export const receivablePayment = pgTable(
+  "receivable_payment",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    receivableId: uuid("receivable_id")
+      .notNull()
+      .references(() => receivable.id, { onDelete: "restrict" }),
+    date: date("date").notNull().default(sql`CURRENT_DATE`),
+    amountCents: integer("amount_cents").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => account.id, { onDelete: "restrict" }),
+    notes: text("notes").notNull().default(""),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check("receivable_payment_amount_positive", sql`${table.amountCents} > 0`),
+    check("receivable_payment_notes_length", sql`char_length(${table.notes}) <= 1000`),
+    index("receivable_payment_receivable_id_idx")
+      .on(table.receivableId)
+      .where(sql`deleted_at is null`),
+    index("receivable_payment_date_idx")
+      .on(table.date.desc())
+      .where(sql`deleted_at is null`),
+    index("receivable_payment_account_id_idx")
+      .on(table.accountId)
+      .where(sql`deleted_at is null`),
+  ],
+);
+
+export type ReceivablePayment = typeof receivablePayment.$inferSelect;
+export type NewReceivablePayment = typeof receivablePayment.$inferInsert;
 
