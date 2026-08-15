@@ -131,6 +131,8 @@ export interface SmartFinanceFormInitialData {
   // ── حقول خاصة بوضع الشراء ──
   /** بيان الصنف المشترى (purchase.item) */
   itemName?: string;
+  /** المورّد (purchase.supplier) — لمنع محوه بصمت عند التعديل */
+  supplier?: string;
   /** الكمية (purchase.quantity) */
   quantity?: number;
   /** ملاحظات الشراء (purchase.notes) */
@@ -502,7 +504,7 @@ export function SmartFinanceForm({
           values: {
             date: values.date,
             item: values.itemName,
-            supplier: "",
+            supplier: initialData.supplier ?? "",
             quantity: qty,
             unitCostMicroCents,
             notes: values.notes || "",

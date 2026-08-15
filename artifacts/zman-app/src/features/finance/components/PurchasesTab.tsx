@@ -422,6 +422,7 @@ export function PurchasesTab() {
                       costNature:
                         (activePurchase.costNature as "variable" | "fixed" | null) ?? null,
                       itemName: activePurchase.item,
+                      supplier: activePurchase.supplier,
                       quantity: activePurchase.quantity,
                       notes: activePurchase.notes ?? "",
                       linkedCatalogComponentId: activePurchase.linkedCatalogComponentId ?? null,
