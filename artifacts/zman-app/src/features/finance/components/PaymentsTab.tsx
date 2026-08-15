@@ -191,9 +191,9 @@ export function PaymentsTab() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col pb-36">
-      {/* شريط رقاقات الفلترة السريعة (Chips) */}
-      <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 px-1 scrollbar-none">
-        <div className="flex items-center gap-1.5 shrink-0">
+      {/* شريط رقاقات الفلترة السريعة (Chips) — سطر 1 دائم بدون سكرول أفقي */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {FILTER_CHIPS.map((chip) => {
             const isActive = filter === chip.id;
             return (
@@ -202,7 +202,7 @@ export function PaymentsTab() {
                 type="button"
                 onClick={() => handleChipChange(chip.id)}
                 className={cn(
-                  "min-h-[40px] px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0",
+                  "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center",
                   isActive
                     ? "bg-ink text-paper shadow-sm"
                     : "bg-canvas text-ink-2 hover:bg-canvas/80 hover:text-ink"
@@ -214,9 +214,9 @@ export function PaymentsTab() {
           })}
         </div>
 
-        {/* أدوات إضافية تظهر عند تفعيل فلتر المصاريف */}
+        {/* سطر 2: أدوات إضافية تظهر عند تفعيل فلتر المصاريف فقط (بعرض كامل وأهداف لمس 44px) */}
         {filter === "expense" && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 w-full pt-0.5 animate-fade-in">
             <select
               value={category}
               onChange={(e) =>
@@ -224,7 +224,7 @@ export function PaymentsTab() {
                   category: e.target.value === "all" || e.target.value === "الكل" ? null : e.target.value,
                 })
               }
-              className="text-xs h-9 min-h-[36px] rounded-lg border border-hairline bg-paper px-2.5 text-ink focus:outline-none focus:ring-1 focus:ring-info font-medium"
+              className="flex-1 min-w-0 text-xs h-11 min-h-[44px] rounded-lg border border-hairline bg-paper px-3 text-ink focus:outline-none focus:ring-1 focus:ring-info font-medium"
               aria-label="تصفية حسب فئة المصروف"
             >
               {EXPENSE_CATEGORIES.map((cat) => (
@@ -239,8 +239,8 @@ export function PaymentsTab() {
               variant="secondary"
               size="sm"
               onClick={() => updateUrl({ manageCatalog: "expenses" })}
-              icon={<Boxes className="w-3.5 h-3.5" />}
-              className="text-xs shrink-0 min-h-[36px]"
+              icon={<Boxes className="w-4 h-4" />}
+              className="text-xs shrink-0 min-h-[44px] h-11 px-3"
             >
               إدارة الفئات
             </Button>
@@ -286,18 +286,22 @@ export function PaymentsTab() {
         />
       ) : (
         <div className="space-y-3 flex-1 flex flex-col">
-          {/* مفتاح الشارات (legend) مع InfoTooltip */}
-          <div className="flex items-center gap-2 text-[10px] text-ink/50 flex-wrap px-1">
-            <span className="flex items-center gap-1">
-              <span className="px-1.5 py-0.5 bg-warn-soft text-warn-deep rounded-full font-bold">رأس مال</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="px-1.5 py-0.5 bg-info-soft text-info rounded-full font-bold">ثابتة</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="px-1.5 py-0.5 bg-canvas text-ink-3 rounded-full font-bold">متغيّرة</span>
-            </span>
-            <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: مصروف شهري ثابت تقريباً (إيجار، راتب). «متغيّرة»: مصروف يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
+          {/* شريط معلومات القائمة: عدّاد الحركات المعروضة + مفتاح الشارات */}
+          <div className="flex items-center justify-between gap-2 px-1 text-xs text-ink/50 font-medium flex-wrap">
+            <span>{visiblePayments.length} حركة معروضة</span>
+            {/* مفتاح الشارات (legend) مع InfoTooltip */}
+            <div className="flex items-center gap-2 text-[10px] flex-wrap">
+              <span className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-warn-soft text-warn-deep rounded-full font-bold">رأس مال</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-info-soft text-info rounded-full font-bold">ثابتة</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="px-1.5 py-0.5 bg-canvas text-ink-3 rounded-full font-bold">متغيّرة</span>
+              </span>
+              <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: مصروف شهري ثابت تقريباً (إيجار، راتب). «متغيّرة»: مصروف يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
+            </div>
           </div>
 
           <div className="space-y-3">
