@@ -725,7 +725,7 @@ export function SmartFinanceForm({
 
       {/* السيلكتور — ثلاثة أوضاع */}
       <div
-        className="flex gap-1 p-1 bg-canvas rounded-xl mb-6"
+        className="flex gap-1 p-1 bg-canvas rounded-xl mb-3"
         role="tablist"
         aria-label="نوع العملية"
       >
@@ -746,6 +746,16 @@ export function SmartFinanceForm({
             <span className="leading-tight text-center">{label}</span>
           </button>
         ))}
+      </div>
+
+      {/* سطر توضيحي لأثر الوضع المختار على الربح */}
+      <div className="mb-5 px-3.5 py-2.5 rounded-lg bg-canvas/70 border border-hairline text-xs text-ink/75 flex items-center gap-2.5">
+        <span className="shrink-0 w-2 h-2 rounded-full bg-info" aria-hidden="true" />
+        <p className="leading-relaxed font-medium">
+          {mode === "expense" && "يُخصم من ربح هذا الشهر كاملاً."}
+          {mode === "purchase" && "مادة تدخل منتجاتك. إن ربطتها بصنف متتبَّع، تُخصم تكلفتها عند البيع لا عند الشراء."}
+          {mode === "asset" && "لا يُخصم من ربح هذا الشهر. يُوزَّع إهلاكاً على عمره النافع."}
+        </p>
       </div>
 
       {/* ── وضع 1: مصروف يومي ─────────────────────────────────────────────── */}
@@ -848,15 +858,6 @@ export function SmartFinanceForm({
           onSubmit={purchaseForm.handleSubmit(handlePurchaseSubmit)}
           className="space-y-4"
         >
-          {/* رسالة توعوية: شراء المخزون ≠ خسارة */}
-          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-            <span className="text-base leading-none mt-0.5" aria-hidden="true">✅</span>
-            <p className="text-xs text-emerald-800 leading-relaxed">
-              <strong>هذا المبلغ لم يُضَف لمصاريفك</strong> — سيُضاف لقيمة مخزونك.
-              الربح يتأثر فقط عند تسليم الطلبات (تكلفة البضاعة المباعة).
-            </p>
-          </div>
-
           <div className="space-y-2 flex flex-col">
             <label className="text-sm font-bold text-ink/75">تاريخ الشراء</label>
             <input
@@ -936,20 +937,29 @@ export function SmartFinanceForm({
               </p>
             )}
 
-            {/* معاينة تأثير الربط على المخزون */}
-            {selectedItem && (
-              <div className="p-2.5 rounded-md bg-info/10 text-info text-xs flex items-center justify-between gap-2">
-                <span>
-                  سيُضاف{" "}
-                  <strong>{purchaseForm.watch("quantity") || 0}</strong>{" "}
-                  {selectedItem.unit} للمخزون عند الحفظ.
-                </span>
-                <span className="opacity-70">
-                  الرصيد الحالي:{" "}
-                  <strong>{currentStock ?? 0}</strong>
-                </span>
+            {/* معاينة تأثير الربط على المخزون والأثر المحاسبي */}
+            {selectedItem ? (
+              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 space-y-1.5 text-xs text-emerald-900">
+                <div className="flex items-center justify-between gap-2 font-bold">
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true">📦</span>
+                    سيُضاف {purchaseForm.watch("quantity") || 0} {selectedItem.unit} إلى المخزون
+                  </span>
+                  <span className="text-emerald-700 text-[11px] font-normal">
+                    الرصيد الحالي: <strong>{currentStock ?? 0}</strong>
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  ✓ <strong>لن تُخصم التكلفة من ربح هذا الشهر</strong> — تُضاف لقيمة أصول المخزون وتُخصم كتكلفة بضاعة مباعة (COGS) عند بيع وتسليم المنتجات.
+                </p>
               </div>
-            )}
+            ) : isCustomItem || selectedCatalogId === null ? (
+              <div className="p-2.5 rounded-lg bg-canvas border border-hairline text-xs text-ink/70">
+                <p className="text-[11px] leading-relaxed">
+                  ℹ️ شراء مباشر غير متتبَّع — سيُخصم المبلغ كاملاً من أرباح هذا الشهر.
+                </p>
+              </div>
+            ) : null}
           </div>
 
           {/* المورّد (اختياري) */}
