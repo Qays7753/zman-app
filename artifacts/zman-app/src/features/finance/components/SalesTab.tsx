@@ -11,6 +11,7 @@ import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/shared/Button";
+import { cn } from "@/lib/utils";
 import {
   useCreateSale,
   useDeleteSale,
@@ -21,6 +22,12 @@ import {
 import type { NewSale } from "../types";
 import { SaleForm } from "./SaleForm";
 
+const SALE_SOURCE_CHIPS = [
+  { id: "all", label: "الكل" },
+  { id: "manual", label: "يدوي" },
+  { id: "order", label: "طلب محوّل" },
+] as const;
+
 export function SalesTab() {
   const router = useRouter();
   const pathname = usePathname();
@@ -28,7 +35,7 @@ export function SalesTab() {
   const [_isPending, startTransition] = useTransition();
 
   const search = searchParams.get("search") || "";
-  const source = searchParams.get("source") || "all";
+  const source = (searchParams.get("source") as "all" | "manual" | "order") || "all";
   const newSale = searchParams.get("newSale") === "true";
   const editId = searchParams.get("editSale");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -64,7 +71,17 @@ export function SalesTab() {
     router.replace(`${pathname}?${next.toString()}`);
   };
 
-
+  const handleSourceChipChange = (newSourceId: "all" | "manual" | "order") => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (newSourceId === "all") {
+      next.delete("source");
+    } else {
+      next.set("source", newSourceId);
+    }
+    startTransition(() => {
+      router.replace(`${pathname}?${next.toString()}`);
+    });
+  };
 
   // يُرجِع نجاح الحفظ إلى SaleForm ليقرّر مسح المسودّة — لا تُمسح عند الرفض.
   const handleCreate = async (fields: NewSale): Promise<boolean> => {
@@ -120,6 +137,27 @@ export function SalesTab() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col pb-24">
+      {/* شريط رقاقات فلترة المصدر */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {SALE_SOURCE_CHIPS.map((chip) => {
+          const isActive = source === chip.id;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => handleSourceChipChange(chip.id)}
+              className={cn(
+                "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center",
+                isActive
+                  ? "bg-ink text-paper shadow-sm"
+                  : "bg-canvas text-ink-2 hover:bg-canvas/80 hover:text-ink"
+              )}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
 
       {isLoading ? (
         <SkeletonList />
@@ -155,6 +193,10 @@ export function SalesTab() {
         />
       ) : (
         <div className="space-y-3 flex-1 flex flex-col">
+          {/* شريط معلومات القائمة: عدّاد الحركات المعروضة */}
+          <div className="px-1 text-xs text-ink/50 font-medium">
+            <span>{sales.length} حركة معروضة</span>
+          </div>
           <div className="space-y-3">
             {sales.map((item, idx) => (
               // biome-ignore lint/a11y/useSemanticElements: card container is interactive
