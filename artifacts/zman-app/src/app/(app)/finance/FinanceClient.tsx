@@ -53,12 +53,6 @@ const OwnerTab = dynamic(
   },
 );
 
-const SALE_SOURCES = [
-  { value: "all", label: "الكل" },
-  { value: "manual", label: "يدوي" },
-  { value: "order", label: "طلب محوّل" },
-];
-
 /* ─── أنواع التبويبات اليومية ─── */
 // تبويبان رئيسيان للمالك: مدفوعاتي (مصاريف + مشتريات) · مبيعاتي
 const TABS = [
@@ -169,35 +163,6 @@ export default function FinanceClient() {
 
   const isActionableTab = activeTab === "payments" || activeTab === "sales" || activeTab === "accounts";
 
-  // فلاتر ديناميكية حسب التبويب (تبويب المدفوعات يدير فلاتره داخلياً لمنع قفز الهيدر)
-  const filters = activeTab === "sales" ? [{
-    key: "source",
-    label: "المصدر",
-    value: searchParams.get("source") || "all",
-    options: SALE_SOURCES,
-    onChange: (val: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (val === "all") params.delete("source");
-      else params.set("source", val);
-      router.replace(`${pathname}?${params.toString()}`);
-    },
-  }] : activeTab === "accounts" ? [{
-    key: "type",
-    label: "النوع",
-    value: searchParams.get("type") || "all",
-    options: [
-      { value: "all", label: "الكل" },
-      { value: "draw", label: "مسحوبات شخصية" },
-      { value: "inject", label: "حقن رأس مال" },
-    ],
-    onChange: (val: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (val === "all") params.delete("type");
-      else params.set("type", val);
-      router.replace(`${pathname}?${params.toString()}`);
-    },
-  }] : null;
-
   /* ─── الإجراء الأساسي (+) ─── */
   const handleAdd = useCallback(() => {
     const paramMap: Record<string, string> = {
@@ -267,7 +232,6 @@ export default function FinanceClient() {
                     ? "البحث في بيان المبيعات..."
                     : "البحث في الحسابات والمعاملات...",
             }}
-            filters={filters || undefined}
           />
         }
       />
