@@ -156,7 +156,7 @@ export function GlobalSearch() {
                   {results.expenses.map((e: { id: string; description: string; category: string }) => (
                     <Link
                       key={e.id}
-                      href={`/finance?tab=expenses&search=${encodeURIComponent(e.description)}`}
+                      href={`/finance?tab=payments&filter=expense&search=${encodeURIComponent(e.description)}`}
                       onClick={() => setIsOpen(false)}
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
                     >

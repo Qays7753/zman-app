@@ -42,6 +42,7 @@ import {
 } from "./actions";
 import type {
   GetExpensesFilters,
+  GetPaymentsFilters,
   GetPurchasesFilters,
   GetSalesFilters,
 } from "./queries";
@@ -49,6 +50,7 @@ import {
   getExpense,
   getExpenseCategories,
   getExpenses,
+  getPayments,
   getPurchase,
   getPurchases,
   getSale,
@@ -57,6 +59,10 @@ import {
 
 export const financeKeys = {
   all: ["finance"] as const,
+  payments: () => [...financeKeys.all, "payments"] as const,
+  paymentList: (filters: Omit<GetPaymentsFilters, "cursor">) =>
+    [...financeKeys.payments(), "list", filters] as const,
+
   purchases: () => [...financeKeys.all, "purchases"] as const,
   purchaseList: (filters: Omit<GetPurchasesFilters, "cursor">) =>
     [...financeKeys.purchases(), "list", filters] as const,
@@ -75,6 +81,24 @@ export const financeKeys = {
     [...financeKeys.sales(), "list", filters] as const,
   saleDetail: (id: string) => [...financeKeys.sales(), "detail", id] as const,
 };
+
+// 0. هوك المدفوعات الموحَّدة (Payments: Expenses + Purchases)
+export function useInfinitePayments(
+  filters: Omit<GetPaymentsFilters, "cursor">,
+) {
+  return useInfiniteQuery({
+    queryKey: financeKeys.paymentList(filters),
+    queryFn: ({ pageParam }) =>
+      getPayments({
+        ...filters,
+        cursor: (pageParam as string | null) || undefined,
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? null,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+}
 
 // 1. هوك المشتريات (Purchases)
 export function useInfinitePurchases(
@@ -115,6 +139,7 @@ export function useCreatePurchase() {
     onSuccess: (res) => {
       if (res.status === "ok") {
         queryClient.invalidateQueries({ queryKey: financeKeys.purchases() });
+        queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
     },
@@ -136,6 +161,7 @@ export function useUpdatePurchase() {
     onSuccess: (res, variables) => {
       if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.purchases() });
+        queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
         queryClient.invalidateQueries({
           queryKey: financeKeys.purchaseDetail(variables.id),
         });
@@ -153,6 +179,7 @@ export function useDeletePurchase() {
     onSuccess: (res) => {
       if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.purchases() });
+        queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
     },
@@ -205,6 +232,7 @@ export function useCreateExpense() {
     onSuccess: (res) => {
       if (res.status === "ok") {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
+        queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
     },
@@ -226,6 +254,7 @@ export function useUpdateExpense() {
     onSuccess: (res, variables) => {
       if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
+        queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
         queryClient.invalidateQueries({
           queryKey: financeKeys.expenseDetail(variables.id),
         });
@@ -243,6 +272,7 @@ export function useDeleteExpense() {
     onSuccess: (res) => {
       if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
+        queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
     },

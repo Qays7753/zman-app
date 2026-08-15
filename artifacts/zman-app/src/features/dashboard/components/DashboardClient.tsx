@@ -520,8 +520,8 @@ export function DashboardClient() {
 
           <QuickLink href="/orders?new=true" icon={<ClipboardList className="h-6 w-6 text-info" />} label="طلب جديد" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=sales&newSale=true" icon={<ShoppingBag className="h-6 w-6 text-info" />} label="عملية بيع" onClick={() => setIsFabOpen(false)} />
-          <QuickLink href="/finance?tab=expenses&newExpense=true" icon={<ArrowDownRight className="h-6 w-6 text-alert" />} label="مصروف جديد" onClick={() => setIsFabOpen(false)} />
-          <QuickLink href="/finance?tab=purchases&newPurchase=true" icon={<ShoppingCart className="h-6 w-6 text-alert" />} label="تسجيل مشتريات" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/finance?tab=payments&newExpense=true" icon={<ArrowDownRight className="h-6 w-6 text-alert" />} label="مصروف جديد" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/finance?tab=payments&newPurchase=true" icon={<ShoppingCart className="h-6 w-6 text-alert" />} label="تسجيل مشتريات" onClick={() => setIsFabOpen(false)} />
 
           <div className="col-span-2 flex items-center gap-2 py-1">
             <div className="flex-1 h-px bg-hairline" />

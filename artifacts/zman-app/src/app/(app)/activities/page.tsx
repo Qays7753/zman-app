@@ -59,8 +59,8 @@ export default function ActivitiesPage() {
               const linkHref =
                 act.type === "order" ? `/orders?view=${act.id}` :
                 act.type === "sale" ? `/finance?tab=sales&editSale=${act.id}` :
-                act.type === "expense" ? `/finance?tab=expenses&editExpense=${act.id}` :
-                `/finance?tab=purchases&editPurchase=${act.id}`;
+                act.type === "expense" ? `/finance?tab=payments&editExpense=${act.id}` :
+                `/finance?tab=payments&editPurchase=${act.id}`;
               return (
                 <Link
                   key={`${act.type}-${act.id}`}

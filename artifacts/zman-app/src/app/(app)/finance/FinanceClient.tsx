@@ -15,21 +15,10 @@ import { PageToolbar } from "@/components/shared/PageToolbar";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 
 // ─── استيراد تبويبات العمليات اليومية ديناميكياً ───
-const ExpensesTab = dynamic(
+const PaymentsTab = dynamic(
   () =>
-    import("@/features/finance/components/ExpensesTab").then(
-      (m) => m.ExpensesTab,
-    ),
-  {
-    ssr: false,
-    loading: () => <SkeletonList count={3} />,
-  },
-);
-
-const PurchasesTab = dynamic(
-  () =>
-    import("@/features/finance/components/PurchasesTab").then(
-      (m) => m.PurchasesTab,
+    import("@/features/finance/components/PaymentsTab").then(
+      (m) => m.PaymentsTab,
     ),
   {
     ssr: false,
@@ -84,15 +73,11 @@ const SALE_SOURCES = [
 ];
 
 /* ─── أنواع التبويبات اليومية ─── */
-// Issue R6 — «حساباتي» نُقل من التبويبات الظاهرة إلى قائمة «المزيد» (nav.ts: moreNavItems).
-// يبقى مسار /finance?tab=accounts و /finance/accounts يعملان عبر الفرع التحتي في JSX.
+// تبويبان رئيسيان للمالك: مدفوعاتي (مصاريف + مشتريات) · مبيعاتي
 const TABS = [
-  { id: "expenses", label: "مصاريفي", icon: Wallet },
-  { id: "purchases", label: "مشترياتي", icon: ShoppingCart },
+  { id: "payments", label: "مدفوعاتي", icon: Wallet },
   { id: "sales", label: "مبيعاتي", icon: Banknote },
 ] as const;
-
-
 
 export default function FinanceClient() {
   const router = useRouter();
@@ -100,10 +85,28 @@ export default function FinanceClient() {
   const searchParams = useSearchParams();
   const [_isPending, startTransition] = useTransition();
 
-  // التبويب الافتراضي هو المبيعات
   const { isLoading: opBalLoading } = useOpeningBalance();
-  const activeTab = searchParams.get("tab") || "sales";
+  const rawTab = searchParams.get("tab");
+
+  // دعم التوافق العكسي للروابط القديمة
+  const activeTab =
+    rawTab === "expenses" || rawTab === "purchases" || rawTab === "payments"
+      ? "payments"
+      : rawTab || "sales";
+
   const isReady = !opBalLoading || searchParams.has("tab");
+
+  // توجيه تلقائي للروابط القديمة مع ضبط الرقاقة المناسبة
+  useEffect(() => {
+    if (rawTab === "expenses" || rawTab === "purchases") {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "payments");
+      if (!params.has("filter")) {
+        params.set("filter", rawTab === "expenses" ? "expense" : "purchase");
+      }
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  }, [rawTab, pathname, router, searchParams]);
 
   // حالة البحث
   const currentQuery = searchParams.get("search") || "";
@@ -134,6 +137,8 @@ export default function FinanceClient() {
     params.delete("search");
     params.delete("category");
     params.delete("source");
+    params.delete("filter");
+    params.delete("newPayment");
     params.delete("newPurchase");
     params.delete("editPurchase");
     params.delete("newExpense");
@@ -161,8 +166,9 @@ export default function FinanceClient() {
 
   const isActionableTab = activeTab !== "opening";
 
-  // فلاتر ديناميكية حسب التبويب
-  const filters = activeTab === "expenses" ? [{
+  // فلاتر ديناميكية حسب التبويب والرقاقة
+  const currentFilter = searchParams.get("filter");
+  const filters = (activeTab === "payments" && currentFilter === "expense") ? [{
     key: "category",
     label: "الفئة",
     value: searchParams.get("category") || "all",
@@ -207,8 +213,12 @@ export default function FinanceClient() {
   /* ─── الإجراء الأساسي (+) ─── */
   const handleAdd = useCallback(() => {
     const paramMap: Record<string, string> = {
-      purchases: "newPurchase", expenses: "newExpense", sales: "newSale",
-      accounts: "newAccount", owner: "newOwnerTx",
+      payments: "newPayment",
+      expenses: "newPayment",
+      purchases: "newPayment",
+      sales: "newSale",
+      accounts: "newAccount",
+      owner: "newOwnerTx",
     };
     const queryParam = paramMap[activeTab];
     if (!queryParam) return;
@@ -218,8 +228,12 @@ export default function FinanceClient() {
   }, [activeTab, searchParams, pathname, router]);
 
   const addLabel: Record<string, string> = {
-    purchases: "مشتريات جديدة", expenses: "مصروف جديد", sales: "مبيعات جديدة",
-    accounts: "حساب جديد", owner: "معاملة مالك جديدة",
+    payments: "تسجيل جديد",
+    expenses: "تسجيل جديد",
+    purchases: "تسجيل جديد",
+    sales: "مبيعات جديدة",
+    accounts: "حساب جديد",
+    owner: "معاملة مالك جديدة",
   };
 
   /* ─── التقديم ─── */
@@ -252,13 +266,11 @@ export default function FinanceClient() {
               value: searchInput,
               onChange: setSearchInput,
               placeholder:
-                activeTab === "purchases"
-                  ? "البحث في المشتريات..."
-                  : activeTab === "expenses"
-                    ? "البحث في المصاريف..."
-                    : activeTab === "sales"
-                      ? "البحث في بيان المبيعات..."
-                      : "البحث...",
+                activeTab === "payments"
+                  ? "البحث في المدفوعات (مصاريف، مشتريات)..."
+                  : activeTab === "sales"
+                    ? "البحث في بيان المبيعات..."
+                    : "البحث...",
             }}
             filters={filters || undefined}
           />
@@ -273,8 +285,7 @@ export default function FinanceClient() {
             </div>
           ) : (
             <>
-              {activeTab === "expenses" && <ExpensesTab />}
-              {activeTab === "purchases" && <PurchasesTab />}
+              {activeTab === "payments" && <PaymentsTab />}
               {activeTab === "sales" && <SalesTab />}
               {activeTab === "accounts" && (
                 <div className="space-y-8 flex flex-col">
@@ -297,7 +308,7 @@ export default function FinanceClient() {
       {isActionableTab && (
         <FloatingActionButton
           onClick={handleAdd}
-          label={addLabel[activeTab] || ""}
+          label={addLabel[activeTab] || "تسجيل جديد"}
         />
       )}
     </>
