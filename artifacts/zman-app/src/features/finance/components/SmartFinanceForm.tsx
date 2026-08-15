@@ -512,7 +512,10 @@ export function SmartFinanceForm({
           values: {
             date: values.date,
             item: values.itemName,
-            supplier: values.supplier.trim() || initialData.supplier || "",
+            // الحقل مرئي في وضع «شراء مواد» ويُملأ من initialData.supplier عند
+            // الفتح، فقيمة النموذج هي مصدر الحقيقة. لا fallback إلى القيمة
+            // الأصلية — وإلا استحال على المالك مسح اسم مورّد أُدخل خطأً.
+            supplier: values.supplier.trim(),
             quantity: qty,
             unitCostMicroCents,
             notes: values.notes || "",
@@ -538,7 +541,7 @@ export function SmartFinanceForm({
         values: {
           date: values.date,
           item: values.itemName,
-          supplier: values.supplier.trim() || "",
+          supplier: values.supplier.trim(),
           quantity: qty,
           unitCostMicroCents,
           notes: values.notes || "",
