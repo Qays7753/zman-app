@@ -9,6 +9,13 @@ import { AmountText } from "@/components/shared/AmountText";
 import { Button } from "@/components/shared/Button";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { cn } from "@/lib/utils";
+
+const OWNER_TX_TYPE_CHIPS = [
+  { id: "all", label: "الكل" },
+  { id: "draw", label: "مسحوبات شخصية" },
+  { id: "inject", label: "حقن رأس مال" },
+] as const;
 
 export function OwnerTab() {
   const router = useRouter();
@@ -16,7 +23,7 @@ export function OwnerTab() {
   const searchParams = useSearchParams();
 
   const search = searchParams.get("search") || "";
-  const type = searchParams.get("type") || "all";
+  const type = (searchParams.get("type") as "all" | "draw" | "inject") || "all";
 
   const { data: transactions, isLoading } = useOwnerTransactions({ q: search, type });
   const { data: accounts } = useAccounts();
@@ -31,6 +38,16 @@ export function OwnerTab() {
       if (val === null) next.delete(key);
       else next.set(key, val);
     });
+    router.replace(`${pathname}?${next.toString()}`);
+  };
+
+  const handleTypeChipChange = (newTypeId: "all" | "draw" | "inject") => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (newTypeId === "all") {
+      next.delete("type");
+    } else {
+      next.set("type", newTypeId);
+    }
     router.replace(`${pathname}?${next.toString()}`);
   };
   const [txType, setTxType] = useState<"draw" | "inject">("draw");
@@ -103,11 +120,38 @@ export function OwnerTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* الهيدر وزر الإضافة */}
       <div>
         <h2 className="text-base font-bold text-ink">سحوبات وإيداعات المالك (حقوق الملكية)</h2>
         <p className="text-xs text-ink/50 mt-0.5">تسجيل السحوبات الشخصية وحقن رأس المال الإضافي للورشة</p>
+      </div>
+
+      {/* شريط رقاقات تصفية نوع المعاملة */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {OWNER_TX_TYPE_CHIPS.map((chip) => {
+          const isActive = type === chip.id;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => handleTypeChipChange(chip.id)}
+              className={cn(
+                "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center",
+                isActive
+                  ? "bg-ink text-paper shadow-sm"
+                  : "bg-canvas text-ink-2 hover:bg-canvas/80 hover:text-ink"
+              )}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* عدّاد الحركات المعروضة */}
+      <div className="px-1 text-xs text-ink/50 font-medium">
+        <span>{transactions?.length ?? 0} حركة معروضة</span>
       </div>
 
       {/* قائمة المعاملات */}
@@ -206,7 +250,7 @@ export function OwnerTab() {
               <button
                 type="button"
                 onClick={() => setTxType("draw")}
-                className={`h-10 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`h-11 min-h-[44px] rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
                   txType === "draw"
                     ? "bg-alert/10 border-alert text-alert"
                     : "bg-canvas border-hairline hover:bg-canvas/80 text-ink/70"
@@ -218,7 +262,7 @@ export function OwnerTab() {
               <button
                 type="button"
                 onClick={() => setTxType("inject")}
-                className={`h-10 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`h-11 min-h-[44px] rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
                   txType === "inject"
                     ? "bg-info/10 border-info text-info"
                     : "bg-canvas border-hairline hover:bg-canvas/80 text-ink/70"
@@ -240,7 +284,7 @@ export function OwnerTab() {
                 required
                 value={txAmount}
                 onChange={(e) => setTxAmount(e.target.value)}
-                className="w-full h-10 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
+                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
                 placeholder="0.000"
               />
             </div>
@@ -252,7 +296,7 @@ export function OwnerTab() {
                 required
                 value={txDate}
                 onChange={(e) => setTxDate(e.target.value)}
-                className="w-full h-10 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               />
             </div>
           </div>
@@ -263,7 +307,7 @@ export function OwnerTab() {
               required
               value={txAccountId}
               onChange={(e) => setTxAccountId(e.target.value)}
-              className="w-full h-10 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
             >
               <option value="">اختر الحساب...</option>
               {accounts?.filter((acc) => !acc.isArchived).map((acc) => (
@@ -280,7 +324,7 @@ export function OwnerTab() {
               type="text"
               value={txReason}
               onChange={(e) => setTxReason(e.target.value)}
-              className="w-full h-10 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               placeholder="مثال: سحب نقدي لمصاريف عائلية..."
             />
           </div>
