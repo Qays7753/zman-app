@@ -144,6 +144,7 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
   // Cursor handling
   if (filters.cursor) {
     const [cursorTime, cursorId] = filters.cursor.split("|");
+    // الفاصل (created_at, id) تنازلياً — مطابق لنمط getExpenses/getPurchases.
     expenseConds.push(
       sql`(${expense.createdAt}, ${expense.id}) < (${cursorTime}::timestamptz, ${cursorId})`,
     );
@@ -192,9 +193,10 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
 
     let nextCursor: string | undefined;
     if (items.length > limit) {
-      const nextItem = items.pop();
-      nextCursor = nextItem
-        ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+      items.pop(); // الصفّ الزائد — دليل وجود صفحة تالية فقط
+      const lastItem = items[items.length - 1];
+      nextCursor = lastItem
+        ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
         : undefined;
     }
     return { items, nextCursor };
@@ -240,9 +242,10 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
 
     let nextCursor: string | undefined;
     if (items.length > limit) {
-      const nextItem = items.pop();
-      nextCursor = nextItem
-        ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+      items.pop(); // الصفّ الزائد — دليل وجود صفحة تالية فقط
+      const lastItem = items[items.length - 1];
+      nextCursor = lastItem
+        ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
         : undefined;
     }
     return { items, nextCursor };
@@ -253,60 +256,66 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
   // Otherwise ("all" or "asset"), UNION ALL both tables
   const expenseQuery = db
     .select({
+      // 🔴 كل عمود محسوب هنا يجب أن يحمل .as() صريحاً. بدونه يُسمّيه PostgreSQL
+      // `?column?`، فتصل الحقول للتطبيق كـ undefined، ويصير `order by id` ملتبساً
+      // (‏ORDER BY "id" is ambiguous) فيفشل الاستعلام كلّه وقت التشغيل — والبناء
+      // لا يكشف ذلك. الأسماء أدناه snake_case لأنها أسماء أعمدة SQL فعلية.
       id: expense.id,
-      kind: sql<string>`'expense'`,
+      kind: sql<string>`'expense'`.as("kind"),
       date: expense.date,
-      title: sql<string>`coalesce(nullif(${expense.description}, ''), ${expense.category})`,
+      title: sql<string>`coalesce(nullif(${expense.description}, ''), ${expense.category})`.as("title"),
       amountCents: expense.amountCents,
-      category: sql<string | null>`${expense.category}`,
-      description: sql<string | null>`${expense.description}`,
-      supplier: sql<string | null>`null`,
-      quantity: sql<number | null>`null`,
-      unitCostCents: sql<number | null>`null`,
-      notes: sql<string | null>`null`,
+      category: sql<string | null>`${expense.category}`.as("category"),
+      description: sql<string | null>`${expense.description}`.as("description"),
+      supplier: sql<string | null>`null::text`.as("supplier"),
+      quantity: sql<number | null>`null::integer`.as("quantity"),
+      unitCostCents: sql<number | null>`null::integer`.as("unit_cost_cents"),
+      notes: sql<string | null>`null::text`.as("notes"),
       isCapitalAsset: expense.isCapitalAsset,
-      costNature: sql<string | null>`${expense.costNature}`,
-      isInventoryWriteoff: sql<boolean>`${expense.isInventoryWriteoff}`,
+      costNature: sql<string | null>`${expense.costNature}`.as("cost_nature"),
+      isInventoryWriteoff: sql<boolean>`${expense.isInventoryWriteoff}`.as("is_inventory_writeoff"),
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
-      deletedAt: sql<Date | null>`${expense.deletedAt}`,
+      deletedAt: sql<Date | null>`${expense.deletedAt}`.as("deleted_at"),
       activeCapitalAssetId: sql<string | null>`(
         select ${capitalAsset.id} from ${capitalAsset}
         where ${capitalAsset.sourceType} = 'expense'
           and ${capitalAsset.sourceId} = ${expense.id}
           and ${capitalAsset.deletedAt} is null
         limit 1
-      )`,
+      )`.as("active_capital_asset_id"),
     })
     .from(expense)
     .where(and(...expenseConds));
 
   const purchaseQuery = db
     .select({
+      // ترتيب الأعمدة وأسماؤها يجب أن يطابقا expenseQuery حرفياً — UNION ALL
+      // يطابق بالموضع، والأسماء تأتي من الطرف الأول.
       id: purchase.id,
-      kind: sql<string>`'purchase'`,
+      kind: sql<string>`'purchase'`.as("kind"),
       date: purchase.date,
-      title: purchase.item,
+      title: sql<string>`${purchase.item}`.as("title"),
       amountCents: purchase.totalCents,
-      category: sql<string | null>`null`,
-      description: sql<string | null>`null`,
-      supplier: sql<string | null>`${purchase.supplier}`,
-      quantity: sql<number | null>`${purchase.quantity}`,
-      unitCostCents: sql<number | null>`${purchase.unitCostCents}`,
-      notes: sql<string | null>`${purchase.notes}`,
+      category: sql<string | null>`null::text`.as("category"),
+      description: sql<string | null>`null::text`.as("description"),
+      supplier: sql<string | null>`${purchase.supplier}`.as("supplier"),
+      quantity: sql<number | null>`${purchase.quantity}`.as("quantity"),
+      unitCostCents: sql<number | null>`${purchase.unitCostCents}`.as("unit_cost_cents"),
+      notes: sql<string | null>`${purchase.notes}`.as("notes"),
       isCapitalAsset: purchase.isCapitalAsset,
-      costNature: sql<string | null>`${purchase.costNature}`,
-      isInventoryWriteoff: sql<boolean>`false`,
+      costNature: sql<string | null>`${purchase.costNature}`.as("cost_nature"),
+      isInventoryWriteoff: sql<boolean>`false`.as("is_inventory_writeoff"),
       createdAt: purchase.createdAt,
       updatedAt: purchase.updatedAt,
-      deletedAt: sql<Date | null>`${purchase.deletedAt}`,
+      deletedAt: sql<Date | null>`${purchase.deletedAt}`.as("deleted_at"),
       activeCapitalAssetId: sql<string | null>`(
         select ${capitalAsset.id} from ${capitalAsset}
         where ${capitalAsset.sourceType} = 'purchase'
           and ${capitalAsset.sourceId} = ${purchase.id}
           and ${capitalAsset.deletedAt} is null
         limit 1
-      )`,
+      )`.as("active_capital_asset_id"),
     })
     .from(purchase)
     .where(and(...purchaseConds));
@@ -315,7 +324,8 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
   const rows = await db
     .select()
     .from(unionQuery.as("unified_payments"))
-    .orderBy(desc(sql`created_at`), desc(sql`id`))
+    // مؤهَّل باسم الجدول الفرعي — `id` وحده ملتبس داخل UNION فيفشل الاستعلام.
+    .orderBy(desc(sql`unified_payments.created_at`), desc(sql`unified_payments.id`))
     .limit(limit + 1);
 
   const items: PaymentItem[] = rows.map((r: any) => ({
@@ -323,27 +333,35 @@ export async function getPayments(filters: GetPaymentsFilters): Promise<{ items:
     kind: r.kind as PaymentKind,
     date: r.date,
     title: r.title,
-    amountCents: Number(r.amountCents ?? r.amount_cents),
+    // 🔴 قاعدة مُتحقَّق منها بالتشغيل على قاعدة حقيقية: Drizzle يُعيد المفاتيح
+    // بأسماء TypeScript دائماً — حتى للأعمدة المحسوبة. الـ .as("snake_case")
+    // ضروري لـ SQL نفسه (بدونه `?column?` و«ORDER BY id is ambiguous»)، لكنه
+    // لا يُغيّر اسم المفتاح هنا. لا تقرأ snake_case في هذا التعيين.
+    amountCents: Number(r.amountCents),
     category: r.category,
     description: r.description,
     supplier: r.supplier,
-    quantity: r.quantity !== null && r.quantity !== undefined ? Number(r.quantity) : null,
-    unitCostCents: r.unitCostCents !== null && r.unitCostCents !== undefined ? Number(r.unitCostCents ?? r.unit_cost_cents) : null,
+    quantity: r.quantity != null ? Number(r.quantity) : null,
+    unitCostCents: r.unitCostCents != null ? Number(r.unitCostCents) : null,
     notes: r.notes,
-    isCapitalAsset: Boolean(r.isCapitalAsset ?? r.is_capital_asset),
-    costNature: r.costNature ?? r.cost_nature,
-    isInventoryWriteoff: Boolean(r.isInventoryWriteoff ?? r.is_inventory_writeoff),
-    activeCapitalAssetId: r.activeCapitalAssetId ?? r.active_capital_asset_id,
-    createdAt: new Date(r.createdAt ?? r.created_at),
-    updatedAt: new Date(r.updatedAt ?? r.updated_at),
-    deletedAt: (r.deletedAt ?? r.deleted_at) ? new Date(r.deletedAt ?? r.deleted_at) : null,
+    isCapitalAsset: Boolean(r.isCapitalAsset),
+    costNature: r.costNature,
+    isInventoryWriteoff: Boolean(r.isInventoryWriteoff),
+    activeCapitalAssetId: r.activeCapitalAssetId,
+    createdAt: new Date(r.createdAt),
+    updatedAt: new Date(r.updatedAt),
+    deletedAt: r.deletedAt ? new Date(r.deletedAt) : null,
   }));
 
+  // 🔴 الـ cursor يُشتقّ من **آخر صفّ مُعاد فعلاً**، لا من الصفّ الزائد المحذوف.
+  // الشرط في الصفحة التالية `<` حصري، فاشتقاقه من الصفّ المحذوف يُسقطه نهائياً —
+  // صفّ ضائع مع كل صفحة (فُقد 10 صفوف من 41 عبر 10 صفحات في اختبار فعلي).
   let nextCursor: string | undefined;
   if (items.length > limit) {
-    const nextItem = items.pop();
-    nextCursor = nextItem
-      ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+    items.pop(); // الصفّ الزائد (limit + 1) — دليل وجود صفحة تالية فقط
+    const lastItem = items[items.length - 1];
+    nextCursor = lastItem
+      ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
       : undefined;
   }
 
@@ -417,9 +435,10 @@ export async function getPurchases(filters: GetPurchasesFilters) {
 
   let nextCursor: string | undefined;
   if (items.length > limit) {
-    const nextItem = items.pop();
-    nextCursor = nextItem
-      ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+    items.pop(); // الصفّ الزائد — دليل وجود صفحة تالية فقط
+    const lastItem = items[items.length - 1];
+    nextCursor = lastItem
+      ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
       : undefined;
   }
 
@@ -498,9 +517,10 @@ export async function getExpenses(filters: GetExpensesFilters) {
 
   let nextCursor: string | undefined;
   if (items.length > limit) {
-    const nextItem = items.pop();
-    nextCursor = nextItem
-      ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+    items.pop(); // الصفّ الزائد — دليل وجود صفحة تالية فقط
+    const lastItem = items[items.length - 1];
+    nextCursor = lastItem
+      ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
       : undefined;
   }
 
@@ -560,9 +580,10 @@ export async function getSales(filters: GetSalesFilters) {
 
   let nextCursor: string | undefined;
   if (items.length > limit) {
-    const nextItem = items.pop();
-    nextCursor = nextItem
-      ? `${new Date(nextItem.createdAt).toISOString()}|${nextItem.id}`
+    items.pop(); // الصفّ الزائد — دليل وجود صفحة تالية فقط
+    const lastItem = items[items.length - 1];
+    nextCursor = lastItem
+      ? `${new Date(lastItem.createdAt).toISOString()}|${lastItem.id}`
       : undefined;
   }
 
