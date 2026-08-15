@@ -16,28 +16,14 @@ import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { CardActionSheet } from "@/components/shared/CardActionSheet";
 import { scheduleDeleteWithUndo } from "@/lib/undo-delete";
 import {
-  useCreatePurchase,
   useDeletePurchase,
   useInfinitePurchases,
   usePurchase,
 } from "../hooks";
-import type { NewPurchase } from "../types";
-import { PurchaseForm } from "./PurchaseForm";
 import { SmartFinanceForm } from "./SmartFinanceForm";
 import { FinanceCatalogModal } from "./FinanceCatalogModal";
-// Phase 4 — مودال سؤال الإهلاك (خلف toggle «تصنيف متقدّم»).
-import { DepreciationPromptModal } from "@/features/depreciation/components/DepreciationPromptModal";
-import { useAddCapitalAsset, useDeleteCapitalAsset } from "@/features/depreciation/hooks";
+import { useDeleteCapitalAsset } from "@/features/depreciation/hooks";
 import { formatFilsToJod } from "@/lib/money";
-
-// معلومات الصف الرأسمالي المُنشَأ مؤخراً لاستخدامها في مودال الإهلاك.
-interface PendingCapitalAsset {
-  sourceType: "expense" | "purchase";
-  sourceId: string;
-  name: string;
-  purchaseDate: string;
-  purchaseAmountCents: number;
-}
 
 export function PurchasesTab() {
   const router = useRouter();
@@ -56,10 +42,6 @@ export function PurchasesTab() {
   const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
   // Issue #15 — شيت إجراءات سفلي لكل صف مشتريات (تعديل/حذف) بدلاً من نقْر البطاقة.
   const [actionSheetItem, setActionSheetItem] = useState<(typeof visiblePurchases)[number] | null>(null);
-  // Phase 4 — معلومات الصف الرأسمالي المُنشَأ مؤخراً + إظهار مودال الإهلاك.
-  const [pendingCapitalAsset, setPendingCapitalAsset] =
-    useState<PendingCapitalAsset | null>(null);
-  const capitalAssetMutation = useAddCapitalAsset();
   const deleteCapitalAssetMutation = useDeleteCapitalAsset();
 
   // هوك جلب البيانات اللانهائي (§10.1)
@@ -76,7 +58,6 @@ export function PurchasesTab() {
   const activePurchase = usePurchase(editId || "").data;
   const isLoadingActive = usePurchase(editId || "").isLoading;
 
-  const createMutation = useCreatePurchase();
   const deleteMutation = useDeletePurchase();
 
   const purchases = data?.pages.flatMap((page) => page.items) || [];
@@ -107,82 +88,6 @@ export function PurchasesTab() {
     router.replace(`${pathname}?${next.toString()}`);
   };
 
-
-
-  const handleCreate = async (
-    fields: NewPurchase,
-    advancedClassification: boolean,
-  ) => {
-    const res = await createMutation.mutateAsync({
-      values: fields,
-      requestId: crypto.randomUUID(),
-    });
-    if (res.status === "ok") {
-      toast.success("تم تسجيل المشتريات بنجاح");
-      // Phase 4 — إن كان رأسمالياً والـ toggle «تصنيف متقدّم» مفتوحاً، اعرض
-      // مودال الإهلاك. وإلا فالسلوك الافتراضي Phase 2.
-      if (
-        fields.isCapitalAsset &&
-        advancedClassification &&
-        res.data &&
-        typeof res.data === "object" &&
-        "id" in res.data
-      ) {
-        // totalCents = round(unitCostMicroCents × quantity / 1000). يُحسَب هنا
-        // لأن purchaseInputSchema لا يضمّ totalCents (الـ DB يُولِّده GENERATED ALWAYS).
-        const micro = fields.unitCostMicroCents ?? 0;
-        const qty = fields.quantity ?? 1;
-        const totalCents = Math.round((micro * qty) / 1000);
-        setPendingCapitalAsset({
-          sourceType: "purchase",
-          sourceId: (res.data as { id: string }).id,
-          name: fields.item ?? "أصل رأسمالي",
-          purchaseDate: fields.date ?? new Date().toLocaleDateString("en-CA"),
-          purchaseAmountCents: totalCents,
-        });
-      } else {
-        updateUrl({ newPurchase: null });
-      }
-      refetch();
-    } else {
-      toast.error(res.message);
-    }
-  };
-
-  // Phase 4 — تأكيد الإهلاك: استدعاء addCapitalAsset بعد حفظ الصف.
-  const handleConfirmSpread = async (usefulLifeMonths: number) => {
-    if (!pendingCapitalAsset) return;
-    const res = await capitalAssetMutation.mutateAsync({
-      sourceType: "purchase",
-      sourceId: pendingCapitalAsset.sourceId,
-      name: pendingCapitalAsset.name,
-      purchaseDate: pendingCapitalAsset.purchaseDate,
-      purchaseAmountCents: pendingCapitalAsset.purchaseAmountCents,
-      usefulLifeMonths,
-    });
-    if (res.status === "ok") {
-      toast.success(
-        `تم إنشاء الإهلاك — ${formatFilsToJod(
-          res.data.monthlyDepreciationCents,
-        )} شهرياً لمدة ${res.data.usefulLifeMonths} شهراً`,
-      );
-    } else {
-      toast.error(res.message);
-    }
-    setPendingCapitalAsset(null);
-    updateUrl({ newPurchase: null, editPurchase: null });
-  };
-
-  const handleConfirmDeductOnce = () => {
-    toast.info("تم تسجيل الأصل كإضافة رأسمالية — لا إهلاك شهري");
-    setPendingCapitalAsset(null);
-    updateUrl({ newPurchase: null, editPurchase: null });
-  };
-
-  const handleCloseDepreciationModal = () => {
-    setPendingCapitalAsset(null);
-    updateUrl({ newPurchase: null, editPurchase: null });
-  };
 
   // Issue #12 + #15 — حذف مع تراجع: يُخفي الصف فوراً (optimistic)، يُظهر تنبيه
   // sonner بزر «تراجع» لمدة 5 ثوانٍ، ثم يُنفِّذ الحذف الفعلي عبر useDeletePurchase.
@@ -389,7 +294,11 @@ export function PurchasesTab() {
         onClose={() => updateUrl({ newPurchase: null })}
         title="تسجيل مشتريات جديدة"
       >
-        <PurchaseForm onSubmit={handleCreate} isSubmitting={createMutation.isPending} />
+        <SmartFinanceForm
+          defaultMode="purchase"
+          onSuccess={() => refetch()}
+          onClose={() => updateUrl({ newPurchase: null })}
+        />
       </ResponsiveModal>
 
       {/* مودال تعديل المشتريات */}
@@ -458,17 +367,6 @@ export function PurchasesTab() {
         onConfirm={handleConfirmStopDepreciation}
         onCancel={() => setStopDepreciationAssetId(null)}
         isLoading={deleteCapitalAssetMutation.isPending}
-      />
-
-      {/* Phase 4 — مودال سؤال الإهلاك بعد حفظ صف رأسمالي (خلف toggle «تصنيف متقدّم»). */}
-      <DepreciationPromptModal
-        isOpen={pendingCapitalAsset !== null}
-        onClose={handleCloseDepreciationModal}
-        assetName={pendingCapitalAsset?.name ?? ""}
-        purchaseAmountCents={pendingCapitalAsset?.purchaseAmountCents ?? 0}
-        onConfirmDeductOnce={handleConfirmDeductOnce}
-        onConfirmSpread={handleConfirmSpread}
-        isSubmitting={capitalAssetMutation.isPending}
       />
 
       {/* Issue #15 — شيت إجراءات سفلي لكل صف مشتريات. المساران:

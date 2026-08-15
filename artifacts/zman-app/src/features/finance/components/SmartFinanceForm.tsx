@@ -69,6 +69,10 @@ const purchaseSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "التاريخ غير صالح" }),
   catalogId: z.string().nullable().default(null),
   itemName: z.string().min(1, "اسم الصنف مطلوب").max(200),
+  supplier: z
+    .string()
+    .max(200, { message: "اسم المورد لا يتعدى 200 حرف" })
+    .default(""),
   quantity: z.coerce
     .number()
     .int()
@@ -154,6 +158,8 @@ interface SmartFinanceFormProps {
    * إن لم يُمرَّر، يبقى السلوك الافتراضي (إنشاء جديد) كما هو.
    */
   initialData?: SmartFinanceFormInitialData;
+  /** الوضع الافتراضي للنموذج عند الإنشاء الجديد (افتراضي: 'expense') */
+  defaultMode?: Mode;
 }
 
 // ── المكوّن ────────────────────────────────────────────────────────────────────
@@ -162,8 +168,9 @@ export function SmartFinanceForm({
   onSuccess,
   onClose,
   initialData,
+  defaultMode = "expense",
 }: SmartFinanceFormProps) {
-  const [mode, setMode] = useState<Mode>(initialData?.type ?? "expense");
+  const [mode, setMode] = useState<Mode>(initialData?.type ?? defaultMode);
   const id = useId();
   const isEditing = !!initialData?.id;
 
@@ -246,6 +253,7 @@ export function SmartFinanceForm({
       date: initialData?.date ?? today,
       catalogId: initialData?.linkedCatalogComponentId ?? null,
       itemName: initialData?.itemName ?? "",
+      supplier: initialData?.supplier ?? "",
       quantity: initialData?.quantity ?? 1,
       totalCents: initialData?.amountCents ?? 0,
       notes: initialData?.notes ?? "",
@@ -504,7 +512,7 @@ export function SmartFinanceForm({
           values: {
             date: values.date,
             item: values.itemName,
-            supplier: initialData.supplier ?? "",
+            supplier: values.supplier.trim() || initialData.supplier || "",
             quantity: qty,
             unitCostMicroCents,
             notes: values.notes || "",
@@ -530,7 +538,7 @@ export function SmartFinanceForm({
         values: {
           date: values.date,
           item: values.itemName,
-          supplier: "",
+          supplier: values.supplier.trim() || "",
           quantity: qty,
           unitCostMicroCents,
           notes: values.notes || "",
@@ -941,6 +949,24 @@ export function SmartFinanceForm({
                   <strong>{currentStock ?? 0}</strong>
                 </span>
               </div>
+            )}
+          </div>
+
+          {/* المورّد (اختياري) */}
+          <div className="space-y-2 flex flex-col">
+            <label className="text-sm font-bold text-ink/75">المورد (اختياري)</label>
+            <input
+              type="text"
+              placeholder="اسم المورد أو المحل..."
+              {...purchaseForm.register("supplier")}
+              className={`flex h-12 w-full rounded-md border bg-paper px-4 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
+                purchaseForm.formState.errors.supplier ? "border-alert" : "border-hairline"
+              }`}
+            />
+            {purchaseForm.formState.errors.supplier && (
+              <p className="text-xs text-alert">
+                {purchaseForm.formState.errors.supplier.message}
+              </p>
             )}
           </div>
 

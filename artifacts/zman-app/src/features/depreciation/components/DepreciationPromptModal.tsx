@@ -18,9 +18,8 @@ import { formatFilsToJod } from "@/lib/money";
 //       النظام يخصم monthlyDepreciationCents شهرياً من الربح التشغيلي عبر
 //       computeOperatingPnl (خيار γ — محسوب عند القراءة، لا CRON).
 //
-// يُستخدَم من ExpenseForm/PurchaseForm خلف toggle «تصنيف متقدّم» (spec card 4.E):
-// المستخدم العادي يكتفي بـ checkbox «أصل رأسمالي» (Phase 2). من يريد الإهلاك
-// يفتح الـ toggle، فبعد الحفظ يظهر هذا المودال.
+// يُستخدَم من SmartFinanceForm في وضع «أصل للورشة» عند تفعيل الإهلاك الشهري:
+// يتيح للمالك تحديد العمر النافع بالأشهر لتوزيع تكلفة الأصل على الفترات القادمة.
 //
 // الخصائص:
 //   - isOpen: تحكم في العرض (من الأب).
