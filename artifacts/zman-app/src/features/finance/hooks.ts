@@ -39,6 +39,10 @@ import {
   getOpeningBalance,
   saveOpeningBalance,
   lockOpeningBalance,
+  createReceivable,
+  deleteReceivable,
+  createReceivablePayment,
+  deleteReceivablePayment,
 } from "./actions";
 import type {
   GetExpensesFilters,
@@ -55,6 +59,8 @@ import {
   getPurchases,
   getSale,
   getSales,
+  getReceivables,
+  getReceivableById,
 } from "./queries";
 
 export const financeKeys = {
@@ -80,6 +86,12 @@ export const financeKeys = {
   saleList: (filters: Omit<GetSalesFilters, "cursor">) =>
     [...financeKeys.sales(), "list", filters] as const,
   saleDetail: (id: string) => [...financeKeys.sales(), "detail", id] as const,
+
+  receivables: () => [...financeKeys.all, "receivables"] as const,
+  receivableList: (filters?: { search?: string; status?: "all" | "open" | "paid" }) =>
+    [...financeKeys.receivables(), "list", filters] as const,
+  receivableDetail: (id: string) =>
+    [...financeKeys.receivables(), "detail", id] as const,
 };
 
 // 0. هوك المدفوعات الموحَّدة (Payments: Expenses + Purchases)
@@ -703,4 +715,100 @@ export function useLockOpeningBalance() {
     },
   });
 }
+
+// -------------------------------------------------------------
+// 10. خطافات الذمم المدينة (Receivable Hooks)
+// -------------------------------------------------------------
+
+export function useReceivables(filters?: {
+  search?: string;
+  status?: "all" | "open" | "paid";
+  startDate?: string;
+  endDate?: string;
+}) {
+  return useQuery({
+    queryKey: financeKeys.receivableList(filters),
+    queryFn: async () => {
+      const res = await getReceivables(filters);
+      return res.items;
+    },
+  });
+}
+
+export function useReceivable(id: string) {
+  return useQuery({
+    queryKey: financeKeys.receivableDetail(id),
+    queryFn: () => getReceivableById(id),
+    enabled: !!id,
+  });
+}
+
+export function useCreateReceivable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ data, requestId }: { data: unknown; requestId?: string }) =>
+      createReceivable(data, requestId),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "receivables"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "payments"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "account-balances"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "balances"] });
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+      }
+    },
+  });
+}
+
+export function useDeleteReceivable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updatedAt }: { id: string; updatedAt?: string }) =>
+      deleteReceivable(id, updatedAt),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "receivables"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "payments"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "account-balances"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "balances"] });
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+      }
+    },
+  });
+}
+
+export function useCreateReceivablePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ data, requestId }: { data: unknown; requestId?: string }) =>
+      createReceivablePayment(data, requestId),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "receivables"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "payments"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "account-balances"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "balances"] });
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+      }
+    },
+  });
+}
+
+export function useDeleteReceivablePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updatedAt }: { id: string; updatedAt?: string }) =>
+      deleteReceivablePayment(id, updatedAt),
+    onSuccess: (res) => {
+      if (res.status === "ok") {
+        queryClient.invalidateQueries({ queryKey: ["finance", "receivables"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "payments"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "account-balances"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "balances"] });
+        queryClient.invalidateQueries({ queryKey: ["reports"] });
+      }
+    },
+  });
+}
+
 

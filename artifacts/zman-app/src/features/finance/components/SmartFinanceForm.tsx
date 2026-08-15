@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, ShoppingBag, Wrench } from "lucide-react";
+import { Banknote, ShoppingBag, Wrench, Users } from "lucide-react";
 import { useEffect, useMemo, useId, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -32,6 +32,8 @@ import {
   useUpdateExpense,
   useUpdatePurchase,
   useExpenseCategoryCatalog,
+  useCreateReceivable,
+  useAccounts,
 } from "../hooks";
 import { useAddCapitalAsset, useUpdateCapitalAsset } from "@/features/depreciation/hooks";
 import { getCapitalAssetForSource } from "@/features/depreciation/queries";
@@ -41,12 +43,13 @@ import { useComponentStock } from "@/features/inventory/hooks";
 
 // ── أوضاع النموذج ────────────────────────────────────────────────────────────
 
-type Mode = "expense" | "purchase" | "asset";
+type Mode = "expense" | "purchase" | "asset" | "receivable";
 
 const MODES: { id: Mode; label: string; icon: React.ReactNode }[] = [
   { id: "expense", label: "مصروف يومي", icon: <Banknote className="w-4 h-4" /> },
   { id: "purchase", label: "شراء مواد", icon: <ShoppingBag className="w-4 h-4" /> },
   { id: "asset", label: "أصل للورشة", icon: <Wrench className="w-4 h-4" /> },
+  { id: "receivable", label: "دَين لشخص", icon: <Users className="w-4 h-4" /> },
 ];
 
 // ── مخططات التحقق ────────────────────────────────────────────────────────────
@@ -97,9 +100,23 @@ const assetSchema = z.object({
   wantDepreciation: z.boolean().default(false),
 });
 
+const receivableSchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "التاريخ غير صالح" }),
+  personName: z.string().min(1, "اسم الشخص مطلوب").max(200),
+  amountCents: z.coerce
+    .number()
+    .int()
+    .positive("المبلغ يجب أن يكون أكبر من 0"),
+  accountId: z.string().min(1, "الصندوق / الحساب المالي مطلوب"),
+  notes: z.string().max(1000).default(""),
+});
+
 type ExpenseValues = z.infer<typeof expenseSchema>;
 type PurchaseValues = z.infer<typeof purchaseSchema>;
 type AssetValues = z.infer<typeof assetSchema>;
+type ReceivableValues = z.infer<typeof receivableSchema>;
 
 // ── واجهة المكوّن ─────────────────────────────────────────────────────────────
 
@@ -180,11 +197,8 @@ export function SmartFinanceForm({
   const updateExpense = useUpdateExpense();
   const updatePurchase = useUpdatePurchase();
   const addCapitalAsset = useAddCapitalAsset();
-  // Task C (Round 5) — مزامنة الأصل الرأسمالي المرتبط عند تعديل الأصل في وضع
-  // «أصل للورشة». 🔒 useUpdateCapitalAsset لا يقبل purchaseAmountCents إطلاقاً —
-  // النوع UpdateCapitalAssetVariables يفرض ذلك. نُحدِّث الاسم + تاريخ الشراء فقط،
-  // ونُحافِظ على usefulLifeMonths القائم (لا يمكن تعديله من هنا — مسار /assets).
   const updateCapitalAsset = useUpdateCapitalAsset();
+  const createReceivable = useCreateReceivable();
 
   // ── مودال الإهلاك (وضع «أصل للورشة»)  ───────────────────────────────────
   const [pendingAsset, setPendingAsset] = useState<{
@@ -193,6 +207,17 @@ export function SmartFinanceForm({
     date: string;
     amountCents: number;
   } | null>(null);
+
+  // ── بيانات الحسابات المالية (وضع «دَين لشخص») ──────────────────────────────
+  const { data: accounts = [] } = useAccounts();
+  const activeAccounts = useMemo(
+    () => accounts.filter((a) => !a.isArchived),
+    [accounts],
+  );
+  const defaultAccountId = useMemo(
+    () => activeAccounts.find((a) => a.type === "cash")?.id || activeAccounts[0]?.id || "",
+    [activeAccounts],
+  );
 
   // ── بيانات الكتالوج (وضع «شراء مواد») ────────────────────────────────────
   const { data: allCatalogItems = [] } = useCatalogComponents();
@@ -224,8 +249,6 @@ export function SmartFinanceForm({
   const [isCustomCategory, setIsCustomCategory] = useState(!initialData?.category);
 
   // ── قفل الإرسال المزدوج (Issue #2) ─────────────────────────────────────────
-  // نفس القفل يُستخدم عبر المعالجات الثلاثة (expense/purchase/asset) لأن وضعاً
-  // واحداً فقط يكون مرئياً في كل لحظة، فلا يمكن أن تتنافس المعالجات معاها.
   const inFlight = useRef(false);
 
   // بعد تحميل كتالوج الفئات، صحِّح isCustomCategory إن كانت الفئة موجودة فعلاً.
@@ -264,16 +287,23 @@ export function SmartFinanceForm({
   const assetDefaults = useMemo<AssetValues>(
     () => ({
       date: initialData?.date ?? today,
-      // وضع «أصل» يخزّن الاسم في حقل category في DB، لذا نأخذه من initialData.category.
       name: initialData?.category ?? "",
       amountCents: initialData?.amountCents ?? 0,
       description: initialData?.description ?? "",
-      // لا يمكننا معرفة إن كان المستخدم فعّل الإهلاك سابقاً من سجل المصروف وحده.
-      // نُهيّئه بـ false؛ إعادة تفعيله في وضع التعديل لا تُعيد فتح مودال الإهلاك
-      // (الارتباط capital_asset القائم يُحافَظ عليه كما هو).
       wantDepreciation: false,
     }),
     [initialData, today],
+  );
+
+  const receivableDefaults = useMemo<ReceivableValues>(
+    () => ({
+      date: today,
+      personName: "",
+      amountCents: 0,
+      accountId: defaultAccountId,
+      notes: "",
+    }),
+    [today, defaultAccountId],
   );
 
   // ── نماذج RHF (واحد لكل وضع) ─────────────────────────────────────────────
@@ -292,19 +322,31 @@ export function SmartFinanceForm({
     defaultValues: assetDefaults,
   });
 
+  const receivableForm = useForm<ReceivableValues>({
+    resolver: zodResolver(receivableSchema),
+    defaultValues: receivableDefaults,
+  });
+
+  useEffect(() => {
+    if (defaultAccountId && !receivableForm.getValues("accountId")) {
+      receivableForm.setValue("accountId", defaultAccountId);
+    }
+  }, [defaultAccountId, receivableForm]);
+
   // ── مسودات localStorage (Issue #7) ─────────────────────────────────────
-  // لكل وضع مفتاح مستقل؛ لا نُ persist في وضع التعديل ولا للأوضاع غير النشطة.
   const DRAFT_KEYS: Record<Mode, string> = {
     expense: "zman_draft_expense",
     purchase: "zman_draft_purchase",
     asset: "zman_draft_asset",
+    receivable: "zman_draft_receivable",
   };
 
-  type AnyDraft = ExpenseValues | PurchaseValues | AssetValues;
+  type AnyDraft = ExpenseValues | PurchaseValues | AssetValues | ReceivableValues;
   const [draftOffer, setDraftOffer] = useState<Record<Mode, AnyDraft | null>>({
     expense: null,
     purchase: null,
     asset: null,
+    receivable: null,
   });
 
   // (1) persist on isDirty change — gated by active mode + create-only.
@@ -359,6 +401,23 @@ export function SmartFinanceForm({
     }
   }, [assetForm.formState.isDirty, mode, isEditing]);
 
+  useEffect(() => {
+    if (isEditing || mode !== "receivable") return;
+    if (receivableForm.formState.isDirty) {
+      try {
+        localStorage.setItem(DRAFT_KEYS.receivable, JSON.stringify(receivableForm.getValues()));
+      } catch {
+        /* quota / private mode — silent */
+      }
+    } else {
+      try {
+        localStorage.removeItem(DRAFT_KEYS.receivable);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [receivableForm.formState.isDirty, mode, isEditing]);
+
   // (2) on mount, اعرض استرجاع المسودة إن وُجدت (إنشاء فقط).
   useEffect(() => {
     if (isEditing) return;
@@ -366,10 +425,12 @@ export function SmartFinanceForm({
       const exp = localStorage.getItem(DRAFT_KEYS.expense);
       const pur = localStorage.getItem(DRAFT_KEYS.purchase);
       const ast = localStorage.getItem(DRAFT_KEYS.asset);
+      const rec = localStorage.getItem(DRAFT_KEYS.receivable);
       setDraftOffer({
         expense: exp ? (JSON.parse(exp) as ExpenseValues) : null,
         purchase: pur ? (JSON.parse(pur) as PurchaseValues) : null,
         asset: ast ? (JSON.parse(ast) as AssetValues) : null,
+        receivable: rec ? (JSON.parse(rec) as ReceivableValues) : null,
       });
     } catch {
       /* ignore corrupted entries */
@@ -384,8 +445,10 @@ export function SmartFinanceForm({
       expenseForm.reset(offer as ExpenseValues);
     } else if (mode === "purchase") {
       purchaseForm.reset(offer as PurchaseValues);
-    } else {
+    } else if (mode === "asset") {
       assetForm.reset(offer as AssetValues);
+    } else {
+      receivableForm.reset(offer as ReceivableValues);
     }
     setDraftOffer((prev) => ({ ...prev, [mode]: null }));
   };
@@ -399,8 +462,6 @@ export function SmartFinanceForm({
   };
 
   // ── تبديل الوضع + إعادة ضبط الحالة ──────────────────────────────────────
-  // ملاحظة: في وضع التعديل، تبديل الوضع غير شائع (لا يمكن تحويل مصروف إلى شراء)،
-  // لكنّنا ندعمه بأمان بإعادة الضبط إلى قيم initialData بدل القيم الفارغة.
   const handleModeChange = (m: Mode) => {
     setMode(m);
     setIsCustomItem(!initialData?.linkedCatalogComponentId && !!initialData?.itemName);
@@ -409,11 +470,11 @@ export function SmartFinanceForm({
     expenseForm.reset(expenseDefaults);
     purchaseForm.reset(purchaseDefaults);
     assetForm.reset(assetDefaults);
+    receivableForm.reset(receivableDefaults);
   };
 
   // ── handlers per mode ─────────────────────────────────────────────────────
 
-  // ── تحويل updatedAt (string | Date) إلى ISO string لـ updateExpense/updatePurchase ──
   const updatedAtIso =
     initialData?.updatedAt instanceof Date
       ? initialData.updatedAt.toISOString()
@@ -661,6 +722,43 @@ export function SmartFinanceForm({
     }
   };
 
+  const handleReceivableSubmit = async (values: ReceivableValues) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      try {
+        assertOnline();
+      } catch (e) {
+        if (e instanceof Error && e.message === "offline") {
+          toast.error("لا يوجد اتصال — لم يُحفظ. أعد المحاولة.");
+          return;
+        }
+        throw e;
+      }
+
+      const res = await createReceivable.mutateAsync({
+        data: {
+          personName: values.personName,
+          amountCents: values.amountCents,
+          date: values.date,
+          accountId: values.accountId,
+          notes: values.notes || undefined,
+        },
+        requestId: crypto.randomUUID(),
+      });
+      if (res.status === "ok") {
+        try { localStorage.removeItem(DRAFT_KEYS.receivable); } catch { /* ignore */ }
+        toast.success("تم تسجيل الدَّين بنجاح");
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.message);
+      }
+    } finally {
+      inFlight.current = false;
+    }
+  };
+
   const handleConfirmSpread = async (months: number) => {
     if (!pendingAsset) return;
     const res = await addCapitalAsset.mutateAsync({
@@ -726,9 +824,9 @@ export function SmartFinanceForm({
         </div>
       )}
 
-      {/* السيلكتور — ثلاثة أوضاع */}
+      {/* السيلكتور — أربعة أوضاع */}
       <div
-        className="flex gap-1 p-1 bg-canvas rounded-xl mb-3"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1.5 bg-canvas rounded-xl mb-3"
         role="tablist"
         aria-label="نوع العملية"
       >
@@ -739,10 +837,10 @@ export function SmartFinanceForm({
             role="tab"
             aria-selected={mode === mId}
             onClick={() => handleModeChange(mId)}
-            className={`flex-1 flex flex-col items-center gap-1 py-2.5 px-1 rounded-lg text-xs font-bold transition-all min-h-[56px] ${
+            className={`flex items-center justify-center gap-2 py-2.5 px-2 rounded-lg text-xs font-bold transition-all min-h-[44px] ${
               mode === mId
-                ? "bg-paper text-ink shadow-sm"
-                : "text-ink/50 hover:text-ink/80"
+                ? "bg-paper text-ink shadow-sm ring-1 ring-hairline"
+                : "text-ink/60 hover:text-ink/90 hover:bg-paper/50"
             }`}
           >
             <span className={mode === mId ? "text-info" : ""}>{icon}</span>
@@ -758,6 +856,7 @@ export function SmartFinanceForm({
           {mode === "expense" && "يُخصم من ربح هذا الشهر كاملاً."}
           {mode === "purchase" && "مادة تدخل منتجاتك. إن ربطتها بصنف متتبَّع، تُخصم تكلفتها عند البيع لا عند الشراء."}
           {mode === "asset" && "لا يُخصم من ربح هذا الشهر. يُوزَّع إهلاكاً على عمره النافع."}
+          {mode === "receivable" && "لا يُخصم من ربحك — مالك ما زال لك، لكن عند غيرك."}
         </p>
       </div>
 
@@ -1136,9 +1235,106 @@ export function SmartFinanceForm({
             type="submit"
             variant="ink"
             isLoading={isExpensePending}
-            className="w-full"
+            className="w-full min-h-[44px]"
           >
             {isEditing ? "حفظ التعديلات" : "تسجيل الأصل"}
+          </Button>
+        </form>
+      )}
+
+      {/* ── وضع 4: دَين لشخص ─────────────────────────────────────────────── */}
+      {mode === "receivable" && (
+        <form
+          onSubmit={receivableForm.handleSubmit(handleReceivableSubmit)}
+          className="space-y-4"
+        >
+          {/* التاريخ */}
+          <div className="space-y-2 flex flex-col">
+            <label className="text-sm font-bold text-ink/75">تاريخ الدَّين</label>
+            <input
+              type="date"
+              {...receivableForm.register("date")}
+              className={`flex h-12 w-full rounded-md border bg-paper px-3 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
+                receivableForm.formState.errors.date ? "border-alert" : "border-hairline"
+              }`}
+            />
+            {receivableForm.formState.errors.date && (
+              <p className="text-xs text-alert">{receivableForm.formState.errors.date.message}</p>
+            )}
+          </div>
+
+          {/* اسم الشخص */}
+          <div className="space-y-2 flex flex-col">
+            <label className="text-sm font-bold text-ink/75">اسم الشخص المستدين</label>
+            <input
+              type="text"
+              placeholder="مثال: أحمد، محمد، ورشة الجيران..."
+              {...receivableForm.register("personName")}
+              className={`flex h-12 w-full rounded-md border bg-paper px-4 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
+                receivableForm.formState.errors.personName ? "border-alert" : "border-hairline"
+              }`}
+            />
+            {receivableForm.formState.errors.personName && (
+              <p className="text-xs text-alert">
+                {receivableForm.formState.errors.personName.message}
+              </p>
+            )}
+          </div>
+
+          {/* المبلغ */}
+          <div className="space-y-2 flex flex-col">
+            <label className="text-sm font-bold text-ink/75">مبلغ الدَّين</label>
+            <Controller
+              name="amountCents"
+              control={receivableForm.control}
+              render={({ field }) => (
+                <MoneyInput
+                  value={Number(field.value) || 0}
+                  onChange={field.onChange}
+                  error={receivableForm.formState.errors.amountCents?.message}
+                />
+              )}
+            />
+          </div>
+
+          {/* الصندوق / الحساب المالي */}
+          <div className="space-y-2 flex flex-col">
+            <label className="text-sm font-bold text-ink/75">دُفع من صندوق / حساب</label>
+            <Controller
+              name="accountId"
+              control={receivableForm.control}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={receivableForm.formState.errors.accountId?.message}
+                >
+                  <option value="">-- اختر الحساب المالي --</option>
+                  {activeAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} ({acc.type === "cash" ? "صندوق كاش" : "بنك"})
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
+          </div>
+
+          {/* ملاحظات */}
+          <TextArea
+            label="ملاحظات (اختياري)"
+            id={`${id}-rec-notes`}
+            placeholder="سبب الدَّين أو أي تفاصيل إضافية..."
+            {...receivableForm.register("notes")}
+          />
+
+          <Button
+            type="submit"
+            variant="ink"
+            isLoading={createReceivable.isPending}
+            className="w-full min-h-[44px]"
+          >
+            تسجيل الدَّين
           </Button>
         </form>
       )}

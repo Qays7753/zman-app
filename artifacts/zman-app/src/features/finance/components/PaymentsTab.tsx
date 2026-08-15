@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Boxes, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Boxes, Loader2, MoreVertical, Pencil, Trash2, History } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -18,12 +18,14 @@ import { scheduleDeleteWithUndo } from "@/lib/undo-delete";
 import {
   useDeleteExpense,
   useDeletePurchase,
+  useDeleteReceivable,
   useExpense,
   useInfinitePayments,
   usePurchase,
 } from "../hooks";
 import type { PaymentItem } from "../queries";
 import { SmartFinanceForm } from "./SmartFinanceForm";
+import { ReceivablePaymentModal } from "./ReceivablePaymentModal";
 import { useDeleteCapitalAsset } from "@/features/depreciation/hooks";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +45,10 @@ const FILTER_CHIPS = [
   { id: "expense", label: "مصاريف" },
   { id: "purchase", label: "مشتريات" },
   { id: "asset", label: "أصول" },
+  { id: "receivable", label: "ديون" },
 ] as const;
+
+type PaymentFilter = "all" | "expense" | "purchase" | "asset" | "receivable";
 
 export function PaymentsTab() {
   const router = useRouter();
@@ -52,7 +57,7 @@ export function PaymentsTab() {
   const [_isPending, startTransition] = useTransition();
 
   const search = searchParams.get("search") || "";
-  const filter = (searchParams.get("filter") as "all" | "expense" | "purchase" | "asset") || "all";
+  const filter = (searchParams.get("filter") as PaymentFilter) || "all";
   const category = searchParams.get("category") || "all";
   const natureFilter = searchParams.get("nature") || undefined;
 
@@ -67,9 +72,11 @@ export function PaymentsTab() {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
   const [actionSheetItem, setActionSheetItem] = useState<PaymentItem | null>(null);
+  const [receivablePaymentModalItem, setReceivablePaymentModalItem] = useState<PaymentItem | null>(null);
 
   const deleteExpenseMutation = useDeleteExpense();
   const deletePurchaseMutation = useDeletePurchase();
+  const deleteReceivableMutation = useDeleteReceivable();
   const deleteCapitalAssetMutation = useDeleteCapitalAsset();
 
   const activeExpense = useExpense(editExpenseId || "").data;
@@ -108,7 +115,7 @@ export function PaymentsTab() {
     router.replace(`${pathname}?${next.toString()}`);
   };
 
-  const handleChipChange = (newFilterId: "all" | "expense" | "purchase" | "asset") => {
+  const handleChipChange = (newFilterId: PaymentFilter) => {
     const next = new URLSearchParams(searchParams.toString());
     if (newFilterId === "all") {
       next.delete("filter");
@@ -131,7 +138,7 @@ export function PaymentsTab() {
 
     if (item.kind === "expense") {
       updateUrl({ editExpense: null });
-    } else {
+    } else if (item.kind === "purchase") {
       updateUrl({ editPurchase: null });
     }
 
@@ -142,14 +149,19 @@ export function PaymentsTab() {
     });
 
     const isExpense = item.kind === "expense";
+    const isPurchase = item.kind === "purchase";
     scheduleDeleteWithUndo({
       message: isExpense
         ? "سيُحذف المصروف — لا تغلق الصفحة"
-        : "سيُحذف الشراء — لا تغلق الصفحة",
+        : isPurchase
+          ? "سيُحذف الشراء — لا تغلق الصفحة"
+          : "سيُحذف الدَّين وسجل سداده — لا تغلق الصفحة",
       onCommit: async () => {
         const res = isExpense
           ? await deleteExpenseMutation.mutateAsync({ id: idToDelete, updatedAt })
-          : await deletePurchaseMutation.mutateAsync({ id: idToDelete, updatedAt });
+          : isPurchase
+            ? await deletePurchaseMutation.mutateAsync({ id: idToDelete, updatedAt })
+            : await deleteReceivableMutation.mutateAsync({ id: idToDelete, updatedAt });
         if (res.status !== "ok") {
           throw new Error(res.message ?? "فشل الحذف");
         }
@@ -328,11 +340,28 @@ export function PaymentsTab() {
                           isWriteoff ? "text-ink-2" : "text-ink"
                         )}
                       >
-                        {item.title || (item.kind === "expense" ? "مصروف عام" : "شراء مواد")}
+                        {item.kind === "receivable"
+                          ? `🤝 ${item.personName || item.title || "دَين لشخص"}`
+                          : item.title || (item.kind === "expense" ? "مصروف عام" : "شراء مواد")}
                       </span>
 
-                      {/* شارة التصنيف الرأسمالي */}
-                      {item.isCapitalAsset ? (
+                      {/* شارة التصنيف */}
+                      {item.kind === "receivable" ? (
+                        <>
+                          <span className="px-2 py-0.5 bg-canvas text-ink-2 text-[10px] rounded-full font-bold shrink-0">
+                            دَين
+                          </span>
+                          {item.debtStatus === "paid" ? (
+                            <span className="px-2 py-0.5 bg-emerald-soft text-emerald-deep text-[10px] rounded-full font-bold shrink-0">
+                              مسدَّد
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-warn-soft text-warn-deep text-[10px] rounded-full font-bold shrink-0">
+                              قائم
+                            </span>
+                          )}
+                        </>
+                      ) : item.isCapitalAsset ? (
                         <span className="px-2 py-0.5 bg-warn-soft text-warn-deep text-[10px] rounded-full font-bold shrink-0">
                           رأس مال
                         </span>
@@ -401,6 +430,47 @@ export function PaymentsTab() {
                     <div className="flex justify-between items-center text-xs text-ink-3 font-medium">
                       <span>خسارة مخزون — بلا دفع</span>
                       <DateText date={item.date} relative />
+                    </div>
+                  ) : item.kind === "receivable" ? (
+                    <div className="space-y-2 pt-1 border-t border-hairline/70">
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="flex items-center gap-3">
+                          <span className="text-ink/65 font-medium">
+                            المتبقي:{" "}
+                            <span
+                              className={cn(
+                                "font-mono font-bold",
+                                (item.remainingCents ?? item.amountCents) > 0
+                                  ? "text-alert"
+                                  : "text-emerald-deep"
+                              )}
+                            >
+                              <AmountText amount={item.remainingCents ?? item.amountCents} />
+                            </span>
+                          </span>
+                          {(item.paidAmountCents ?? 0) > 0 && (
+                            <span className="text-ink/50 text-[11px]">
+                              (سُدِّد: <AmountText amount={item.paidAmountCents ?? 0} />)
+                            </span>
+                          )}
+                        </div>
+                        <DateText date={item.date} relative />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-ink/45 truncate max-w-[160px]">
+                          {item.accountName ? `من: ${item.accountName}` : ""}{item.notes ? ` · ${item.notes}` : ""}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={item.debtStatus === "paid" ? "secondary" : "ink"}
+                          onClick={() => setReceivablePaymentModalItem(item)}
+                          className="text-xs min-h-[36px] py-1 px-3 shrink-0"
+                        >
+                          {item.debtStatus === "paid" ? "سجل السداد" : "تسجيل سداد (+)"}
+                        </Button>
+                      </div>
                     </div>
                   ) : item.kind === "expense" ? (
                     <div className="flex justify-between items-center text-xs text-ink/60 font-medium">
@@ -638,33 +708,63 @@ export function PaymentsTab() {
         title="إجراءات"
         actions={
           actionSheetItem
-            ? [
-                {
-                  label: "تعديل",
-                  icon: <Pencil className="w-5 h-5" />,
-                  onClick: () => {
-                    const item = actionSheetItem;
-                    setActionSheetItem(null);
-                    if (item.kind === "expense") {
-                      updateUrl({ editExpense: item.id });
-                    } else {
-                      updateUrl({ editPurchase: item.id });
-                    }
+            ? actionSheetItem.kind === "receivable"
+              ? [
+                  {
+                    label: "إدارة وسداد الدَّين",
+                    icon: <History className="w-5 h-5" />,
+                    onClick: () => {
+                      const item = actionSheetItem;
+                      setActionSheetItem(null);
+                      setReceivablePaymentModalItem(item);
+                    },
                   },
-                },
-                {
-                  label: "حذف",
-                  icon: <Trash2 className="w-5 h-5" />,
-                  variant: "danger" as const,
-                  onClick: () => {
-                    const item = actionSheetItem;
-                    setActionSheetItem(null);
-                    handleDeleteWithUndo(item);
+                  {
+                    label: "حذف الدَّين",
+                    icon: <Trash2 className="w-5 h-5" />,
+                    variant: "danger" as const,
+                    onClick: () => {
+                      const item = actionSheetItem;
+                      setActionSheetItem(null);
+                      handleDeleteWithUndo(item);
+                    },
                   },
-                },
-              ]
+                ]
+              : [
+                  {
+                    label: "تعديل",
+                    icon: <Pencil className="w-5 h-5" />,
+                    onClick: () => {
+                      const item = actionSheetItem;
+                      setActionSheetItem(null);
+                      if (item.kind === "expense") {
+                        updateUrl({ editExpense: item.id });
+                      } else {
+                        updateUrl({ editPurchase: item.id });
+                      }
+                    },
+                  },
+                  {
+                    label: "حذف",
+                    icon: <Trash2 className="w-5 h-5" />,
+                    variant: "danger" as const,
+                    onClick: () => {
+                      const item = actionSheetItem;
+                      setActionSheetItem(null);
+                      handleDeleteWithUndo(item);
+                    },
+                  },
+                ]
             : []
         }
+      />
+
+      {/* مودال إدارة وسداد الذمم المدينة */}
+      <ReceivablePaymentModal
+        receivableItem={receivablePaymentModalItem}
+        isOpen={receivablePaymentModalItem !== null}
+        onClose={() => setReceivablePaymentModalItem(null)}
+        onSuccess={() => refetch()}
       />
     </div>
   );
