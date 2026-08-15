@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { addCapitalAsset, deleteCapitalAsset, updateCapitalAsset } from "./actions";
-import { getAllCapitalAssets } from "./assetsQueries";
+import { getAllCapitalAssets, getUndepreciatedCapitalAssets } from "./assetsQueries";
 import { getAmmanDate } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -23,6 +23,7 @@ import { getAmmanDate } from "@/lib/utils";
 export const capitalAssetKeys = {
   all: ["capital-assets"] as const,
   list: (asOfDate?: string) => [...capitalAssetKeys.all, "list", asOfDate ?? ""] as const,
+  undepreciated: () => [...capitalAssetKeys.all, "undepreciated"] as const,
 };
 
 /**
@@ -33,6 +34,18 @@ export function useCapitalAssets(asOfDate?: string) {
   return useQuery({
     queryKey: capitalAssetKeys.list(date),
     queryFn: () => getAllCapitalAssets(date),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+}
+
+/**
+ * جلب الأصول الرأسمالية المسجلة بلا إهلاك — لشاشة /assets.
+ */
+export function useUndepreciatedCapitalAssets() {
+  return useQuery({
+    queryKey: capitalAssetKeys.undepreciated(),
+    queryFn: () => getUndepreciatedCapitalAssets(),
     staleTime: 0,
     refetchOnMount: "always",
   });

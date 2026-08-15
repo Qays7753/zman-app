@@ -25,11 +25,18 @@ import { CardActionSheet } from "@/components/shared/CardActionSheet";
 import { cn } from "@/lib/utils";
 import {
   useCapitalAssets,
+  useUndepreciatedCapitalAssets,
+  useAddCapitalAsset,
   useDeleteCapitalAsset,
   useUpdateCapitalAsset,
 } from "./hooks";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
-import type { CapitalAssetWithDepreciation } from "./assetsQueries";
+import type {
+  CapitalAssetWithDepreciation,
+  UndepreciatedCapitalAsset,
+} from "./assetsQueries";
+import { DepreciationPromptModal } from "./components/DepreciationPromptModal";
+import { formatFilsToJod } from "@/lib/money";
 import { toast } from "sonner";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -57,14 +64,24 @@ type EditAssetFormValues = z.infer<typeof editAssetSchema>;
 export function AssetsScreen() {
   const router = useRouter();
   const { data: assets, isLoading, isError, refetch } = useCapitalAssets();
+  const {
+    data: undepreciatedAssets,
+    isLoading: isLoadingUndepreciated,
+    isError: isErrorUndepreciated,
+    refetch: refetchUndepreciated,
+  } = useUndepreciatedCapitalAssets();
+
+  const addCapitalAsset = useAddCapitalAsset();
   const deleteAsset = useDeleteCapitalAsset();
   const [confirmStop, setConfirmStop] = useState<CapitalAssetWithDepreciation | null>(null);
   // Issue #11 — أصل قيد التعديل (الاسم + تاريخ الشراء + العمر النافع فقط).
   // 🔒 purchaseAmountCents لا يُمرَّر للسيرفر إطلاقاً — يُعرض للقراءة فقط.
   const [editingAsset, setEditingAsset] = useState<CapitalAssetWithDepreciation | null>(null);
-  // Issue #15 — شيت إجراءات سفلي لكل بطاقة أصل. يعرض «تعديل» دائماً، و«إيقاف الإهلاك»
-  // فقط للأصول غير المستهلكة بالكامل. { asset } + flag منفصل لأن علم isFullyDepreciated
-  // على الـ asset نفسه قد لا يكون كافياً لو أردنا لاحقاً التمييز بين الأقسام.
+  // تفعيل الإهلاك لأصل مسجّل بلا إهلاك
+  const [promptDepreciationAsset, setPromptDepreciationAsset] =
+    useState<UndepreciatedCapitalAsset | null>(null);
+
+  // Issue #15 — شيت إجراءات سفلي لكل بطاقة أصل.
   const [actionSheet, setActionSheet] = useState<{
     asset: CapitalAssetWithDepreciation;
     showStop: boolean;
@@ -73,6 +90,11 @@ export function AssetsScreen() {
   const activeAssets = assets?.filter((a) => !a.isFullyDepreciated && !a.isPending) ?? [];
   const doneAssets = assets?.filter((a) => a.isFullyDepreciated) ?? [];
   const pendingAssets = assets?.filter((a) => a.isPending) ?? [];
+  const undepreciated = undepreciatedAssets ?? [];
+
+  const isDataLoading = isLoading || isLoadingUndepreciated;
+  const hasError = isError || isErrorUndepreciated;
+  const totalAssetsCount = (assets?.length ?? 0) + undepreciated.length;
 
   async function handleStopDepreciation() {
     if (!confirmStop) return;
@@ -89,27 +111,50 @@ export function AssetsScreen() {
     <>
       <AppShellHeader title="الأصول الرأسمالية" />
 
-      {isLoading && <SkeletonList count={4} />}
-      {isError && (
-        <ErrorState message="تعذّر تحميل بيانات الأصول الرأسمالية. حاول مجدداً." onRetry={() => refetch()} />
+      {isDataLoading && <SkeletonList count={4} />}
+      {hasError && (
+        <ErrorState
+          message="تعذّر تحميل بيانات الأصول الرأسمالية. حاول مجدداً."
+          onRetry={() => {
+            refetch();
+            refetchUndepreciated();
+          }}
+        />
       )}
 
-      {!isLoading && !isError && (assets?.length ?? 0) === 0 && (
+      {!isDataLoading && !hasError && totalAssetsCount === 0 && (
         <EmptyState
           title="لا توجد أصول رأسمالية مُسجَّلة بعد"
-          description="عند تسجيل مصروف أو شراء رأسمالي وتفعيل «توزيع شهري (إهلاك)»، يظهر الأصل هنا"
+          description="عند تسجيل مصروف أو شراء رأسمالي، يظهر الأصل هنا سواء اخترت الإهلاك الشهري أو الخصم لمرة واحدة"
           steps={[
             "سجّل مصروفاً واختر وضع «أصل للورشة»",
-            "فعّل خيار «توزيع الإهلاك شهرياً»",
-            "حدّد العمر النافع بالأشهر بعد الحفظ",
+            "حدّد ما إذا كنت تريد تتبع الإهلاك شهرياً أو خصمه كإضافة رأسمالية",
+            "يظهر الأصل في هذه الشاشة لإدارته وجرده في أي وقت",
           ]}
           actionLabel="أضف أول أصل"
           onAction={() => router.push("/finance?newExpense=true")}
         />
       )}
 
-      {!isLoading && !isError && (assets?.length ?? 0) > 0 && (
+      {!isDataLoading && !hasError && totalAssetsCount > 0 && (
         <div className="flex flex-col gap-5">
+          {/* أصول بلا إهلاك */}
+          {undepreciated.length > 0 && (
+            <section>
+              <h2 className="text-xs font-bold text-ink-3 uppercase tracking-wide mb-2 px-1">
+                أصول بلا إهلاك ({undepreciated.length})
+              </h2>
+              <div className="flex flex-col gap-2">
+                {undepreciated.map((asset) => (
+                  <UndepreciatedAssetCard
+                    key={`${asset.sourceType}-${asset.sourceId}`}
+                    asset={asset}
+                    onActivateDepreciation={() => setPromptDepreciationAsset(asset)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* الأصول النشطة */}
           {activeAssets.length > 0 && (
@@ -174,6 +219,39 @@ export function AssetsScreen() {
           )}
         </div>
       )}
+
+      {/* مودال سؤال الإهلاك للأصول غير المهلكة */}
+      <DepreciationPromptModal
+        isOpen={promptDepreciationAsset !== null}
+        onClose={() => setPromptDepreciationAsset(null)}
+        assetName={promptDepreciationAsset?.name ?? ""}
+        purchaseAmountCents={promptDepreciationAsset?.purchaseAmountCents ?? 0}
+        onConfirmDeductOnce={() => setPromptDepreciationAsset(null)}
+        onConfirmSpread={async (usefulLifeMonths) => {
+          if (!promptDepreciationAsset) return;
+          const res = await addCapitalAsset.mutateAsync({
+            sourceType: promptDepreciationAsset.sourceType,
+            sourceId: promptDepreciationAsset.sourceId,
+            name: promptDepreciationAsset.name,
+            purchaseDate: promptDepreciationAsset.purchaseDate,
+            purchaseAmountCents: promptDepreciationAsset.purchaseAmountCents,
+            usefulLifeMonths,
+          });
+          if (res.status === "ok") {
+            toast.success(
+              `تم تفعيل الإهلاك — ${formatFilsToJod(
+                res.data.monthlyDepreciationCents,
+              )} شهرياً لمدة ${res.data.usefulLifeMonths} شهراً`,
+            );
+            refetch();
+            refetchUndepreciated();
+          } else {
+            toast.error(res.message);
+          }
+          setPromptDepreciationAsset(null);
+        }}
+        isSubmitting={addCapitalAsset.isPending}
+      />
 
       {/* مودال تعديل بيانات الأصل (Issue #11) */}
       <ResponsiveModal
@@ -284,6 +362,51 @@ export function AssetsScreen() {
         }
       />
     </>
+  );
+}
+
+// ─── بطاقة أصل بلا إهلاك ───────────────────────────────────────────────────
+
+function UndepreciatedAssetCard({
+  asset,
+  onActivateDepreciation,
+}: {
+  asset: UndepreciatedCapitalAsset;
+  onActivateDepreciation: () => void;
+}) {
+  return (
+    <div className="bg-paper rounded-xl border border-hairline px-4 py-3 flex flex-col gap-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-ink">{asset.name}</p>
+            <span className="text-[10px] font-bold text-ink-3 bg-canvas px-1.5 py-0.5 rounded-full">
+              {asset.sourceType === "expense" ? "مصروف" : "شراء مواد"}
+            </span>
+            <span className="text-[10px] font-bold text-warn-deep bg-warn-soft px-1.5 py-0.5 rounded-full">
+              بلا إهلاك
+            </span>
+          </div>
+          <p className="text-[11px] text-ink-3 mt-0.5">
+            تاريخ الشراء: {asset.purchaseDate}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onActivateDepreciation}
+          className="min-h-[44px] px-3 py-1 bg-info-soft text-info text-xs font-bold rounded-lg border border-info/30 hover:bg-info-soft/80 transition-colors flex items-center justify-center shrink-0"
+        >
+          تفعيل الإهلاك
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between pt-1 border-t border-hairline text-xs">
+        <span className="text-ink-3">القيمة المسجلة</span>
+        <span className="font-bold text-ink tabular-nums">
+          <AmountText amount={asset.purchaseAmountCents} />
+        </span>
+      </div>
+    </div>
   );
 }
 
