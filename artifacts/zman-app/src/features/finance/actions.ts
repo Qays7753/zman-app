@@ -1820,13 +1820,84 @@ export async function deletePurchaseItemCatalog(id: string): Promise<ActionRespo
 // 6. فئات المصاريف (Expense Category Catalog Actions)
 // -------------------------------------------------------------
 
+export const DEFAULT_EXPENSE_CATEGORIES = [
+  "رواتب",
+  "إيجار",
+  "كهرباء ومياه",
+  "نقل وتوصيل",
+  "تعبئة وتغليف",
+  "صيانة وأدوات",
+  "حوافز",
+  "أخرى",
+] as const;
+
+export async function seedDefaultExpenseCategories(): Promise<{ seeded: number }> {
+  try {
+    // 1. جلب الفئات النشطة الحالية من الكتالوج
+    const existing = await db
+      .select({ name: expenseCategoryCatalog.name })
+      .from(expenseCategoryCatalog)
+      .where(isNull(expenseCategoryCatalog.deletedAt));
+
+    const existingNormalized = new Set(
+      existing.map((e) => e.name.trim().toLowerCase())
+    );
+
+    // 2. جلب الفئات المستعملة فعلياً في جدول المصاريف
+    const usedExpenses = await db
+      .selectDistinct({ category: expense.category })
+      .from(expense)
+      .where(and(isNull(expense.deletedAt), sql`trim(${expense.category}) != ''`));
+
+    // 3. بناء قائمة الترشيحات: الفئات الافتراضية + فئات المصاريف القائمة
+    const candidates = [
+      ...DEFAULT_EXPENSE_CATEGORIES,
+      ...usedExpenses.map((u) => u.category),
+    ];
+
+    const toInsert: { name: string }[] = [];
+    for (const cand of candidates) {
+      if (!cand) continue;
+      const trimmed = cand.trim();
+      const norm = trimmed.toLowerCase();
+      if (trimmed && trimmed.length <= 200 && !existingNormalized.has(norm)) {
+        existingNormalized.add(norm);
+        toInsert.push({ name: trimmed });
+      }
+    }
+
+    if (toInsert.length > 0) {
+      await db.insert(expenseCategoryCatalog).values(toInsert);
+      return { seeded: toInsert.length };
+    }
+
+    return { seeded: 0 };
+  } catch (error) {
+    console.error("Failed to seed default expense categories:", error);
+    return { seeded: 0 };
+  }
+}
+
 export async function getExpenseCategoryCatalog() {
   try {
-    const items = await db
+    let items = await db
       .select()
       .from(expenseCategoryCatalog)
       .where(isNull(expenseCategoryCatalog.deletedAt))
       .orderBy(expenseCategoryCatalog.name);
+
+    // بذر كسول (Lazy Seeding) آمن عند فراغ الكتالوج
+    if (items.length === 0) {
+      const res = await seedDefaultExpenseCategories();
+      if (res.seeded > 0) {
+        items = await db
+          .select()
+          .from(expenseCategoryCatalog)
+          .where(isNull(expenseCategoryCatalog.deletedAt))
+          .orderBy(expenseCategoryCatalog.name);
+      }
+    }
+
     return items;
   } catch (error) {
     console.error("Failed to fetch expense category catalog:", error);
