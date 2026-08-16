@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/client";
-import { expense, purchase, sale, receivable, receivablePayment, account } from "./db";
+import { expense, purchase, sale, receivable, receivablePayment, account, expenseCategoryCatalog } from "./db";
 import type { Expense, Purchase, Sale, Receivable, ReceivablePayment, ReceivableWithPayments } from "./types";
 import { order } from "@/features/orders/db";
 // D7 fix — capital_asset لإظهار زر «إيقاف الإهلاك» على الصفوف التي لها أصل نشط.
@@ -896,5 +896,46 @@ export async function getReceivableById(id: string): Promise<ReceivableWithPayme
     status,
     payments: pList,
   };
+}
+
+// 7. استعلام موحّد لجلب فئات المصاريف (كتالوج + مستعملة فعلياً لضمان عدم سقوط أي فئة يتيمة)
+export async function getDistinctExpenseCategories(): Promise<string[]> {
+  try {
+    // 1. جلب فئات الكتالوج النشطة
+    const catalogItems = await db
+      .select({ name: expenseCategoryCatalog.name })
+      .from(expenseCategoryCatalog)
+      .where(isNull(expenseCategoryCatalog.deletedAt));
+
+    // 2. جلب الفئات المستعملة فعلياً في جدول المصاريف (حتى لو لم تكن في الكتالوج)
+    const expenseRows = await db
+      .selectDistinct({ category: expense.category })
+      .from(expense)
+      .where(and(isNull(expense.deletedAt), sql`trim(${expense.category}) != ''`));
+
+    // 3. دمج وإلغاء التكرار (مع تطبيع المسافات وحالة الأحرف)
+    const seen = new Set<string>();
+    const result: string[] = [];
+
+    const all = [
+      ...catalogItems.map((c) => c.name),
+      ...expenseRows.map((e) => e.category),
+    ];
+
+    for (const raw of all) {
+      if (!raw) continue;
+      const trimmed = raw.trim();
+      const norm = trimmed.toLowerCase();
+      if (trimmed && !seen.has(norm)) {
+        seen.add(norm);
+        result.push(trimmed);
+      }
+    }
+
+    return result.sort((a, b) => a.localeCompare("ar"));
+  } catch (error) {
+    console.error("Failed to fetch distinct expense categories:", error);
+    return [];
+  }
 }
 

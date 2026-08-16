@@ -20,6 +20,7 @@ import {
   useDeletePurchase,
   useDeleteReceivable,
   useExpense,
+  useExpenseFilterCategories,
   useInfinitePayments,
   usePurchase,
 } from "../hooks";
@@ -28,17 +29,6 @@ import { SmartFinanceForm } from "./SmartFinanceForm";
 import { ReceivablePaymentModal } from "./ReceivablePaymentModal";
 import { useDeleteCapitalAsset } from "@/features/depreciation/hooks";
 import { cn } from "@/lib/utils";
-
-const EXPENSE_CATEGORIES = [
-  "الكل",
-  "رواتب",
-  "إيجار",
-  "كهرباء ومياه",
-  "نقل وتوصيل",
-  "تعبئة وتغليف",
-  "صيانة وأدوات",
-  "أخرى",
-] as const;
 
 const FILTER_CHIPS = [
   { id: "all", label: "الكل" },
@@ -84,6 +74,8 @@ export function PaymentsTab() {
 
   const activePurchase = usePurchase(editPurchaseId || "").data;
   const isLoadingActivePurchase = usePurchase(editPurchaseId || "").isLoading;
+
+  const { data: filterCategories = [] } = useExpenseFilterCategories();
 
   // استعلام المدفوعات الموحَّدة اللانهائي
   const queryCategory = category === "الكل" || category === "all" ? undefined : category;
@@ -239,9 +231,10 @@ export function PaymentsTab() {
               className="flex-1 min-w-0 text-xs h-11 min-h-[44px] rounded-lg border border-hairline bg-paper px-3 text-ink focus:outline-none focus:ring-1 focus:ring-info font-medium"
               aria-label="تصفية حسب فئة المصروف"
             >
-              {EXPENSE_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat === "الكل" ? "all" : cat}>
-                  {cat === "الكل" ? "كل الفئات" : cat}
+              <option value="all">كل الفئات</option>
+              {filterCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
                 </option>
               ))}
             </select>

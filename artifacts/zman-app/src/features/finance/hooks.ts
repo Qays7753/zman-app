@@ -53,6 +53,7 @@ import type {
 import {
   getExpense,
   getExpenseCategories,
+  getDistinctExpenseCategories,
   getExpenses,
   getPayments,
   getPurchase,
@@ -475,6 +476,13 @@ export function useExpenseCategoryCatalog() {
   });
 }
 
+export function useExpenseFilterCategories() {
+  return useQuery({
+    queryKey: ["finance", "expense-filter-categories"] as const,
+    queryFn: () => getDistinctExpenseCategories(),
+  });
+}
+
 export function useCreateExpenseCategoryCatalog() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -482,6 +490,7 @@ export function useCreateExpenseCategoryCatalog() {
     onSuccess: (res) => {
       if (res.status === "ok") {
         queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-filter-categories"] });
       }
     },
   });
@@ -495,6 +504,7 @@ export function useUpdateExpenseCategoryCatalog() {
     onSuccess: (res) => {
       if (res.status === "ok") {
         queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-filter-categories"] });
       }
     },
   });
@@ -507,6 +517,7 @@ export function useDeleteExpenseCategoryCatalog() {
     onSuccess: (res) => {
       if (res.status === "ok") {
         queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-filter-categories"] });
       }
     },
   });
