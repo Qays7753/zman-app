@@ -246,6 +246,8 @@ export function useCreateExpense() {
       if (res.status === "ok") {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
         queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-filter-categories"] });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
     },
@@ -268,6 +270,8 @@ export function useUpdateExpense() {
       if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
         queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-filter-categories"] });
         queryClient.invalidateQueries({
           queryKey: financeKeys.expenseDetail(variables.id),
         });
@@ -286,6 +290,8 @@ export function useDeleteExpense() {
       if (res.status === "ok" || (res.status === "error" && res.message?.includes("جهة أخرى"))) {
         queryClient.invalidateQueries({ queryKey: financeKeys.expenses() });
         queryClient.invalidateQueries({ queryKey: financeKeys.payments() });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-catalog"] });
+        queryClient.invalidateQueries({ queryKey: ["finance", "expense-filter-categories"] });
         queryClient.invalidateQueries({ queryKey: ["reports"] });
       }
     },

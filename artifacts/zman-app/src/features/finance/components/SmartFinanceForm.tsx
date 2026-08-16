@@ -246,7 +246,7 @@ export function SmartFinanceForm({
     [dbCategories],
   );
   // في وضع التعديل: إن لم تكن الفئة في كتالوج الفئات، نُهيّئه كـ«إدخال يدوي».
-  const [isCustomCategory, setIsCustomCategory] = useState(!initialData?.category);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
 
   // ── قفل الإرسال المزدوج (Issue #2) ─────────────────────────────────────────
   const inFlight = useRef(false);
@@ -880,7 +880,21 @@ export function SmartFinanceForm({
 
           {/* الفئة */}
           <div className="space-y-2 flex flex-col">
-            <label className="text-sm font-bold text-ink/75">الفئة</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-ink/75">الفئة</label>
+              {categoryOptions.length > 0 && isCustomCategory && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomCategory(false);
+                    expenseForm.setValue("category", "");
+                  }}
+                  className="text-xs text-info font-bold hover:underline"
+                >
+                  اختر من القائمة
+                </button>
+              )}
+            </div>
             {!isCustomCategory && categoryOptions.length > 0 ? (
               <Select
                 value={expenseForm.watch("category")}

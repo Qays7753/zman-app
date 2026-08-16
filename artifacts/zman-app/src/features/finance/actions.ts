@@ -713,11 +713,14 @@ export async function createExpense(
         }
       }
 
+      const trimmedCategory = parsed.data.category.trim();
+      await ensureExpenseCategoryInCatalog(trimmedCategory, tx);
+
       const [newExpense] = await tx
         .insert(expense)
         .values({
           date: parsed.data.date,
-          category: parsed.data.category,
+          category: trimmedCategory,
           amountCents: parsed.data.amountCents,
           description: parsed.data.description,
           // Phase 2 — التصنيف بُعدين. costNature → null للرأسمالي (لا معنى لطبيعته —
@@ -743,7 +746,7 @@ export async function createExpense(
           amountCents: newExpense.amountCents,
           sourceType: "expense",
           sourceId: newExpense.id,
-          description: newExpense.description || `مصروف: ${newExpense.category}`,
+          description: newExpense.description || `مصروف: ${trimmedCategory}`,
         });
       }
 
@@ -831,11 +834,14 @@ export async function updateExpense(
         };
       }
 
+      const trimmedCategory = parsed.data.category.trim();
+      await ensureExpenseCategoryInCatalog(trimmedCategory, tx);
+
       const [updatedExpense] = await tx
         .update(expense)
         .set({
           date: parsed.data.date,
-          category: parsed.data.category,
+          category: trimmedCategory,
           amountCents: parsed.data.amountCents,
           description: parsed.data.description,
           // Phase 2 — التصنيف بُعدين. costNature → null للرأسمالي (لا معنى لطبيعته —
@@ -1905,6 +1911,39 @@ export async function getExpenseCategoryCatalog() {
   }
 }
 
+/**
+ * يضمن وجود الفئة في كتالوج فئات المصاريف دون تكرار.
+ * يُطبّع النص بحذف المسافات الطرفية trim() والمقارنة غير حساسة لحالة الأحرف والمسافات.
+ * دفاعي بالكامل: لا يرمي أي خطأ إن فشل الإدراج لكي لا يعطّل حفظ المصروف.
+ */
+export async function ensureExpenseCategoryInCatalog(categoryName: string, tx?: any): Promise<void> {
+  try {
+    const trimmed = categoryName?.trim();
+    if (!trimmed || trimmed.length === 0 || trimmed.length > 200) return;
+
+    const dbClient = tx ?? db;
+
+    // فحص وجود الفئة (مطابقة غير حساسة للأحرف والمسافات)
+    const [existing] = await dbClient
+      .select({ id: expenseCategoryCatalog.id })
+      .from(expenseCategoryCatalog)
+      .where(
+        and(
+          sql`lower(trim(${expenseCategoryCatalog.name})) = lower(trim(${trimmed}))`,
+          isNull(expenseCategoryCatalog.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (!existing) {
+      await dbClient.insert(expenseCategoryCatalog).values({ name: trimmed });
+    }
+  } catch (error) {
+    // دفاعي: لا نُفشل العملية الأصلية إن حدث خطأ في إضافة الفئة للكتالوج
+    console.warn("Failed to ensure expense category in catalog:", error);
+  }
+}
+
 export async function createExpenseCategoryCatalog(name: string): Promise<ActionResponse> {
   const ip = (await headers()).get("x-forwarded-for") || "127.0.0.1";
   const { success } = await ratelimit.limit(ip);
@@ -1912,17 +1951,34 @@ export async function createExpenseCategoryCatalog(name: string): Promise<Action
     return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
   }
 
-  if (!name || name.trim().length === 0) {
+  const trimmed = name?.trim();
+  if (!trimmed || trimmed.length === 0) {
     return { status: "error", message: "اسم الفئة مطلوب" };
   }
-  if (name.length > 200) {
+  if (trimmed.length > 200) {
     return { status: "error", message: "اسم الفئة طويل جداً" };
   }
 
   try {
+    // فحص عدم التكرار (مطابقة غير حساسة للأحرف والمسافات)
+    const [existing] = await db
+      .select({ id: expenseCategoryCatalog.id })
+      .from(expenseCategoryCatalog)
+      .where(
+        and(
+          sql`lower(trim(${expenseCategoryCatalog.name})) = lower(trim(${trimmed}))`,
+          isNull(expenseCategoryCatalog.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      return { status: "error", message: "هذه الفئة موجودة بالفعل" };
+    }
+
     const [inserted] = await db
       .insert(expenseCategoryCatalog)
-      .values({ name: name.trim() })
+      .values({ name: trimmed })
       .returning();
 
     revalidatePath("/finance");
@@ -1939,17 +1995,35 @@ export async function updateExpenseCategoryCatalog(id: string, name: string): Pr
     return { status: "error", message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة" };
   }
 
-  if (!name || name.trim().length === 0) {
+  const trimmed = name?.trim();
+  if (!trimmed || trimmed.length === 0) {
     return { status: "error", message: "اسم الفئة مطلوب" };
   }
-  if (name.length > 200) {
+  if (trimmed.length > 200) {
     return { status: "error", message: "اسم الفئة طويل جداً" };
   }
 
   try {
+    // فحص عدم التكرار مع فئة أخرى
+    const [existing] = await db
+      .select({ id: expenseCategoryCatalog.id })
+      .from(expenseCategoryCatalog)
+      .where(
+        and(
+          sql`lower(trim(${expenseCategoryCatalog.name})) = lower(trim(${trimmed}))`,
+          ne(expenseCategoryCatalog.id, id),
+          isNull(expenseCategoryCatalog.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      return { status: "error", message: "هذه الفئة موجودة بالفعل باسم آخر" };
+    }
+
     const [updated] = await db
       .update(expenseCategoryCatalog)
-      .set({ name: name.trim(), updatedAt: new Date() })
+      .set({ name: trimmed, updatedAt: new Date() })
       .where(and(eq(expenseCategoryCatalog.id, id), isNull(expenseCategoryCatalog.deletedAt)))
       .returning();
 
