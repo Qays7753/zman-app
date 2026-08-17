@@ -6,12 +6,10 @@ import { order } from "@/features/orders/db";
 import { catalogMovement } from "@/features/inventory/db";
 import { db } from "@/lib/db/client";
 import { computeOperatingPnl } from "@/features/finance/pnl";
-import { getAccountBalances, getOpeningBalance } from "@/features/finance/actions";
-import { type OpeningBalance } from "@/features/finance/db";
-import { getFinancialPosition, type FinancialPositionData } from "@/features/reports/actions";
-import { getInventoryValuation } from "@/features/inventory/queries";
-import { getAllCapitalAssets } from "@/features/depreciation/assetsQueries";
-import { getAmmanDate, getAmmanMonthBounds } from "@/lib/utils";
+// D8 fix — getAmmanMonthBounds لضمان أن حلقة آخر N أشهر مُعتمَدة على توقيت عمّان
+// (UTC+3)، لا على توقيت الخادم المحلي. بدون هذا، على Vercel (UTC) نحصل على
+// فشل وهمي في IC-13 لمدة 3 ساعات عند منتصف كل شهر.
+import { getAmmanMonthBounds } from "@/lib/utils";
 
 export interface FinancialSummary {
   sales: number;
@@ -232,7 +230,6 @@ export async function getFinancialSummary(
     ownerDrawResult,
     inventoryValueResult,
     cogsToDateResult,
-    operatingPnl,
   ] = await Promise.all([
     actualSalesPromise,
     depositsPromise,
@@ -242,7 +239,6 @@ export async function getFinancialSummary(
     ownerDrawPromise,
     inventoryValuePromise,
     cogsToDatePromise,
-    computeOperatingPnl({ startDate, endDate }),
   ]);
 
   const actualSales = Number(actualSalesResult[0]?.total) || 0;
@@ -255,6 +251,7 @@ export async function getFinancialSummary(
   // مضمون بالبناء (LOCKED-6)، ويحرسه IC-13.
   // actualSales/deposits/expenses/purchases أعلاه تبقى كما هي (تضم الرأسمالي)
   // لأنها أرقام «السيولة» المعروضة في لوحة المقارنة، لا الربح.
+  const operatingPnl = await computeOperatingPnl({ startDate, endDate });
   const netProfit = operatingPnl.operatingNetCents;
   const capitalAdditionsCents = operatingPnl.capitalAdditionsCents;
   // Phase 4 — D2 fix: إهلاك الفترة (period-aware). معرَض على الـ dashboard لإظهار
@@ -677,8 +674,9 @@ export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfi
   // getters لضمان عدم التسريب إلى server-local.
   const { start: currentStart } = getAmmanMonthBounds();
 
-  // آخر N أشهر، الأحدث أولاً — نملأ الأشهر بالتوازي مع الحفاظ على الترتيب الدقيق
-  const monthSpecs = Array.from({ length: months }, (_, i) => {
+  // آخر N أشهر، الأحدث أولاً — نملأ الأشهر بلا حركة بصفر لاستمرارية العرض.
+  const result: MonthlyProfit[] = [];
+  for (let i = 0; i < months; i++) {
     // إنقاص i أشهر من بداية الشهر الحالي (UTC). JS يتعامل مع الشهور السالبة
     // بالالتفاف إلى السنة السابقة تلقائياً.
     const d = new Date(
@@ -691,112 +689,12 @@ export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfi
     ).getUTCDate();
     const monthStart = `${key}-01`;
     const monthEnd = `${key}-${String(lastDayNum).padStart(2, "0")}`;
-    const label = `${AR_MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-    return { key, label, monthStart, monthEnd };
-  });
-
-  const result: MonthlyProfit[] = await Promise.all(
-    monthSpecs.map(async ({ key, label, monthStart, monthEnd }) => {
-      const pnl = await computeOperatingPnl({ startDate: monthStart, endDate: monthEnd });
-      return {
-        month: key,
-        label,
-        netProfitCents: pnl.operatingNetCents,
-      };
-    }),
-  );
-
+    const pnl = await computeOperatingPnl({ startDate: monthStart, endDate: monthEnd });
+    result.push({
+      month: key,
+      label: `${AR_MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
+      netProfitCents: pnl.operatingNetCents,
+    });
+  }
   return result;
-}
-
-export type AccountBalanceItem = {
-  id: string;
-  name: string;
-  type: string;
-  balanceCents: number;
-  isArchived: boolean;
-};
-
-export interface DashboardBundle {
-  summary: FinancialSummary;
-  summaryAllTime: FinancialSummary;
-  stats: DashboardStats;
-  cashSummary: CashSummary;
-  accountBalances: AccountBalanceItem[];
-  openingBal?: OpeningBalance | null;
-  avgMonthlySpend: number;
-  position?: FinancialPositionData;
-  monthlyProfit: MonthlyProfit[];
-  inventoryData: Awaited<ReturnType<typeof getInventoryValuation>>;
-  capitalAssetsData: Awaited<ReturnType<typeof getAllCapitalAssets>>;
-}
-
-/**
- * نقطة التجميع الموحَّدة للوحة التحكم (المرحلة 3) — getDashboardBundle
- *
- * تجمع كل استعلامات لوحة التحكم في استدعاء خادم واحد عبر رحلة شبكية واحدة (1 RTT)،
- * وتُنفّذ كل الاستعلامات بالتوازي داخل الخادم عبر Promise.all.
- *
- * تحسين العمل المشترك:
- * عند اختيار المدى الافتراضي «منذ البداية» (startDate="2020-01-01" و endDate=today)،
- * يتم استدعاء getFinancialSummary مرة واحدة فقط وإعادة استخدام نتيجته لـ summaryAllTime
- * لمنع تكرار الاستعلامات.
- *
- * الأمان والنزاهة المالية:
- * أي فشل في أي استعلام يُفشِل الحزمة ككتلة واحدة (fail-fast) لحماية دقة الأرقام ومنع
- * عرض أي أرقام وهمية أو أصفار افتراضية، مما يتيح للواجهة عرض الكاش السابق مع شريط التنبيه.
- */
-export async function getDashboardBundle(params: {
-  startDate: string;
-  endDate: string;
-}): Promise<DashboardBundle> {
-  const { startDate, endDate } = params;
-  const today = getAmmanDate();
-  const isAllTime = startDate === "2020-01-01" && endDate === today;
-
-  const [
-    summary,
-    summaryAllTimeRaw,
-    stats,
-    cashSummary,
-    balancesRes,
-    openingBalRes,
-    avgMonthlySpend,
-    positionRes,
-    monthlyProfit,
-    inventoryData,
-    capitalAssetsData,
-  ] = await Promise.all([
-    getFinancialSummary(startDate, endDate),
-    isAllTime ? Promise.resolve(null) : getFinancialSummary("2020-01-01", today),
-    getDashboardStats(startDate, endDate),
-    getCashSummary(),
-    getAccountBalances(),
-    getOpeningBalance(),
-    getAverageMonthlySpend(3),
-    getFinancialPosition(endDate),
-    getMonthlyProfit(6),
-    getInventoryValuation(),
-    getAllCapitalAssets(endDate),
-  ]);
-
-  if (balancesRes.status === "error") throw new Error(balancesRes.message);
-  if (openingBalRes.status === "error") throw new Error(openingBalRes.message);
-  if (positionRes.status === "error") throw new Error(positionRes.message);
-
-  const summaryAllTime = isAllTime ? summary : summaryAllTimeRaw!;
-
-  return {
-    summary,
-    summaryAllTime,
-    stats,
-    cashSummary,
-    accountBalances: balancesRes.data || [],
-    openingBal: openingBalRes.data ?? null,
-    avgMonthlySpend,
-    position: positionRes.data ?? undefined,
-    monthlyProfit,
-    inventoryData,
-    capitalAssetsData: capitalAssetsData || [],
-  };
 }

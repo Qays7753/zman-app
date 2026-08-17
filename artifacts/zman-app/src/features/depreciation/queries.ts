@@ -174,91 +174,93 @@ export async function getCapitalAssetValuation(asOfDate: string, tx: Tx = db): P
   // (إما محذوف ناعماً بـ deletedAt IS NOT NULL، أو غير موجود أصلاً).
   // ملاحظة: نُفرِق هذا الاستعلام عن استعلام IC-14 نفسه — هذا aggregation على
   // capital_asset، و IC-14 يستعمله. الفصل يبقي IC-14 بسيطاً.
-  const [[row], orphanRows] = await Promise.all([
-    tx
-      .select({
-        totalOriginal: sql<number>`coalesce(sum(
-          case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
-               then ${capitalAsset.purchaseAmountCents}
-               else 0 end
-        ), 0)::bigint`,
-        totalDepreciated: sql<number>`coalesce(sum(
-          case
-            -- الأصل لم يبدأ بعد asOfDate → 0
-            when ${capitalAsset.startedAt}::date > ${asOfDate}::date then 0
-            -- الأصل مُستهلَك بالكامل (months_elapsed >= useful_life): نُكلِّف كامل
-            -- purchase_amount ليصل netBookValue إلى صفر. D13 fix: قاعدة «الشهر
-            -- الأخير يُكلِّف الباقي». الصيغة الجبرية: مجموع الإهلاك عبر عمر الأصل
-            -- = (life−1) × monthly_dep + (amount − (life−1) × monthly_dep) = amount.
-            -- فبدل أن نترك residual صغير من floor(amount/life) للأبد في netBookValue،
-            -- نضمن أن الصفر المُطلق يُحقَّق عند انقضاء العمر النافع.
-            when (
-              EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
-              + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
-            ) >= ${capitalAsset.usefulLifeMonths}
-              then ${capitalAsset.purchaseAmountCents}
-            else (
-              EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
-              + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
-            ) * ${capitalAsset.monthlyDepreciationCents}
-          end
-        ), 0)::bigint`,
-        activeCount: sql<number>`coalesce(sum(
-          case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
-                and (
-                  EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
-                  + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
-                ) < ${capitalAsset.usefulLifeMonths}
-               then 1 else 0 end
-        ), 0)::bigint`,
-        fullyDepreciatedCount: sql<number>`coalesce(sum(
-          case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
-                and (
-                  EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
-                  + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
-                ) >= ${capitalAsset.usefulLifeMonths}
-               then 1 else 0 end
-        ), 0)::bigint`,
-        pendingCount: sql<number>`coalesce(sum(
-          case when ${capitalAsset.startedAt}::date > ${asOfDate}::date
-               then 1 else 0 end
-        ), 0)::bigint`,
-      })
-      .from(capitalAsset)
-      .where(isNull(capitalAsset.deletedAt)),
-    tx
-      .select({
-        id: capitalAsset.id,
-        sourceType: capitalAsset.sourceType,
-        sourceId: capitalAsset.sourceId,
-      })
-      .from(capitalAsset)
-      .leftJoin(
-        expense,
-        and(
-          eq(capitalAsset.sourceType, "expense"),
-          eq(capitalAsset.sourceId, expense.id),
-          isNull(expense.deletedAt),
-        ),
-      )
-      .leftJoin(
-        purchase,
-        and(
-          eq(capitalAsset.sourceType, "purchase"),
-          eq(capitalAsset.sourceId, purchase.id),
-          isNull(purchase.deletedAt),
-        ),
-      )
-      .where(
-        and(
-          isNull(capitalAsset.deletedAt),
-          // الأصل يتيم إن لم يطابق أي من الـ JOINs: أي expense.id AND purchase.id
-          // كلاهما NULL (لأن capital_asset.source_type ∈ {'expense','purchase'} فقط،
-          // فالصف يطابق JOIN واحد على الأكثر — والآخر NULL تلقائياً).
-          sql`(${expense.id} IS NULL AND ${purchase.id} IS NULL)`,
-        ),
+  const [row] = await tx
+    .select({
+      totalOriginal: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
+             then ${capitalAsset.purchaseAmountCents}
+             else 0 end
+      ), 0)::bigint`,
+      totalDepreciated: sql<number>`coalesce(sum(
+        case
+          -- الأصل لم يبدأ بعد asOfDate → 0
+          when ${capitalAsset.startedAt}::date > ${asOfDate}::date then 0
+          -- الأصل مُستهلَك بالكامل (months_elapsed >= useful_life): نُكلِّف كامل
+          -- purchase_amount ليصل netBookValue إلى صفر. D13 fix: قاعدة «الشهر
+          -- الأخير يُكلِّف الباقي». الصيغة الجبرية: مجموع الإهلاك عبر عمر الأصل
+          -- = (life−1) × monthly_dep + (amount − (life−1) × monthly_dep) = amount.
+          -- فبدل أن نترك residual صغير من floor(amount/life) للأبد في netBookValue،
+          -- نضمن أن الصفر المُطلق يُحقَّق عند انقضاء العمر النافع.
+          when (
+            EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
+            + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
+          ) >= ${capitalAsset.usefulLifeMonths}
+            then ${capitalAsset.purchaseAmountCents}
+          else (
+            EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
+            + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
+          ) * ${capitalAsset.monthlyDepreciationCents}
+        end
+      ), 0)::bigint`,
+      activeCount: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
+              and (
+                EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
+                + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
+              ) < ${capitalAsset.usefulLifeMonths}
+             then 1 else 0 end
+      ), 0)::bigint`,
+      fullyDepreciatedCount: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date <= ${asOfDate}::date
+              and (
+                EXTRACT(YEAR FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date)) * 12
+                + EXTRACT(MONTH FROM age(${asOfDate}::date, ${capitalAsset.startedAt}::date))
+              ) >= ${capitalAsset.usefulLifeMonths}
+             then 1 else 0 end
+      ), 0)::bigint`,
+      pendingCount: sql<number>`coalesce(sum(
+        case when ${capitalAsset.startedAt}::date > ${asOfDate}::date
+             then 1 else 0 end
+      ), 0)::bigint`,
+    })
+    .from(capitalAsset)
+    .where(isNull(capitalAsset.deletedAt));
+
+  // D7 fix — كشف الأصول اليتيمة (capital_asset نشط لكن مصدره محذوف/غير موجود).
+  // استعلام منفصل لأنه يحتاج LEFT JOIN على expense/purchase (وليس aggregation
+  // بسيط على capital_asset). source_type ∈ {'expense','purchase'} (CHECK).
+  const orphanRows = await tx
+    .select({
+      id: capitalAsset.id,
+      sourceType: capitalAsset.sourceType,
+      sourceId: capitalAsset.sourceId,
+    })
+    .from(capitalAsset)
+    .leftJoin(
+      expense,
+      and(
+        eq(capitalAsset.sourceType, "expense"),
+        eq(capitalAsset.sourceId, expense.id),
+        isNull(expense.deletedAt),
       ),
-  ]);
+    )
+    .leftJoin(
+      purchase,
+      and(
+        eq(capitalAsset.sourceType, "purchase"),
+        eq(capitalAsset.sourceId, purchase.id),
+        isNull(purchase.deletedAt),
+      ),
+    )
+    .where(
+      and(
+        isNull(capitalAsset.deletedAt),
+        // الأصل يتيم إن لم يطابق أي من الـ JOINs: أي expense.id AND purchase.id
+        // كلاهما NULL (لأن capital_asset.source_type ∈ {'expense','purchase'} فقط،
+        // فالصف يطابق JOIN واحد على الأكثر — والآخر NULL تلقائياً).
+        sql`(${expense.id} IS NULL AND ${purchase.id} IS NULL)`,
+      ),
+    );
 
   const totalOriginalCents = Number(row?.totalOriginal) || 0;
   const totalDepreciatedToDateCents = Number(row?.totalDepreciated) || 0;
