@@ -9,6 +9,7 @@ import {
   getCashSummary,
   getAverageMonthlySpend,
   getMonthlyProfit,
+  getDashboardBundle,
 } from "./queries";
 
 import { getAccountBalances } from "@/features/finance/actions";
@@ -16,6 +17,8 @@ import { getFinancialPosition } from "@/features/reports/actions";
 
 export const dashboardKeys = {
   all: ["dashboard"] as const,
+  bundle: (startDate: string, endDate: string) =>
+    [...dashboardKeys.all, "bundle", startDate, endDate] as const,
   summary: (startDate: string, endDate: string) =>
     [...dashboardKeys.all, "summary", startDate, endDate] as const,
   activities: (startDate?: string, endDate?: string) => [...dashboardKeys.all, "activities", startDate, endDate] as const,
@@ -29,6 +32,14 @@ export const dashboardKeys = {
   monthlyProfit: (months: number) => [...dashboardKeys.all, "monthlyProfit", months] as const,
   position: (asOfDate: string) => [...dashboardKeys.all, "position", asOfDate] as const,
 };
+
+export function useDashboardBundle(startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: dashboardKeys.bundle(startDate, endDate),
+    queryFn: () => getDashboardBundle({ startDate, endDate }),
+    enabled: !!startDate && !!endDate,
+  });
+}
 
 export function useFinancialSummary(startDate: string, endDate: string) {
   return useQuery({

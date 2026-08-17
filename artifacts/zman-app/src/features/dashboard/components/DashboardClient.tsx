@@ -43,18 +43,7 @@ import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
 
-import {
-  useAccountBalances,
-  useAverageMonthlySpend,
-  useCashSummary,
-  useDashboardStats,
-  useFinancialPosition,
-  useFinancialSummary,
-  useMonthlyProfit,
-} from "../hooks";
-import { useOpeningBalance } from "@/features/finance/hooks";
-import { useInventoryValuation } from "@/features/inventory/hooks";
-import { useCapitalAssets } from "@/features/depreciation/hooks";
+import { useDashboardBundle } from "../hooks";
 
 import { DetailsLayer } from "./DetailsLayer";
 import { FinanceComparePanel } from "./FinanceComparePanel";
@@ -97,78 +86,35 @@ export function DashboardClient() {
   const startDateStr = format(range.start, "yyyy-MM-dd");
   const endDateStr = format(range.end, "yyyy-MM-dd");
 
-  // ── استعلامات البيانات ────────────────────────────────────────────────────
+  // ── استعلام الحزمة المجمَّعة الموحَّدة للوحة التحكم (المرحلة 3) ────────────
   const {
-    data: summary,
-    isLoading: isLoadingSummary,
-    isError: isErrorSummary,
-    refetch: refetchSummary,
-  } = useFinancialSummary(startDateStr, endDateStr);
+    data: bundle,
+    isLoading,
+    isError,
+    refetch,
+  } = useDashboardBundle(startDateStr, endDateStr);
 
-  const {
-    data: stats,
-    isError: isErrorStats,
-    refetch: refetchStats,
-  } = useDashboardStats(startDateStr, endDateStr);
+  const summary = bundle?.summary;
+  const stats = bundle?.stats;
+  const cashSummary = bundle?.cashSummary;
+  const accountBalances = bundle?.accountBalances;
+  const openingBal = bundle?.openingBal;
+  const avgMonthlySpend = bundle?.avgMonthlySpend;
+  const position = bundle?.position;
+  const monthlyProfit = bundle?.monthlyProfit;
+  const summaryAllTime = bundle?.summaryAllTime;
+  const inventoryData = bundle?.inventoryData;
+  const capitalAssetsData = bundle?.capitalAssetsData;
 
-  const {
-    data: cashSummary,
-    isLoading: isLoadingCash,
-    isError: isErrorCash,
-    refetch: refetchCash,
-  } = useCashSummary();
-
-  const {
-    data: accountBalances,
-    isError: isErrorBalances,
-    refetch: refetchBalances,
-  } = useAccountBalances();
-
-  const { data: openingBal, refetch: refetchOpeningBal } = useOpeningBalance();
-  const { data: avgMonthlySpend, refetch: refetchAvgSpend } = useAverageMonthlySpend(3);
-  const { data: position, isError: isErrorPosition, refetch: refetchPosition } = useFinancialPosition(endDateStr);
-  const { data: monthlyProfit, isError: isErrorMonthlyProfit, refetch: refetchMonthlyProfit } = useMonthlyProfit(6);
-
-  // summaryAllTime — لبطاقات DetailsLayer (مستقلة عن الفلتر)
-  const { data: summaryAllTime, isError: isErrorSummaryAllTime, refetch: refetchSummaryAllTime } = useFinancialSummary(
-    "2020-01-01",
-    format(new Date(), "yyyy-MM-dd"),
-  );
-
-  // بيانات المخزون للتنبيهات الذكية
-  const { data: inventoryData, refetch: refetchInventory } = useInventoryValuation();
-
-  // الأصول الرأسمالية — لحساب صافي القيمة الدفترية as-of endDate
-  const { data: capitalAssetsData, refetch: refetchCapitalAssets } = useCapitalAssets(endDateStr);
-
-  const isAnyError =
-    isErrorSummary ||
-    isErrorCash ||
-    isErrorStats ||
-    isErrorBalances ||
-    isErrorPosition ||
-    isErrorMonthlyProfit ||
-    isErrorSummaryAllTime;
-
-  // ── معالجة الأخطاء ────────────────────────────────────────────────────────
+  // ── معالجة الأخطاء (حماية Phase 2) ──────────────────────────────────────
   const handleRetryAll = () => {
-    refetchSummary();
-    refetchStats();
-    refetchCash();
-    refetchBalances();
-    refetchOpeningBal();
-    refetchAvgSpend();
-    refetchPosition();
-    refetchMonthlyProfit();
-    refetchSummaryAllTime();
-    refetchInventory();
-    refetchCapitalAssets();
+    refetch();
   };
 
   // إن وُجد كاش سابق، يُعرض دائماً مع شريط تنبيه. شاشة الخطأ الكاملة تظهر فقط عند انعدام أي كاش.
-  const hasCachedData = Boolean(summary || cashSummary || position || summaryAllTime);
+  const hasCachedData = Boolean(bundle);
 
-  if (isAnyError && !hasCachedData) {
+  if (isError && !hasCachedData) {
     return (
       <>
         <AppShellHeader title="لوحة القيادة" />
@@ -252,7 +198,7 @@ export function DashboardClient() {
 
       <div className="space-y-5 pb-28">
         {/* شريط تنبيه عند تعذّر التحديث مع وجود كاش سابق */}
-        {isAnyError && hasCachedData && (
+        {isError && hasCachedData && (
           <div
             role="alert"
             className="flex items-center justify-between gap-3 p-3.5 rounded-lg border border-warn/40 bg-warn-soft text-ink"
@@ -295,7 +241,7 @@ export function DashboardClient() {
         </div>
 
         {/* هيكل التحميل */}
-        {isLoadingSummary || isLoadingCash ? (
+        {isLoading && !hasCachedData ? (
           <div className="space-y-4">
             <div className="h-32 bg-paper rounded-xl border border-hairline animate-pulse" />
             <div className="h-40 bg-paper rounded-lg border border-hairline animate-pulse" />

@@ -6,10 +6,12 @@ import { order } from "@/features/orders/db";
 import { catalogMovement } from "@/features/inventory/db";
 import { db } from "@/lib/db/client";
 import { computeOperatingPnl } from "@/features/finance/pnl";
-// D8 fix — getAmmanMonthBounds لضمان أن حلقة آخر N أشهر مُعتمَدة على توقيت عمّان
-// (UTC+3)، لا على توقيت الخادم المحلي. بدون هذا، على Vercel (UTC) نحصل على
-// فشل وهمي في IC-13 لمدة 3 ساعات عند منتصف كل شهر.
-import { getAmmanMonthBounds } from "@/lib/utils";
+import { getAccountBalances, getOpeningBalance } from "@/features/finance/actions";
+import { type OpeningBalance } from "@/features/finance/db";
+import { getFinancialPosition, type FinancialPositionData } from "@/features/reports/actions";
+import { getInventoryValuation } from "@/features/inventory/queries";
+import { getAllCapitalAssets } from "@/features/depreciation/assetsQueries";
+import { getAmmanDate, getAmmanMonthBounds } from "@/lib/utils";
 
 export interface FinancialSummary {
   sales: number;
@@ -705,4 +707,96 @@ export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfi
   );
 
   return result;
+}
+
+export type AccountBalanceItem = {
+  id: string;
+  name: string;
+  type: string;
+  balanceCents: number;
+  isArchived: boolean;
+};
+
+export interface DashboardBundle {
+  summary: FinancialSummary;
+  summaryAllTime: FinancialSummary;
+  stats: DashboardStats;
+  cashSummary: CashSummary;
+  accountBalances: AccountBalanceItem[];
+  openingBal?: OpeningBalance | null;
+  avgMonthlySpend: number;
+  position?: FinancialPositionData;
+  monthlyProfit: MonthlyProfit[];
+  inventoryData: Awaited<ReturnType<typeof getInventoryValuation>>;
+  capitalAssetsData: Awaited<ReturnType<typeof getAllCapitalAssets>>;
+}
+
+/**
+ * نقطة التجميع الموحَّدة للوحة التحكم (المرحلة 3) — getDashboardBundle
+ *
+ * تجمع كل استعلامات لوحة التحكم في استدعاء خادم واحد عبر رحلة شبكية واحدة (1 RTT)،
+ * وتُنفّذ كل الاستعلامات بالتوازي داخل الخادم عبر Promise.all.
+ *
+ * تحسين العمل المشترك:
+ * عند اختيار المدى الافتراضي «منذ البداية» (startDate="2020-01-01" و endDate=today)،
+ * يتم استدعاء getFinancialSummary مرة واحدة فقط وإعادة استخدام نتيجته لـ summaryAllTime
+ * لمنع تكرار الاستعلامات.
+ *
+ * الأمان والنزاهة المالية:
+ * أي فشل في أي استعلام يُفشِل الحزمة ككتلة واحدة (fail-fast) لحماية دقة الأرقام ومنع
+ * عرض أي أرقام وهمية أو أصفار افتراضية، مما يتيح للواجهة عرض الكاش السابق مع شريط التنبيه.
+ */
+export async function getDashboardBundle(params: {
+  startDate: string;
+  endDate: string;
+}): Promise<DashboardBundle> {
+  const { startDate, endDate } = params;
+  const today = getAmmanDate();
+  const isAllTime = startDate === "2020-01-01" && endDate === today;
+
+  const [
+    summary,
+    summaryAllTimeRaw,
+    stats,
+    cashSummary,
+    balancesRes,
+    openingBalRes,
+    avgMonthlySpend,
+    positionRes,
+    monthlyProfit,
+    inventoryData,
+    capitalAssetsData,
+  ] = await Promise.all([
+    getFinancialSummary(startDate, endDate),
+    isAllTime ? Promise.resolve(null) : getFinancialSummary("2020-01-01", today),
+    getDashboardStats(startDate, endDate),
+    getCashSummary(),
+    getAccountBalances(),
+    getOpeningBalance(),
+    getAverageMonthlySpend(3),
+    getFinancialPosition(endDate),
+    getMonthlyProfit(6),
+    getInventoryValuation(),
+    getAllCapitalAssets(endDate),
+  ]);
+
+  if (balancesRes.status === "error") throw new Error(balancesRes.message);
+  if (openingBalRes.status === "error") throw new Error(openingBalRes.message);
+  if (positionRes.status === "error") throw new Error(positionRes.message);
+
+  const summaryAllTime = isAllTime ? summary : summaryAllTimeRaw!;
+
+  return {
+    summary,
+    summaryAllTime,
+    stats,
+    cashSummary,
+    accountBalances: balancesRes.data || [],
+    openingBal: openingBalRes.data ?? null,
+    avgMonthlySpend,
+    position: positionRes.data ?? undefined,
+    monthlyProfit,
+    inventoryData,
+    capitalAssetsData: capitalAssetsData || [],
+  };
 }
