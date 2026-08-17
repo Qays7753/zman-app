@@ -24,9 +24,9 @@ import {
   useDeleteCatalogComponent,
 } from "@/features/catalog/hooks";
 import type { CatalogComponent } from "@/features/catalog/db";
-// Phase 3 — hooks المخزون + adjustStock.
 import {
   useComponentStock,
+  useAllComponentStocks,
   useCatalogMovements,
   useAdjustStock,
 } from "@/features/inventory/hooks";
@@ -68,8 +68,9 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
     return () => clearTimeout(handler);
   }, [search]);
 
-  // جلب المكونات
+  // جلب المكونات وأرصدة المخزون دفعة واحدة (المرحلة 4 — حل مشكلة N+1)
   const { data: items = [], isLoading } = useCatalogComponents(debouncedSearch);
+  const { data: stockMap } = useAllComponentStocks();
 
   const createMutation = useCreateCatalogComponent();
   const updateMutation = useUpdateCatalogComponent();
@@ -160,6 +161,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
               >
                 <CatalogCard
                   item={item}
+                  stock={item.tracked ? (stockMap?.[item.id] ?? 0) : undefined}
                   onShowMovements={() => setMovementsFor(item)}
                   onAdjustStock={() => setAdjustFor(item)}
                   onOpenActions={() => setActionSheetItem(item)}
@@ -342,6 +344,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
 
 function CatalogCard({
   item,
+  stock,
   onShowMovements,
   onAdjustStock,
   onOpenActions,
@@ -349,6 +352,7 @@ function CatalogCard({
   isTogglingTracked,
 }: {
   item: CatalogComponent;
+  stock?: number;
   onShowMovements: () => void;
   onAdjustStock: () => void;
   onOpenActions: () => void;
@@ -357,9 +361,7 @@ function CatalogCard({
   onToggleTracked: (next: boolean, currentStock: number) => void;
   isTogglingTracked?: boolean;
 }) {
-  // Phase 3 — اعرض الرصيد الحالي للأصناف المتتبَّعة فقط (تحسين الأداء: hook معطَّل
-  // للأصناف غير المتتبَّعة كي لا تُطلَب استعلامات بلا داعٍ).
-  const { data: stock } = useComponentStock(item.tracked ? item.id : undefined);
+  // الرصيد يُمرَّر كـ prop من useAllComponentStocks المجمّع في الأب لحل مشكلة N+1 (المرحلة 4)
 
   return (
     <div className="bg-paper border border-hairline rounded-lg shadow-sm p-4 flex flex-col gap-3">

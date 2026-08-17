@@ -47,6 +47,37 @@ export async function getComponentStock(
 }
 
 /**
+ * أرصدة كل أصناف الكتالوج دفعة واحدة — حل مشكلة N+1 في CatalogClient (المرحلة 4).
+ * الرصيد = Σ(in) − Σ(out) لكل صنف من catalog_movement (لا soft-deleted) حتى asOfDate.
+ * تُعيد خريطة { [catalogComponentId]: balance } برحلة شبكية واحدة.
+ */
+export async function getAllComponentStocks(
+  asOfDate?: string,
+): Promise<Record<string, number>> {
+  const dateCondition = asOfDate
+    ? sql`${catalogMovement.date} <= ${asOfDate}`
+    : sql`true`;
+
+  const rows = await db
+    .select({
+      catalogComponentId: catalogMovement.catalogComponentId,
+      balance: sql<number>`coalesce(sum(
+        case when ${catalogMovement.direction} = 'in' then ${catalogMovement.quantity}
+             else -${catalogMovement.quantity} end
+      ), 0)::bigint`,
+    })
+    .from(catalogMovement)
+    .where(and(isNull(catalogMovement.deletedAt), dateCondition))
+    .groupBy(catalogMovement.catalogComponentId);
+
+  const stockMap: Record<string, number> = {};
+  for (const r of rows) {
+    stockMap[r.catalogComponentId] = Number(r.balance) || 0;
+  }
+  return stockMap;
+}
+
+/**
  * حركات صنف من الكتالوج، تنازلياً بالتاريخ. تُستخدم في الـ modal «عرض حركات المخزون».
  * لا تُرجع الحركات المحذوفة ناعماً.
  */

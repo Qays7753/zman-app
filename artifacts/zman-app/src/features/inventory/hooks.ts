@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getComponentStock,
+  getAllComponentStocks,
   getCatalogMovements,
   getInventoryValuation,
 } from "./queries";
@@ -20,6 +21,8 @@ export const inventoryKeys = {
   all: ["inventory"] as const,
   stock: (catalogComponentId: string, asOfDate?: string) =>
     [...inventoryKeys.all, "stock", catalogComponentId, asOfDate ?? ""] as const,
+  allStocks: (asOfDate?: string) =>
+    [...inventoryKeys.all, "all-stocks", asOfDate ?? ""] as const,
   movements: (catalogComponentId: string, limit?: number) =>
     [
       ...inventoryKeys.all,
@@ -30,6 +33,18 @@ export const inventoryKeys = {
   valuation: (asOfDate?: string) =>
     [...inventoryKeys.all, "valuation", asOfDate ?? ""] as const,
 };
+
+/**
+ * أرصدة كل الأصناف دفعة واحدة. يُستخدم في CatalogClient لتفادي مشكلة N+1.
+ */
+export function useAllComponentStocks(asOfDate?: string) {
+  return useQuery({
+    queryKey: inventoryKeys.allStocks(asOfDate),
+    queryFn: () => getAllComponentStocks(asOfDate),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+}
 
 /**
  * رصيد صنف واحد من الكتالوج (live). يُستخدم في:
