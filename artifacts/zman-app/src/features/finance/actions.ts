@@ -1826,7 +1826,11 @@ export async function deletePurchaseItemCatalog(id: string): Promise<ActionRespo
 // 6. فئات المصاريف (Expense Category Catalog Actions)
 // -------------------------------------------------------------
 
-export const DEFAULT_EXPENSE_CATEGORIES = [
+// 🔴 لا `export` — هذا ملف "use server"، وNext.js يسمح فيه بتصدير **دوال async فقط**.
+// تصدير مصفوفة منه يُنتج خطأ وقت التشغيل يُسقط الصفحة كلها بـ500:
+//   «A "use server" file can only export async functions, found object»
+// والبناء لا يكشفه. الثابت مستعمل داخل هذا الملف وحده، فلا حاجة لتصديره.
+const DEFAULT_EXPENSE_CATEGORIES = [
   "رواتب",
   "إيجار",
   "كهرباء ومياه",
