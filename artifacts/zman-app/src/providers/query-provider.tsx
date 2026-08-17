@@ -21,7 +21,7 @@ export default function QueryProvider({
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30 * 1000, // 30 seconds
+            staleTime: 5 * 60 * 1000, // 5 minutes — prevents redundant refetch waterfalls on window focus
             // gcTime يجب أن يكون ≥ maxAge للـ persist، وإلا يُهمَل الكاش المحفوظ
             // ولا يُستعاد عند الفتح (فتظهر شاشة الخطأ بدل البيانات المخزّنة).
             gcTime: 24 * 60 * 60 * 1000, // 24 hours — matches persist maxAge

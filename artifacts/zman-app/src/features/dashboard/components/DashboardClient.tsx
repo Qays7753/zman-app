@@ -107,6 +107,7 @@ export function DashboardClient() {
 
   const {
     data: stats,
+    isError: isErrorStats,
     refetch: refetchStats,
   } = useDashboardStats(startDateStr, endDateStr);
 
@@ -119,25 +120,35 @@ export function DashboardClient() {
 
   const {
     data: accountBalances,
+    isError: isErrorBalances,
     refetch: refetchBalances,
   } = useAccountBalances();
 
-  const { data: openingBal } = useOpeningBalance();
-  const { data: avgMonthlySpend } = useAverageMonthlySpend(3);
-  const { data: position } = useFinancialPosition(endDateStr);
-  const { data: monthlyProfit } = useMonthlyProfit(6);
+  const { data: openingBal, refetch: refetchOpeningBal } = useOpeningBalance();
+  const { data: avgMonthlySpend, refetch: refetchAvgSpend } = useAverageMonthlySpend(3);
+  const { data: position, isError: isErrorPosition, refetch: refetchPosition } = useFinancialPosition(endDateStr);
+  const { data: monthlyProfit, isError: isErrorMonthlyProfit, refetch: refetchMonthlyProfit } = useMonthlyProfit(6);
 
   // summaryAllTime — لبطاقات DetailsLayer (مستقلة عن الفلتر)
-  const { data: summaryAllTime } = useFinancialSummary(
+  const { data: summaryAllTime, isError: isErrorSummaryAllTime, refetch: refetchSummaryAllTime } = useFinancialSummary(
     "2020-01-01",
     format(new Date(), "yyyy-MM-dd"),
   );
 
   // بيانات المخزون للتنبيهات الذكية
-  const { data: inventoryData } = useInventoryValuation();
+  const { data: inventoryData, refetch: refetchInventory } = useInventoryValuation();
 
   // الأصول الرأسمالية — لحساب صافي القيمة الدفترية as-of endDate
-  const { data: capitalAssetsData } = useCapitalAssets(endDateStr);
+  const { data: capitalAssetsData, refetch: refetchCapitalAssets } = useCapitalAssets(endDateStr);
+
+  const isAnyError =
+    isErrorSummary ||
+    isErrorCash ||
+    isErrorStats ||
+    isErrorBalances ||
+    isErrorPosition ||
+    isErrorMonthlyProfit ||
+    isErrorSummaryAllTime;
 
   // ── معالجة الأخطاء ────────────────────────────────────────────────────────
   const handleRetryAll = () => {
@@ -145,10 +156,19 @@ export function DashboardClient() {
     refetchStats();
     refetchCash();
     refetchBalances();
+    refetchOpeningBal();
+    refetchAvgSpend();
+    refetchPosition();
+    refetchMonthlyProfit();
+    refetchSummaryAllTime();
+    refetchInventory();
+    refetchCapitalAssets();
   };
 
-  const hasNoData = !summary && !cashSummary;
-  if ((isErrorSummary || isErrorCash) && hasNoData) {
+  // إن وُجد كاش سابق، يُعرض دائماً مع شريط تنبيه. شاشة الخطأ الكاملة تظهر فقط عند انعدام أي كاش.
+  const hasCachedData = Boolean(summary || cashSummary || position || summaryAllTime);
+
+  if (isAnyError && !hasCachedData) {
     return (
       <>
         <AppShellHeader title="لوحة القيادة" />
@@ -231,6 +251,28 @@ export function DashboardClient() {
       />
 
       <div className="space-y-5 pb-28">
+        {/* شريط تنبيه عند تعذّر التحديث مع وجود كاش سابق */}
+        {isAnyError && hasCachedData && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 p-3.5 rounded-lg border border-warn/40 bg-warn-soft text-ink"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <AlertCircle className="h-5 w-5 text-warn-deep shrink-0" />
+              <span className="text-xs sm:text-sm font-semibold text-warn-deep truncate">
+                تعذّر التحديث — البيانات قد تكون قديمة
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRetryAll}
+              className="h-10 min-h-[44px] px-3.5 bg-paper border border-warn/40 text-warn-deep font-bold rounded-md text-xs flex items-center justify-center shrink-0 hover:bg-warn-soft transition-colors active:scale-95"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        )}
+
         {/* فلتر الديسكتوب */}
         <div className="hidden lg:block self-start">
           <SegmentedControl
