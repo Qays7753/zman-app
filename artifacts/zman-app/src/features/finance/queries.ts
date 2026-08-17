@@ -901,17 +901,17 @@ export async function getReceivableById(id: string): Promise<ReceivableWithPayme
 // 7. استعلام موحّد لجلب فئات المصاريف (كتالوج + مستعملة فعلياً لضمان عدم سقوط أي فئة يتيمة)
 export async function getDistinctExpenseCategories(): Promise<string[]> {
   try {
-    // 1. جلب فئات الكتالوج النشطة
-    const catalogItems = await db
-      .select({ name: expenseCategoryCatalog.name })
-      .from(expenseCategoryCatalog)
-      .where(isNull(expenseCategoryCatalog.deletedAt));
-
-    // 2. جلب الفئات المستعملة فعلياً في جدول المصاريف (حتى لو لم تكن في الكتالوج)
-    const expenseRows = await db
-      .selectDistinct({ category: expense.category })
-      .from(expense)
-      .where(and(isNull(expense.deletedAt), sql`trim(${expense.category}) != ''`));
+    // 1. جلب فئات الكتالوج النشطة والفئات المستعملة فعلياً بالتوازي
+    const [catalogItems, expenseRows] = await Promise.all([
+      db
+        .select({ name: expenseCategoryCatalog.name })
+        .from(expenseCategoryCatalog)
+        .where(isNull(expenseCategoryCatalog.deletedAt)),
+      db
+        .selectDistinct({ category: expense.category })
+        .from(expense)
+        .where(and(isNull(expense.deletedAt), sql`trim(${expense.category}) != ''`)),
+    ]);
 
     // 3. دمج وإلغاء التكرار (مع تطبيع المسافات وحالة الأحرف)
     const seen = new Set<string>();

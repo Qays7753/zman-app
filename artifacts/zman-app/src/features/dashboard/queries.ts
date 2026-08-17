@@ -230,6 +230,7 @@ export async function getFinancialSummary(
     ownerDrawResult,
     inventoryValueResult,
     cogsToDateResult,
+    operatingPnl,
   ] = await Promise.all([
     actualSalesPromise,
     depositsPromise,
@@ -239,6 +240,7 @@ export async function getFinancialSummary(
     ownerDrawPromise,
     inventoryValuePromise,
     cogsToDatePromise,
+    computeOperatingPnl({ startDate, endDate }),
   ]);
 
   const actualSales = Number(actualSalesResult[0]?.total) || 0;
@@ -251,7 +253,6 @@ export async function getFinancialSummary(
   // مضمون بالبناء (LOCKED-6)، ويحرسه IC-13.
   // actualSales/deposits/expenses/purchases أعلاه تبقى كما هي (تضم الرأسمالي)
   // لأنها أرقام «السيولة» المعروضة في لوحة المقارنة، لا الربح.
-  const operatingPnl = await computeOperatingPnl({ startDate, endDate });
   const netProfit = operatingPnl.operatingNetCents;
   const capitalAdditionsCents = operatingPnl.capitalAdditionsCents;
   // Phase 4 — D2 fix: إهلاك الفترة (period-aware). معرَض على الـ dashboard لإظهار
@@ -674,9 +675,8 @@ export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfi
   // getters لضمان عدم التسريب إلى server-local.
   const { start: currentStart } = getAmmanMonthBounds();
 
-  // آخر N أشهر، الأحدث أولاً — نملأ الأشهر بلا حركة بصفر لاستمرارية العرض.
-  const result: MonthlyProfit[] = [];
-  for (let i = 0; i < months; i++) {
+  // آخر N أشهر، الأحدث أولاً — نملأ الأشهر بالتوازي مع الحفاظ على الترتيب الدقيق
+  const monthSpecs = Array.from({ length: months }, (_, i) => {
     // إنقاص i أشهر من بداية الشهر الحالي (UTC). JS يتعامل مع الشهور السالبة
     // بالالتفاف إلى السنة السابقة تلقائياً.
     const d = new Date(
@@ -689,12 +689,20 @@ export async function getMonthlyProfit(months: number = 6): Promise<MonthlyProfi
     ).getUTCDate();
     const monthStart = `${key}-01`;
     const monthEnd = `${key}-${String(lastDayNum).padStart(2, "0")}`;
-    const pnl = await computeOperatingPnl({ startDate: monthStart, endDate: monthEnd });
-    result.push({
-      month: key,
-      label: `${AR_MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`,
-      netProfitCents: pnl.operatingNetCents,
-    });
-  }
+    const label = `${AR_MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    return { key, label, monthStart, monthEnd };
+  });
+
+  const result: MonthlyProfit[] = await Promise.all(
+    monthSpecs.map(async ({ key, label, monthStart, monthEnd }) => {
+      const pnl = await computeOperatingPnl({ startDate: monthStart, endDate: monthEnd });
+      return {
+        month: key,
+        label,
+        netProfitCents: pnl.operatingNetCents,
+      };
+    }),
+  );
+
   return result;
 }

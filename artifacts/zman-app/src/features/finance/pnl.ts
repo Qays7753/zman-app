@@ -125,10 +125,12 @@ export async function computeOperatingPnl({
   tx = db,
 }: ComputeOperatingPnlParams): Promise<OperatingPnlResult> {
   // ─────────────────────────────────────────────────────────────────────────
-  // 1. المبيعات المكتملة — نفس منطق computeCashBasisPnl القديم (لا تغيير).
-  //    العربون (source_type='deposit') لا يدخل هنا — هو التزام حتى التسليم
-  //    (INV-3, INV-4) ولا يُعدّ ربحاً.
+  // 1. استعلامات متوازية (Phase 1 — توازي الاستعلامات المالية):
+  //    كل الاستعلامات الستة قراءة مستقلة تماماً لا يعتمد أي منها على الآخر.
+  //    تُطلَق كلها في Promise.all واحد لتقليل عدد رحلات الشبكة المتسلسلة.
   // ─────────────────────────────────────────────────────────────────────────
+
+  // 1.1 المبيعات المكتملة
   const salesConds = [
     isNull(cashMovement.deletedAt),
     isNull(account.deletedAt),
@@ -138,18 +140,13 @@ export async function computeOperatingPnl({
   ];
   if (startDate) salesConds.push(sql`${cashMovement.date} >= ${startDate}`);
 
-  const [salesRow] = await tx
+  const salesPromise = tx
     .select({ total: sum(cashMovement.amountCents) })
     .from(cashMovement)
     .innerJoin(account, eq(cashMovement.accountId, account.id))
     .where(and(...salesConds));
-  const salesCents = Number(salesRow?.total) || 0;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 2. المصاريف — استعلام واحد يجمع التشغيلي والرأسمالي بشكل شرطي.
-  //    LEFT JOIN على expense ضروري للوصول إلى is_capital_asset. COALESCE
-  //    يعالج NULL (صف قديم غير مُصنَّف = تشغيلي، يُطرح من P&L كما كان دائماً).
-  // ─────────────────────────────────────────────────────────────────────────
+  // 1.2 المصاريف (تشغيلي + رأسمالي شرطياً)
   const expenseConds = [
     isNull(cashMovement.deletedAt),
     isNull(account.deletedAt),
@@ -159,7 +156,7 @@ export async function computeOperatingPnl({
   ];
   if (startDate) expenseConds.push(sql`${cashMovement.date} >= ${startDate}`);
 
-  const [expenseRow] = await tx
+  const expensePromise = tx
     .select({
       operating: sql<number>`coalesce(sum(case when coalesce(${expense.isCapitalAsset}, false) = false then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
       capital: sql<number>`coalesce(sum(case when coalesce(${expense.isCapitalAsset}, false) = true  then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
@@ -174,24 +171,8 @@ export async function computeOperatingPnl({
       ),
     )
     .where(and(...expenseConds));
-  const operatingExpensesCents = Number(expenseRow?.operating) || 0;
-  const capitalExpensesCents = Number(expenseRow?.capital) || 0;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 3. المشتريات — نفس نمط المصاريف.
-  //
-  // Phase 3-revised (D4 fix): المشتريات المُرأسمَلة كمخزون (is_tracked_inventory=true)
-  // تُستبعَد من operatingPurchasesCents أيضاً (مثل الرأسمالي). الشراء لمخزون متتبَّع
-  // لا يخفض الربح التشغيلي في شهر الشراء — يُرأسمَل كمخزون، وتُخصَم تكلفته عند
-  // البيع عبر COGS (القسم 3.5 أدناه). الصيغة:
-  //   operatingPurchasesCents = Σ cash_movement.amountCents WHERE
-  //     is_capital_asset = false AND is_tracked_inventory = false
-  //   capitalPurchasesCents   = Σ cash_movement.amountCents WHERE is_capital_asset = true
-  //   trackedPurchasesCents   = Σ cash_movement.amountCents WHERE is_tracked_inventory = true
-  // (ملاحظة: المشتريات المُرأسمَلة كمخزون لا تدخل capitalPurchasesCents لأنها لا
-  // تُستهلَك كرأسمالي — هي مخزون سيُباع. تُعرض في الميزانية كـ inventoryValueCents
-  // في getFinancialPosition، لا كـ capitalAdditionsCents.)
-  // ─────────────────────────────────────────────────────────────────────────
+  // 1.3 المشتريات (تشغيلي + رأسمالي + مخزون مرأسمَل شرطياً)
   const purchaseConds = [
     isNull(cashMovement.deletedAt),
     isNull(account.deletedAt),
@@ -201,7 +182,7 @@ export async function computeOperatingPnl({
   ];
   if (startDate) purchaseConds.push(sql`${cashMovement.date} >= ${startDate}`);
 
-  const [purchaseRow] = await tx
+  const purchasePromise = tx
     .select({
       operating: sql<number>`coalesce(sum(case when coalesce(${purchase.isCapitalAsset}, false) = false AND coalesce(${purchase.isTrackedInventory}, false) = false then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
       capital: sql<number>`coalesce(sum(case when coalesce(${purchase.isCapitalAsset}, false) = true  then ${cashMovement.amountCents} else 0 end), 0)::bigint`,
@@ -217,83 +198,14 @@ export async function computeOperatingPnl({
       ),
     )
     .where(and(...purchaseConds));
-  const operatingPurchasesCents = Number(purchaseRow?.operating) || 0;
-  const capitalPurchasesCents = Number(purchaseRow?.capital) || 0;
-  // trackedPurchasesCents يُستعمل للتوثيق والمراجعة فقط — لا يدخل P&L ولا
-  // capitalAdditions. هو التدفّق النقدي للمخزون المُرأسمَل.
-  const trackedPurchasesCents = Number(purchaseRow?.tracked) || 0;
-  void trackedPurchasesCents;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4. الإهلاك المحسوب للفترة (Phase 4 — خيار γ، D2 fix — period-aware).
-  //
-  // استعلام واحد على capital_asset: لكل صف نشط، يُحتسب إهلاك الفترة [startDate,
-  // endDate] كالفرق بين months_elapsed عند endDate وعند effectiveStart =
-  // max(started_at, startDate). إن startDate = null (range:"all" أو
-  // getFinancialPosition) → monthsAtStart = 0 لكل أصل → النتيجة تراكمية حتى
-  // endDate. هذا يُصلِح D2: قبل هذا التعديل كانت الدالة تُعيد SUM(monthly_dep)
-  // لكل الأصول النشطة — أي حصة شهر واحد بغضّ النظر عن طول الفترة. فترة كل التاريخ
-  // كانت تطرح شهراً واحداً فقط من إهلاك أصل عمره 10 أشهر (مثلاً).
-  //
-  // ⚠️ CRITICAL-NOTE-4 (SA1): نستخدم EXTRACT(YEAR FROM age) * 12 +
-  // EXTRACT(MONTH FROM age) لحساب months_elapsed، لا date_part('month', age)
-  // الذي يُرجِع 0-11 فقط (مكوّن الشهر، لا الإجمالي). لأصل عمره 14 شهراً:
-  // date_part = 2 (خطأ، يستمر الإهلاك بعد انقضاء العمر)؛ EXTRACT = 14 (صحيح).
-  // لا تغيير على هذه الصيغة — راجع depreciation/queries.ts.
-  //
-  // ⚠️ الإهلاك غير نقدي: لا يُدرَج أي حركة في cash_movement. هو تعديل محسوب
-  // يُخصم من operatingNetCents فقط. INV-22 يستثني صراحةً INV-1 لهذا التعديل.
-  //
-  // التأثير على getFinancialPosition (IC-1, IC-6):
-  //   getFinancialPosition لا يستعمل operatingNetCents مباشرة — يبني retainedProfit
-  //   محلياً من operatingExpensesCents + operatingPurchasesCents (cash-basis نقدي).
-  //   لذلك retainedProfitCents لا يشمل الإهلاك، والميزانية تبقى cash-basis صرفة.
-  //   IC-1 (equityDrift) و IC-6 (pnlReconciliation) لا يتأثران إطلاقاً.
-  //   الفرق بين dashboard.netProfit (يضم الإهلاك) و retainedProfitCents (لا يضمه)
-  //   = monthlyDepreciationCents (= إهلاك الفترة). هذا فصل مقصود بين «الربح
-  //   التشغيلي المُعدَّل» (للعرض الإداري) و«الربح التشغيلي النقدي» (للميزانية).
-  //   موثَّق في INV-22 و§10. تُعالَج تسمية البطاقتين في DashboardClient (D3 fix).
-  // ─────────────────────────────────────────────────────────────────────────
-  const monthlyDepreciationCents = await getDepreciationForPeriodCents(
+  // 1.4 الإهلاك المحسوب للفترة (غير نقدي — آمن للتوازي)
+  const depreciationPromise = getDepreciationForPeriodCents(
     { startDate: startDate ?? null, endDate },
     tx,
   );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4.5. COGS (تكلفة البضاعة المباعة) للفترة — Phase 3-revised (D4 fix).
-  //
-  // COGS = Σ coalesce(total_value_cents, quantity × coalesce(unit_cost_cents, 0))
-  //        WHERE direction = 'out' AND source_type = 'order_delivery'
-  //              AND deleted_at IS NULL AND date ∈ [startDate, endDate]
-  //
-  // هذه حركات الخصم التي تُنشئها deductForDelivery عند convertOrderToSale.
-  // source_id = sale.id، لكن لا حاجة لـ JOIN sale — date على catalog_movement
-  // = تاريخ البيع (يُضبط في addCatalogMovement من getAmmanDate()). coalesce على
-  // unit_cost_cents يعالج الحالات النادرة التي قد لا تحتوي على cost (مخزون
-  // افتتاحي بلا سعر، أو adjustStock يدوي).
-  //
-  // SA1 (A1 fix) — نُفضِّل total_value_cents (= qty × unit_cost_cents المخزَّن عند
-  // إنشاء الحركة) على حساب `qty × unit_cost_cents` وقت القراءة. هذا يضمن أن
-  // COGS المخصوم من retainedProfitCents يطابق القيمة المخصومة من inventoryValueCents
-  // (التي تستعمل total_value_cents أيضاً) — فلا يظهر equityDrift. الـ fallback
-  // يحافظ على التوافق مع الحركات القديمة (قبل migration 0024) بلا total_value_cents.
-  //
-  // ⚠️ COGS تعديل غير نقدي (مثل الإهلاك): لا يُدرَج أي حركة في cash_movement.
-  // النقد دخل بالكامل في salesCents (المتبقي + العربون المحوَّل). COGS يُخصم
-  // من operatingNetCents لمطابقة الإيراد بالتكلفة في نفس الفترة.
-  //
-  // التأثير على getFinancialPosition (IC-1):
-  //   retainedProfitCents = salesCashInCents − depositsLiability
-  //                         − operatingExpensesCents − operatingPurchasesCents
-  //                         − cogsCentsToDate
-  //   inventoryValueCents = Σ(in total_value_cents) − Σ(out total_value_cents)
-  //   totalAssets = Cash + inventoryValueCents
-  // توازن IC-1 محفوظ: Cash يقل بمقدار trackedPurchasesCents (الشراء المُرأسمَل
-  // لا يدخل operatingPurchasesCents)، لكن inventoryValueCents يزيد بنفس المقدار
-  // فتبقى totalAssets كما كانت. عند البيع: Cash يزيد بـ salesCashInCents،
-  // inventoryValueCents يقل بـ COGS، retainedProfitCents يقل بـ COGS، فتبقى
-  // المعادلة متوازنة. موثَّق في INV-23 / INV-24 و§9 من ACCOUNTING_RULES.md.
-  // ─────────────────────────────────────────────────────────────────────────
+  // 1.5 COGS (تكلفة البضاعة المباعة) للفترة
   const cogsConds = [
     eq(catalogMovement.direction, "out"),
     eq(catalogMovement.sourceType, "order_delivery"),
@@ -302,33 +214,14 @@ export async function computeOperatingPnl({
   ];
   if (startDate) cogsConds.push(sql`${catalogMovement.date} >= ${startDate}`);
 
-  const [cogsRow] = await tx
+  const cogsPromise = tx
     .select({
       total: sql<number>`coalesce(sum(coalesce(${catalogMovement.totalValueCents}, ${catalogMovement.quantity} * coalesce(${catalogMovement.unitCostCents}, 0))), 0)::bigint`,
     })
     .from(catalogMovement)
     .where(and(...cogsConds));
-  const cogsCents = Number(cogsRow?.total) || 0;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4.6. inventoryWriteOffCents (SA1 — A-1 fix — Round 4).
-  //
-  // قراءة مباشرة من جدول expense بـ is_inventory_writeoff=true ضمن [startDate,
-  // endDate]. هذه مصاريف غير نقدية تماماً — لا cash_movement مرتبطة. مصدرها
-  // الوحيد: adjustStock (direction='out' مع total_value_cents > 0)، التي تُدرج
-  // صف expense داخل نفس transaction حركة catalog_movement `out`.
-  //
-  // لماذا قراءة مباشرة من expense لا عبر cash_movement؟ لأن INV-1 يحرم إنشاء
-  // cash_movement للخسائر غير النقدية، فلا JOIN ممكن. الـ expense وحده يحمل
-  // الدليل. الفهرس الجزئي expense_inventory_writeoff_idx (migration 0025) يُسرِّع
-  // هذا الاستعلام على البيانات الكبيرة.
-  //
-  // التأثير على getFinancialPosition (IC-1):
-  //   retainedProfitCents يُخصم منه cumulative-to-date من inventoryWriteOffCents
-  //   (محسوب بنفس الصيغة لكن بدون startDate — كل التاريخ حتى asOfDate).
-  //   هذا يُطابِق ما خُصِم من inventoryValueCents في totalAssets، فيبقى
-  //   equityDriftCents = 0. موثَّق في INV-25.
-  // ─────────────────────────────────────────────────────────────────────────
+  // 1.6 هدر/تلف المخزون اليدوي للفترة (غير نقدي)
   const writeOffConds = [
     eq(expense.isInventoryWriteoff, true),
     isNull(expense.deletedAt),
@@ -336,16 +229,44 @@ export async function computeOperatingPnl({
   ];
   if (startDate) writeOffConds.push(sql`${expense.date} >= ${startDate}`);
 
-  const [writeOffRow] = await tx
+  const writeOffPromise = tx
     .select({
       total: sql<number>`coalesce(sum(${expense.amountCents}), 0)::bigint`,
     })
     .from(expense)
     .where(and(...writeOffConds));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // تنفيذ كل الاستعلامات الستة بالتوازي في رحلة واحدة
+  // ─────────────────────────────────────────────────────────────────────────
+  const [
+    [salesRow],
+    [expenseRow],
+    [purchaseRow],
+    monthlyDepreciationCents,
+    [cogsRow],
+    [writeOffRow],
+  ] = await Promise.all([
+    salesPromise,
+    expensePromise,
+    purchasePromise,
+    depreciationPromise,
+    cogsPromise,
+    writeOffPromise,
+  ]);
+
+  const salesCents = Number(salesRow?.total) || 0;
+  const operatingExpensesCents = Number(expenseRow?.operating) || 0;
+  const capitalExpensesCents = Number(expenseRow?.capital) || 0;
+  const operatingPurchasesCents = Number(purchaseRow?.operating) || 0;
+  const capitalPurchasesCents = Number(purchaseRow?.capital) || 0;
+  const trackedPurchasesCents = Number(purchaseRow?.tracked) || 0;
+  void trackedPurchasesCents;
+  const cogsCents = Number(cogsRow?.total) || 0;
   const inventoryWriteOffCents = Number(writeOffRow?.total) || 0;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 5. التجميع النهائي.
+  // 2. التجميع النهائي
   // ─────────────────────────────────────────────────────────────────────────
   const capitalAdditionsCents = capitalExpensesCents + capitalPurchasesCents;
   const operatingNetCents =
