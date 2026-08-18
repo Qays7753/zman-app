@@ -147,10 +147,10 @@ export function SalesTab() {
               type="button"
               onClick={() => handleSourceChipChange(chip.id)}
               className={cn(
-                "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center",
+                "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
                 isActive
-                  ? "bg-ink text-paper shadow-sm"
-                  : "bg-canvas text-ink-2 hover:bg-canvas/80 hover:text-ink"
+                  ? "bg-paper text-info border-info/20 shadow-sm"
+                  : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
               )}
             >
               {chip.label}

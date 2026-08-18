@@ -11,6 +11,7 @@ import { useOpeningBalance } from "@/features/finance/hooks";
 import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 import { PageToolbar } from "@/components/shared/PageToolbar";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
+import { SegmentedControl } from "@/components/shared/SegmentedControl";
 
 // ─── استيراد تبويبات العمليات اليومية ديناميكياً ───
 const PaymentsTab = dynamic(
@@ -191,7 +192,7 @@ export default function FinanceClient() {
                 <div className="flex items-center gap-2">
                   <HeaderIconButton
                     label="العودة للمالية"
-                    variant="tab"
+                    variant="icon"
                     onClick={() => handleTabChange("payments")}
                   >
                     <ArrowRight className="h-4 w-4 shrink-0 rtl:rotate-0" />
@@ -199,23 +200,16 @@ export default function FinanceClient() {
                   <span className="text-sm font-bold text-ink whitespace-nowrap">الحسابات والصناديق</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-0.5">
-                  {TABS.map((tab) => {
-                    const isActive = tab.id === activeTab;
-                    const Icon = tab.icon;
-                    return (
-                      <HeaderIconButton
-                        key={tab.id}
-                        label={tab.label}
-                        isActive={isActive}
-                        variant="tab"
-                        onClick={() => handleTabChange(tab.id)}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                      </HeaderIconButton>
-                    );
-                  })}
-                </div>
+                <SegmentedControl
+                  value={activeTab}
+                  onChange={(val) => handleTabChange(val as "payments" | "sales")}
+                  options={TABS.map((tab) => ({
+                    value: tab.id,
+                    label: tab.label,
+                    icon: <tab.icon className="h-4 w-4" />,
+                  }))}
+                  compact
+                />
               )
             }
             search={{
