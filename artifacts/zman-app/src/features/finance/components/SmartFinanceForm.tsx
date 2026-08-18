@@ -34,6 +34,7 @@ import {
   useExpenseCategoryCatalog,
   useCreateReceivable,
   useAccounts,
+  usePurchaseItemCatalog,
 } from "../hooks";
 import { useAddCapitalAsset, useUpdateCapitalAsset } from "@/features/depreciation/hooks";
 import { getCapitalAssetForSource } from "@/features/depreciation/queries";
@@ -241,6 +242,7 @@ export function SmartFinanceForm({
 
   // ── فئات المصاريف (وضع «مصروف يومي») ────────────────────────────────────
   const { data: dbCategories = [] } = useExpenseCategoryCatalog();
+  const { data: dbPurchaseItems = [] } = usePurchaseItemCatalog();
   const categoryOptions = useMemo(
     () => Array.from(new Set(dbCategories.map((c) => c.name))),
     [dbCategories],
@@ -990,9 +992,9 @@ export function SmartFinanceForm({
           <div className="space-y-2 flex flex-col">
             <label className="text-sm font-bold text-ink/75">الصنف</label>
 
-            {!isCustomItem && trackedItems.length > 0 ? (
+            {!isCustomItem && (trackedItems.length > 0 || dbPurchaseItems.length > 0) ? (
               <Select
-                value={selectedCatalogId ?? ""}
+                value={selectedCatalogId ? `inv-${selectedCatalogId}` : (purchaseForm.watch("itemName") || "")}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "__custom__") {
@@ -1000,22 +1002,44 @@ export function SmartFinanceForm({
                     setSelectedCatalogId(null);
                     purchaseForm.setValue("catalogId", null);
                     purchaseForm.setValue("itemName", "");
-                  } else {
-                    const item = trackedItems.find((i) => i.id === val);
-                    setSelectedCatalogId(val || null);
-                    purchaseForm.setValue("catalogId", val || null);
+                  } else if (val.startsWith("inv-")) {
+                    const id = val.replace("inv-", "");
+                    const item = trackedItems.find((i) => i.id === id);
+                    setSelectedCatalogId(id || null);
+                    purchaseForm.setValue("catalogId", id || null);
                     purchaseForm.setValue("itemName", item?.name ?? "");
+                  } else {
+                    // Finance item (not linked to inventory)
+                    setSelectedCatalogId(null);
+                    purchaseForm.setValue("catalogId", null);
+                    purchaseForm.setValue("itemName", val);
                   }
                 }}
                 error={purchaseForm.formState.errors.itemName?.message}
               >
                 <option value="">-- اختر صنفاً --</option>
-                {trackedItems.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.unit})
-                  </option>
-                ))}
-                <option value="__custom__">أخرى (غير مرتبط بالمخزون)...</option>
+                
+                {trackedItems.length > 0 && (
+                  <optgroup label="أصناف المخزون المتتبعة">
+                    {trackedItems.map((c) => (
+                      <option key={`inv-${c.id}`} value={`inv-${c.id}`}>
+                        {c.name} ({c.unit})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {dbPurchaseItems.length > 0 && (
+                  <optgroup label="أصناف المشتريات العامة">
+                    {dbPurchaseItems.map((c) => (
+                      <option key={`fin-${c.id}`} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                
+                <option value="__custom__">أخرى (إدخال يدوي)...</option>
               </Select>
             ) : (
               <div className="space-y-2">
@@ -1027,7 +1051,7 @@ export function SmartFinanceForm({
                     purchaseForm.formState.errors.itemName ? "border-alert" : "border-hairline"
                   }`}
                 />
-                {trackedItems.length > 0 && (
+                {(trackedItems.length > 0 || dbPurchaseItems.length > 0) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1047,8 +1071,8 @@ export function SmartFinanceForm({
                 {purchaseForm.formState.errors.itemName.message}
               </p>
             )}
-            {trackedItems.length === 0 && (
-              <p className="text-[11px] text-ink/50">
+            {trackedItems.length === 0 && dbPurchaseItems.length === 0 && (
+              <p className="text-[11px] text-ink/50 mt-1">
                 لا توجد أصناف متتبَّعة — فعِّل تتبّع صنف من صفحة الكتالوج أولاً.
               </p>
             )}

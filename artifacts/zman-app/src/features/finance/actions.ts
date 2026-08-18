@@ -1727,7 +1727,10 @@ export async function reverseSale(
 export async function getPurchaseItemCatalog() {
   try {
     const items = await db
-      .select()
+      .select({
+        id: purchaseItemCatalog.id,
+        name: purchaseItemCatalog.name,
+      })
       .from(purchaseItemCatalog)
       .where(isNull(purchaseItemCatalog.deletedAt))
       .orderBy(purchaseItemCatalog.name);
@@ -1891,7 +1894,7 @@ export async function seedDefaultExpenseCategories(): Promise<{ seeded: number }
 export async function getExpenseCategoryCatalog() {
   try {
     let items = await db
-      .select()
+      .select({ id: expenseCategoryCatalog.id, name: expenseCategoryCatalog.name })
       .from(expenseCategoryCatalog)
       .where(isNull(expenseCategoryCatalog.deletedAt))
       .orderBy(expenseCategoryCatalog.name);
@@ -1901,7 +1904,7 @@ export async function getExpenseCategoryCatalog() {
       const res = await seedDefaultExpenseCategories();
       if (res.seeded > 0) {
         items = await db
-          .select()
+          .select({ id: expenseCategoryCatalog.id, name: expenseCategoryCatalog.name })
           .from(expenseCategoryCatalog)
           .where(isNull(expenseCategoryCatalog.deletedAt))
           .orderBy(expenseCategoryCatalog.name);
@@ -2308,7 +2311,15 @@ export async function getAccounts(): Promise<ActionResponse<Account[]>> {
       .from(account)
       .where(isNull(account.deletedAt))
       .orderBy(account.createdAt);
-    return { status: "ok", data: items };
+      
+    // Serialize Dates to strings to avoid Next.js Server Action serialization issues
+    const serializedItems = items.map(item => ({
+      ...item,
+      createdAt: item.createdAt as any,
+      updatedAt: item.updatedAt as any,
+      deletedAt: item.deletedAt as any,
+    }));
+    return { status: "ok", data: serializedItems as Account[] };
   } catch (error) {
     return { status: "error", message: mapDbError(error) };
   }
