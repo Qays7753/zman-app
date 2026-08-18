@@ -5,7 +5,7 @@
 // بعد كل نشر). هذا SW لا يخزّن قوائم ملفات ثابتة، فلا يتعطّل عند النشر الجديد.
 // الشبكة أولاً دائماً؛ لا offline caching معقّد — النظام أونلاين بطبيعته.
 
-const VERSION = "zman-sw-v1";
+const VERSION = "zman-sw-v2-cache-bust";
 
 self.addEventListener("install", () => {
   // فعّل النسخة الجديدة فوراً دون انتظار إغلاق كل التبويبات
@@ -15,25 +15,22 @@ self.addEventListener("install", () => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      // نظّف أي كاش قديم من نسخ SW سابقة (precache معطوب)
+      // حذف كل كاش سابق تماماً لضمان عدم بقاء أي ملفات قديمة
       const keys = await caches.keys();
-      await Promise.all(
-        keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)),
-      );
+      await Promise.all(keys.map((k) => caches.delete(k)));
       await self.clients.claim();
     })(),
   );
 });
 
-// معالج fetch بسيط: الشبكة أولاً، بلا تخزين ملفات ثابتة.
-// وجود المعالج شرط لاعتبار الموقع قابلاً للتثبيت في Chrome/Android.
+// معالج fetch بسيط: الشبكة أولاً، لا نعود للكاش أبداً لأن التطبيق يتحدث باستمرار.
 self.addEventListener("fetch", (event) => {
-  // نتعامل فقط مع طلبات GET من نفس الأصل؛ الباقي يمرّ للشبكة كما هو
   if (event.request.method !== "GET") return;
-  event.respondWith(
-    fetch(event.request).catch(
-      () =>
-        caches.match(event.request).then((cached) => cached ?? Response.error()),
-    ),
-  );
+  
+  // إضافة headers لمنع التخزين المؤقت من المتصفح في ملفات next
+  const newRequest = new Request(event.request, {
+    cache: "no-store"
+  });
+
+  event.respondWith(fetch(newRequest).catch(() => Response.error()));
 });
