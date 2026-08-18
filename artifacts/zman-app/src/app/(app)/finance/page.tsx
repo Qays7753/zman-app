@@ -1,13 +1,31 @@
 import { Suspense } from "react";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import FinanceClient from "./FinanceClient";
+import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
+import { getOpeningBalance } from "@/features/finance/actions";
+import { getAccounts } from "@/features/finance/actions";
+import { financeKeys } from "@/features/finance/hooks";
 
 export const metadata = {
   title: "المالية - Zman",
   description: "إدارة الحسابات المالية والمبيعات والمصاريف والمشتريات",
 };
 
-export default function FinancePage() {
+export default async function FinancePage() {
+  const queryClient = new QueryClient();
+
+  // Prefetch critical finance data (Accounts and Opening Balance)
+  await Promise.all([
+    queryClient.prefetchQuery({
+      queryKey: financeKeys.openingBalance(),
+      queryFn: () => getOpeningBalance(),
+    }),
+    queryClient.prefetchQuery({
+      queryKey: financeKeys.accounts(),
+      queryFn: () => getAccounts(),
+    }),
+  ]);
+
   return (
     <Suspense
       fallback={
@@ -16,7 +34,9 @@ export default function FinancePage() {
         </div>
       }
     >
-      <FinanceClient />
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <FinanceClient />
+      </HydrationBoundary>
     </Suspense>
   );
 }

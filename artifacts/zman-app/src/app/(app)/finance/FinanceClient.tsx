@@ -19,7 +19,6 @@ const PaymentsTab = dynamic(
       (m) => m.PaymentsTab,
     ),
   {
-    ssr: false,
     loading: () => <SkeletonList count={3} />,
   },
 );
@@ -28,7 +27,6 @@ const SalesTab = dynamic(
   () =>
     import("@/features/finance/components/SalesTab").then((m) => m.SalesTab),
   {
-    ssr: false,
     loading: () => <SkeletonList count={3} />,
   },
 );
@@ -39,7 +37,6 @@ const AccountsTab = dynamic(
       (m) => m.AccountsTab,
     ),
   {
-    ssr: false,
     loading: () => <SkeletonList count={3} />,
   },
 );
@@ -48,7 +45,6 @@ const OwnerTab = dynamic(
   () =>
     import("@/features/finance/components/OwnerTab").then((m) => m.OwnerTab),
   {
-    ssr: false,
     loading: () => <SkeletonList count={3} />,
   },
 );
