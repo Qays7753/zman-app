@@ -4,7 +4,6 @@ import FinanceClient from "./FinanceClient";
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 import { getOpeningBalance } from "@/features/finance/actions";
 import { getAccounts } from "@/features/finance/actions";
-import { financeKeys } from "@/features/finance/hooks";
 
 export const metadata = {
   title: "المالية - Zman",
@@ -17,12 +16,18 @@ export default async function FinancePage() {
   // Prefetch critical finance data (Accounts and Opening Balance)
   await Promise.all([
     queryClient.prefetchQuery({
-      queryKey: financeKeys.openingBalance(),
-      queryFn: () => getOpeningBalance(),
+      queryKey: ["finance", "opening-balance"],
+      queryFn: async () => {
+        const res = await getOpeningBalance();
+        return res.status === "ok" ? res.data : null;
+      },
     }),
     queryClient.prefetchQuery({
-      queryKey: financeKeys.accounts(),
-      queryFn: () => getAccounts(),
+      queryKey: ["finance", "accounts"],
+      queryFn: async () => {
+        const res = await getAccounts();
+        return res.status === "ok" ? res.data : [];
+      },
     }),
   ]);
 
