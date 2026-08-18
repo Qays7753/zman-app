@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, isNull, sql, eq } from "drizzle-orm";
+import { and, desc, isNull, sql, eq, sum } from "drizzle-orm";
 import { expense, purchase, sale, cashMovement, account } from "@/features/finance/db";
 import { order } from "@/features/orders/db";
 import { catalogMovement } from "@/features/inventory/db";
@@ -557,7 +557,7 @@ export async function getDashboardStats(
         )
       )
       .groupBy(expense.category)
-      .orderBy(desc(sql`sum(${cashMovement.amountCents})`))
+      .orderBy(desc(sum(cashMovement.amountCents)))
       .limit(3),
   ]);
 

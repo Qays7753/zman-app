@@ -232,7 +232,7 @@ export async function downloadReport(
         )
         .where(and(...expConds))
         .groupBy(expense.category)
-        .orderBy(desc(sql`sum(${cashMovement.amountCents})`));
+        .orderBy(desc(sum(cashMovement.amountCents)));
 
       const totalCents = categories.reduce(
         (sum, c) => sum + (Number(c.total) || 0),
@@ -285,7 +285,7 @@ ${categories
         .innerJoin(account, eq(cashMovement.accountId, account.id))
         .where(and(...salesDateConds))
         .groupBy(cashMovement.sourceType)
-        .orderBy(desc(sql`sum(${cashMovement.amountCents})`));
+        .orderBy(desc(sum(cashMovement.amountCents)));
 
       const totalCents = sources.reduce(
         (sum, s) => sum + (Number(s.total) || 0),
@@ -383,7 +383,7 @@ ${funnels
         .from(order)
         .where(buildDateCondition(order, range))
         .groupBy(order.productName)
-        .orderBy(desc(sql`sum(${order.totalPriceCents})`))
+        .orderBy(desc(sum(order.totalPriceCents)))
         .limit(15);
 
       markdown = `# تقرير أكثر المنتجات طلباً (قيمة تقديرية)
@@ -493,7 +493,7 @@ export async function getAllReportData(
             )
           )
           .groupBy(expense.category)
-          .orderBy(desc(sql`sum(${cashMovement.amountCents})`)),
+          .orderBy(desc(sum(cashMovement.amountCents))),
         db
           .select({
             sourceType: cashMovement.sourceType,
@@ -503,7 +503,7 @@ export async function getAllReportData(
           .from(cashMovement)
           .where(and(...salesDateConds))
           .groupBy(cashMovement.sourceType)
-          .orderBy(desc(sql`sum(${cashMovement.amountCents})`)),
+          .orderBy(desc(sum(cashMovement.amountCents))),
         db
           .select({
             status: order.status,
@@ -523,7 +523,7 @@ export async function getAllReportData(
           .from(order)
           .where(buildDateCondition(order, range))
           .groupBy(order.productName)
-          .orderBy(desc(sql`sum(${order.totalPriceCents})`))
+          .orderBy(desc(sum(order.totalPriceCents)))
           .limit(15),
       ]);
 
