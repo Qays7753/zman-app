@@ -1,0 +1,3 @@
+CREATE INDEX "cash_movement_date_direction_idx" ON "cash_movement" USING btree ("date" DESC NULLS LAST,"direction") WHERE deleted_at is null;--> statement-breakpoint
+CREATE INDEX "cash_movement_source_type_date_idx" ON "cash_movement" USING btree ("source_type","date" DESC NULLS LAST) WHERE deleted_at is null;--> statement-breakpoint
+CREATE INDEX "catalog_movement_date_direction_idx" ON "catalog_movement" USING btree ("date" DESC NULLS LAST,"direction") WHERE deleted_at IS NULL;

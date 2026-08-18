@@ -93,6 +93,9 @@ export const catalogMovement = pgTable(
     index("catalog_movement_source_idx")
       .on(t.sourceType, t.sourceId)
       .where(sql`deleted_at IS NULL`),
+    index("catalog_movement_date_direction_idx")
+      .on(t.date.desc(), t.direction)
+      .where(sql`deleted_at IS NULL`),
   ],
 );
 

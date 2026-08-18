@@ -223,27 +223,16 @@ export async function getFinancialSummary(
       ),
     );
 
-  const [
-    actualSalesResult,
-    depositsResult,
-    expensesResult,
-    purchasesResult,
-    ownerInjectResult,
-    ownerDrawResult,
-    inventoryValueResult,
-    cogsToDateResult,
-    operatingPnl,
-  ] = await Promise.all([
-    actualSalesPromise,
-    depositsPromise,
-    expensesPromise,
-    purchasesPromise,
-    ownerInjectPromise,
-    ownerDrawPromise,
-    inventoryValuePromise,
-    cogsToDatePromise,
-    computeOperatingPnl({ startDate, endDate }),
-  ]);
+  // Fix connection pool exhaustion by awaiting sequentially
+  const actualSalesResult = await actualSalesPromise;
+  const depositsResult = await depositsPromise;
+  const expensesResult = await expensesPromise;
+  const purchasesResult = await purchasesPromise;
+  const ownerInjectResult = await ownerInjectPromise;
+  const ownerDrawResult = await ownerDrawPromise;
+  const inventoryValueResult = await inventoryValuePromise;
+  const cogsToDateResult = await cogsToDatePromise;
+  const operatingPnl = await computeOperatingPnl({ startDate, endDate });
 
   const actualSales = Number(actualSalesResult[0]?.total) || 0;
   const deposits = Number(depositsResult[0]?.total) || 0;
@@ -754,31 +743,18 @@ export async function getDashboardBundle(params: {
   const today = getAmmanDate();
   const isAllTime = startDate === "2020-01-01" && endDate === today;
 
-  const [
-    summary,
-    summaryAllTimeRaw,
-    stats,
-    cashSummary,
-    balancesRes,
-    openingBalRes,
-    avgMonthlySpend,
-    positionRes,
-    monthlyProfit,
-    inventoryData,
-    capitalAssetsData,
-  ] = await Promise.all([
-    getFinancialSummary(startDate, endDate),
-    isAllTime ? Promise.resolve(null) : getFinancialSummary("2020-01-01", today),
-    getDashboardStats(startDate, endDate),
-    getCashSummary(),
-    getAccountBalances(),
-    getOpeningBalance(),
-    getAverageMonthlySpend(3),
-    getFinancialPosition(endDate),
-    getMonthlyProfit(6),
-    getInventoryValuation(),
-    getAllCapitalAssets(endDate),
-  ]);
+  // Fix connection pool exhaustion by avoiding huge Promise.all
+  const summary = await getFinancialSummary(startDate, endDate);
+  const summaryAllTimeRaw = isAllTime ? null : await getFinancialSummary("2020-01-01", today);
+  const stats = await getDashboardStats(startDate, endDate);
+  const cashSummary = await getCashSummary();
+  const balancesRes = await getAccountBalances();
+  const openingBalRes = await getOpeningBalance();
+  const avgMonthlySpend = await getAverageMonthlySpend(3);
+  const positionRes = await getFinancialPosition(endDate);
+  const monthlyProfit = await getMonthlyProfit(6);
+  const inventoryData = await getInventoryValuation();
+  const capitalAssetsData = await getAllCapitalAssets(endDate);
 
   if (balancesRes.status === "error") throw new Error(balancesRes.message);
   if (openingBalRes.status === "error") throw new Error(openingBalRes.message);

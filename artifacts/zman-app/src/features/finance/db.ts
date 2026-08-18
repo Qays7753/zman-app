@@ -331,6 +331,12 @@ export const cashMovement = pgTable(
       index("cash_movement_source_idx")
         .on(table.sourceType, table.sourceId)
         .where(sql`deleted_at is null`),
+      index("cash_movement_date_direction_idx")
+        .on(table.date.desc(), table.direction)
+        .where(sql`deleted_at is null`),
+      index("cash_movement_source_type_date_idx")
+        .on(table.sourceType, table.date.desc())
+        .where(sql`deleted_at is null`),
     ];
   },
 );
