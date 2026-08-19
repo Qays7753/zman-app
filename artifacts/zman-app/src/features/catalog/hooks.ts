@@ -36,8 +36,8 @@ export function useCatalogComponents(search?: string) {
   return useQuery({
     queryKey: catalogKeys.list(search),
     queryFn: () => getCatalogComponents(search),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 60_000,
+    refetchOnMount: true,
   });
 }
 

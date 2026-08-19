@@ -194,7 +194,7 @@ export function PaymentsTab() {
   const defaultNewMode = newPurchase ? "purchase" : "expense";
 
   return (
-    <div className="space-y-4 flex-1 flex flex-col pb-36">
+    <div className="space-y-4 flex-1 flex flex-col fab-safe-area lg:pb-0">
       {/* شريط رقاقات الفلترة السريعة (Chips) — سطر 1 دائم بدون سكرول أفقي */}
       <div className="space-y-2">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -315,7 +315,7 @@ export function PaymentsTab() {
               const movementKindLabel = isWriteoff
                 ? "تسوية مخزون تلقائية"
                 : item.kind === "receivable"
-                  ? "ذمّة مدينة"
+                  ? "مبلغ مستحق على العميل"
                   : item.isCapitalAsset
                     ? "أصل رأسمالي"
                     : item.kind === "purchase"

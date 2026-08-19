@@ -158,7 +158,7 @@ export function SalesTab() {
   };
 
   return (
-    <div className="space-y-4 flex-1 flex flex-col pb-24">
+    <div className="space-y-4 flex-1 flex flex-col fab-safe-area lg:pb-0">
       {/* شريط رقاقات فلترة المصدر */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {SALE_SOURCE_CHIPS.map((chip) => {

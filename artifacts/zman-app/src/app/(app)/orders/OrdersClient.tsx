@@ -238,20 +238,24 @@ export default function OrdersClient() {
         />
       )}
 
-      {!isInSubView && tab === "calendar" && (
-        <OrderCalendar
-          onViewDetail={handleShowDetail}
-          onCreateNew={handleShowCreate}
-        />
-      )}
+      {!isInSubView && (
+        <div className="fab-safe-area lg:pb-0">
+          {tab === "calendar" && (
+            <OrderCalendar
+              onViewDetail={handleShowDetail}
+              onCreateNew={handleShowCreate}
+            />
+          )}
 
-      {!isInSubView && tab !== "calendar" && (
-        <OrderList
-          onEdit={handleShowEdit}
-          onDelete={(order: Order) => navigateTo({ view: order.id })}
-          onViewDetail={handleShowDetail}
-          onCreateNew={handleShowCreate}
-        />
+          {tab !== "calendar" && (
+            <OrderList
+              onEdit={handleShowEdit}
+              onDelete={(order: Order) => navigateTo({ view: order.id })}
+              onViewDetail={handleShowDetail}
+              onCreateNew={handleShowCreate}
+            />
+          )}
+        </div>
       )}
 
       <ResponsiveModal

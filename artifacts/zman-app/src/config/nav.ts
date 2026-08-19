@@ -98,7 +98,7 @@ const moreNavGroups: MoreNavGroup[] = [
         icon: Landmark,
       },
       {
-        label: "إدارة أصناف المشتريات",
+        label: "أصناف الشراء",
         href: "/finance?manageCatalog=purchases",
         icon: Boxes,
       },
