@@ -24,10 +24,10 @@ export function FloatingActionButton({
       aria-label={label}
       title={label}
       className={cn(
-        "fixed bottom-20 end-4 lg:bottom-6 lg:end-[264px] z-dropdown",
+        "fixed bottom-[calc(80px+env(safe-area-inset-bottom))] end-4 lg:bottom-6 lg:end-[264px] z-dropdown",
         "w-14 h-14 min-h-[44px] min-w-[44px]",
         "flex items-center justify-center rounded-full shadow-lg",
-        "bg-info text-paper transition-transform active:scale-95 hover:scale-105",
+        "bg-brand text-paper transition-transform active:scale-95 hover:bg-brand-deep hover:scale-105",
         className
       )}
     >

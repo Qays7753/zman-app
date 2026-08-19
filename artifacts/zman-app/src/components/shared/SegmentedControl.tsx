@@ -47,20 +47,15 @@ export function SegmentedControl<T = string>({
               // design-baseline.md.
               compact
                 ? "min-h-[44px] h-11 px-3.5 rounded-md"
-                : "min-h-[44px] h-11 px-3 rounded-md flex-1",
+                : "min-h-[44px] h-11 px-3 rounded-md flex-none min-w-[88px]",
               isActive
-                ? "bg-info text-paper shadow-sm"
-                : "text-ink-3 hover:text-ink hover:bg-paper/60"
+                ? "bg-brand text-paper shadow-sm"
+                : "text-ink-2 hover:text-ink hover:bg-paper/60"
             )}
           >
             {opt.icon && <span className="shrink-0">{opt.icon}</span>}
-            {/* النص: يُخفى على الجوال فقط إن وُجدت أيقونة تنوب عنه؛
-                وإن لم تكن هناك أيقونة، يظهر النص دائماً (وإلا يصير الزر فارغاً) */}
-            {opt.label && (
-              <span className={opt.icon ? "hidden sm:inline" : ""}>
-                {opt.label}
-              </span>
-            )}
+            {/* التسمية تبقى ظاهرة على الهاتف؛ يمكن تمرير المجموعة أفقيًا عندما تطول. */}
+            {opt.label && <span>{opt.label}</span>}
           </button>
         );
       })}

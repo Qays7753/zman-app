@@ -55,7 +55,7 @@ export function ResponsiveModal({
         className={cn(
           "relative w-full bg-paper z-modal flex flex-col focus:outline-none animate-slide-up",
           // موبايل: شيت من الأسفل — يترك مسافة 4rem للنافبار السفلي
-          "rounded-t-2xl max-h-[calc(100dvh-4.5rem)]",
+          "rounded-t-2xl max-h-[calc(100dvh-4.5rem-env(safe-area-inset-bottom))]",
           // ديسكتوب: مودال متمركز
           "lg:rounded-xl lg:max-w-[480px] lg:w-full lg:max-h-[85vh] lg:shadow-xl",
         )}
@@ -71,7 +71,7 @@ export function ResponsiveModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 -me-2 rounded-full hover:bg-canvas text-ink-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="p-2 -me-2 rounded-full hover:bg-canvas text-ink-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             aria-label="إغلاق"
           >
             <X className="w-5 h-5" />
@@ -79,7 +79,7 @@ export function ResponsiveModal({
         </div>
 
         {/* المحتوى — المودال يغطي النافبار كلياً (z-modal=40 > z-sticky=10) */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 pb-6">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
       </div>
