@@ -72,7 +72,7 @@ export function GlobalSearch() {
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="بحث شامل في النظام (اسم زبون، مادة، مصروف...)"
-          className="w-full h-11 ps-10 pe-9 bg-paper border border-hairline rounded-xl text-xs sm:text-sm font-medium text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-info/30 focus:border-info transition-all shadow-sm"
+          className="w-full h-11 min-h-[44px] ps-10 pe-12 bg-paper border border-hairline rounded-xl text-xs sm:text-sm font-medium text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all shadow-sm"
         />
         <Search className="w-4 h-4 text-ink-3 absolute start-3.5 top-3.5 pointer-events-none" />
         {query && (
@@ -82,7 +82,8 @@ export function GlobalSearch() {
               setQuery("");
               setIsOpen(false);
             }}
-            className="absolute end-3 top-3.5 text-ink-3 hover:text-ink p-0.5"
+            className="absolute end-1 top-1 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-ink-3 hover:text-ink hover:bg-canvas transition-colors"
+            aria-label="مسح البحث"
           >
             <X className="w-4 h-4" />
           </button>
@@ -102,15 +103,15 @@ export function GlobalSearch() {
               {results.orders.length > 0 && (
                 <div>
                   <div className="px-3 py-1 text-[11px] font-bold text-ink-3 bg-canvas border-y border-hairline/50 flex items-center gap-1.5">
-                    <ClipboardList className="w-3.5 h-3.5 text-info" />
+                    <ClipboardList className="w-3.5 h-3.5 text-brand" />
                     <span>الطلبات والزبائن</span>
                   </div>
                   {results.orders.map((o: { id: string; customerName: string; productName: string }) => (
                     <Link
                       key={o.id}
-                      href={`/orders?q=${encodeURIComponent(o.customerName)}`}
+                      href={`/orders?view=${encodeURIComponent(o.id)}`}
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
+                      className="flex items-center justify-between px-4 py-3 min-h-[44px] hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
                     >
                       <div>
                         <p className="font-bold text-ink">{o.customerName}</p>
@@ -134,7 +135,7 @@ export function GlobalSearch() {
                       key={c.id}
                       href="/inventory"
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
+                      className="flex items-center justify-between px-4 py-3 min-h-[44px] hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
                     >
                       <div>
                         <p className="font-bold text-ink">{c.name}</p>
@@ -158,7 +159,7 @@ export function GlobalSearch() {
                       key={e.id}
                       href={`/finance?tab=payments&filter=expense&search=${encodeURIComponent(e.description)}`}
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-between px-4 py-2.5 hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
+                      className="flex items-center justify-between px-4 py-3 min-h-[44px] hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
                     >
                       <div>
                         <p className="font-bold text-ink">{e.description}</p>

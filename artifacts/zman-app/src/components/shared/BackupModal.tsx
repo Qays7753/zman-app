@@ -70,9 +70,9 @@ export function BackupModal({ isOpen, onClose }: BackupModalProps) {
   };
 
   return (
-    <ResponsiveModal isOpen={isOpen} onClose={onClose} title="النسخ الاحتياطي المحلي">
+    <ResponsiveModal isOpen={isOpen} onClose={onClose} title="تصدير بيانات مرجعية">
       <div className="space-y-5 py-2">
-        <div className="flex items-center gap-3 p-4 bg-info/10 border border-info/20 rounded-xl text-info">
+        <div className="flex items-center gap-3 p-4 bg-brand-soft border border-brand/20 rounded-xl text-brand-deep">
           <Database className="w-6 h-6 shrink-0" />
           <div>
             <h4 className="font-bold text-sm">تصدير لقطة مرجعية</h4>
@@ -110,7 +110,7 @@ export function BackupModal({ isOpen, onClose }: BackupModalProps) {
         {done && (
           <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-200">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>تم تحميل ملف النسخة الاحتياطية بنجاح!</span>
+            <span>تم تصدير البيانات المرجعية بنجاح!</span>
           </div>
         )}
 
@@ -124,7 +124,7 @@ export function BackupModal({ isOpen, onClose }: BackupModalProps) {
             className="flex-1 gap-1.5"
           >
             <Download className="w-4 h-4 shrink-0" />
-            تصدير الملف (JSON)
+            تصدير البيانات (JSON)
           </Button>
         </div>
       </div>

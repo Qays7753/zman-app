@@ -394,7 +394,7 @@ function UndepreciatedAssetCard({
         <button
           type="button"
           onClick={onActivateDepreciation}
-          className="min-h-[44px] px-3 py-1 bg-info-soft text-info text-xs font-bold rounded-lg border border-info/30 hover:bg-info-soft/80 transition-colors flex items-center justify-center shrink-0"
+          className="min-h-[44px] px-3 py-1 bg-brand-soft text-brand-deep text-xs font-bold rounded-lg border border-brand/30 hover:bg-brand-soft/80 transition-colors flex items-center justify-center shrink-0"
         >
           تفعيل الإهلاك
         </button>
@@ -465,7 +465,8 @@ function AssetCard({
           type="button"
           onClick={onOpenActions}
           className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
-          aria-label="إجراءات"
+          aria-label={`إجراءات الأصل ${asset.name}`}
+          title={`إجراءات الأصل ${asset.name}`}
         >
           <MoreVertical className="w-5 h-5" />
         </button>
@@ -476,14 +477,14 @@ function AssetCard({
         <div
           className={cn(
             "h-full rounded-full transition-all",
-            fullyDepreciated ? "bg-emerald" : "bg-info",
+            fullyDepreciated ? "bg-emerald" : "bg-brand",
           )}
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
       {/* الأرقام */}
-      <div className="grid grid-cols-3 gap-2 text-center">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
         <div>
           <p className="text-[10px] text-ink-3 mb-0.5">القيمة الأصلية</p>
           <p className="text-xs font-semibold text-ink tabular-nums">
@@ -501,7 +502,7 @@ function AssetCard({
           <p
             className={cn(
               "text-xs font-bold tabular-nums",
-              asset.netBookValueCents > 0 ? "text-info" : "text-ink-3",
+              asset.netBookValueCents > 0 ? "text-brand" : "text-ink-3",
             )}
           >
             <AmountText amount={asset.netBookValueCents} hideCurrency />
