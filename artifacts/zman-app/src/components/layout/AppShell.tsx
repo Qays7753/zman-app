@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MoreHorizontal, Database } from "lucide-react";
+import { Menu, Database } from "lucide-react";
 import { useEffect, useState } from "react";
 import { navItems, mainNavItems, moreNavItems } from "@/config/nav";
 import { InstallButton } from "@/components/pwa/InstallButton";
@@ -127,7 +127,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       {/* الشريط الجانبي للديسكتوب */}
       <aside className="hidden lg:flex fixed top-0 inset-e-0 h-screen w-[240px] flex-col bg-paper border-s border-hairline z-sticky">
         <div className="h-16 flex items-center px-6 border-b border-hairline">
-          <span className="text-xl font-bold text-info">Zman</span>
+          <span className="text-xl font-display font-semibold tracking-wide text-brand-deep">Zman</span>
         </div>
         <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
@@ -139,12 +139,12 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               <Link
                 key={item.href}
                 href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors",
-                  isActive
-                    ? "bg-info-soft text-info font-bold"
-                    : "text-ink-2 hover:bg-canvas hover:text-ink",
-                )}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors",
+                    isActive
+                      ? "bg-brand-soft text-brand font-bold"
+                      : "text-ink-2 hover:bg-canvas hover:text-ink",
+                  )}
               >
                 <Icon className="w-4.5 h-4.5 flex-shrink-0" />
                 <span>{item.label}</span>
@@ -158,7 +158,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       </aside>
 
       {/* هيدر الموبايل */}
-      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper/90 backdrop-blur-sm shadow-sm border-b border-hairline flex items-center justify-between px-3 z-sticky">
+      <header className="lg:hidden flex-shrink-0 w-full h-[58px] bg-paper/95 backdrop-blur-sm shadow-sm border-b border-hairline flex items-center justify-between gap-2 px-3 z-sticky">
         {title ? (
           <h1 className="text-base font-bold text-ink truncate">{title}</h1>
         ) : null}
@@ -201,7 +201,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
             >
               <svg
                 className={cn(
-                  "h-6 w-6 text-info transition-transform",
+                  "h-6 w-6 text-brand transition-transform",
                   isRefreshing ? "animate-spin" : ""
                 )}
                 style={{
@@ -221,14 +221,14 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               </svg>
             </div>
           )}
-          <div className="w-full max-w-6xl mx-auto px-4 lg:px-8 py-4 lg:py-6 flex flex-col min-h-full min-w-0">
+          <div className="w-full max-w-6xl mx-auto px-4 lg:px-8 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:py-6 flex flex-col min-h-full min-w-0">
             {children}
           </div>
         </div>
       </main>
 
       {/* شريط التبويب السفلي للموبايل */}
-      <nav className="lg:hidden flex-shrink-0 h-16 bg-paper border-t border-hairline flex items-center justify-around z-sticky">
+      <nav aria-label="التنقل الرئيسي" className="lg:hidden flex-shrink-0 h-[calc(64px+env(safe-area-inset-bottom))] min-h-[64px] bg-paper border-t border-hairline flex items-start pb-[env(safe-area-inset-bottom)] justify-around z-sticky">
         {mainNavItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -239,9 +239,9 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 w-full h-full text-[11px] transition-colors border-t-2 border-transparent",
+                "flex flex-col items-center justify-center gap-0.5 flex-1 h-16 text-[11px] transition-colors border-t-2 border-transparent",
                 isActive
-                  ? "text-info font-bold border-info"
+                  ? "text-brand font-bold border-brand bg-brand-soft/40"
                   : "text-ink-3 hover:text-ink-2",
               )}
             >
@@ -254,13 +254,13 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
           type="button"
           onClick={() => setIsMoreOpen(true)}
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 w-full h-full text-[11px] transition-colors border-t-2 border-transparent",
-            isMoreActive
-              ? "text-info font-bold border-info"
-              : "text-ink-3 hover:text-ink-2",
+            "flex flex-col items-center justify-center gap-0.5 flex-1 h-16 text-[11px] transition-colors border-t-2 border-transparent",
+                isMoreActive
+                  ? "text-brand font-bold border-brand bg-brand-soft/40"
+                  : "text-ink-3 hover:text-ink-2",
           )}
         >
-          <MoreHorizontal className="w-5 h-5" />
+          <Menu className="w-5 h-5" />
           <span>المزيد</span>
         </button>
       </nav>
@@ -287,7 +287,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
                 className={cn(
                   "flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg",
                   isActive
-                    ? "text-info font-bold bg-info-soft"
+                    ? "text-brand font-bold bg-brand-soft"
                     : "text-ink-2 hover:bg-canvas hover:text-ink",
                 )}
               >
@@ -305,7 +305,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
             }}
             className="w-full flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg text-ink-2 hover:bg-canvas hover:text-ink font-medium"
           >
-            <Database className="w-5 h-5 flex-shrink-0 text-info" />
+            <Database className="w-5 h-5 flex-shrink-0 text-brand" />
             <span>تصدير لقطة مرجعية</span>
           </button>
         </div>
