@@ -258,6 +258,7 @@ export default function FinanceClient() {
         <FloatingActionButton
           onClick={handleAdd}
           label={addLabel[activeTab] || "تسجيل جديد"}
+          showLabel
         />
       )}
     </>
