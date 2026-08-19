@@ -10,6 +10,8 @@ import {
   convertOrderToSale,
   reverseSale,
   refundOrder,
+  forfeitDeposit,
+  reverseDepositForfeiture,
   createExpense,
   createPurchase,
   createSale,
@@ -442,6 +444,48 @@ export function useRefundOrder() {
         await queryClient.refetchQueries({
           queryKey: ["orders", "detail", (variables.values as { orderId: string }).orderId],
         });
+      }
+    },
+  });
+}
+
+export function useForfeitDeposit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ values, requestId }: { values: unknown; requestId?: string }) =>
+      forfeitDeposit(values, requestId),
+    onSuccess: async (res, variables) => {
+      if (res.status === "ok") {
+        const orderId = (variables.values as { orderId: string }).orderId;
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["orders"] }),
+          queryClient.invalidateQueries({ queryKey: financeKeys.sales() }),
+          queryClient.invalidateQueries({ queryKey: ["reports"] }),
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+          queryClient.invalidateQueries({ queryKey: ["finance"] }),
+        ]);
+        await queryClient.refetchQueries({ queryKey: ["orders", "detail", orderId] });
+      }
+    },
+  });
+}
+
+export function useReverseDepositForfeiture() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ values, requestId }: { values: unknown; requestId?: string }) =>
+      reverseDepositForfeiture(values, requestId),
+    onSuccess: async (res, variables) => {
+      if (res.status === "ok") {
+        const orderId = (variables.values as { orderId: string }).orderId;
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["orders"] }),
+          queryClient.invalidateQueries({ queryKey: financeKeys.sales() }),
+          queryClient.invalidateQueries({ queryKey: ["reports"] }),
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+          queryClient.invalidateQueries({ queryKey: ["finance"] }),
+        ]);
+        await queryClient.refetchQueries({ queryKey: ["orders", "detail", orderId] });
       }
     },
   });
