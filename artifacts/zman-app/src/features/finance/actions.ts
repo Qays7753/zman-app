@@ -1214,6 +1214,34 @@ export async function updateSale(
         };
       }
 
+      // المصدر والربط جزء من هوية المبيعة التاريخية، ولا يجوز تغييرهما عبر
+      // مسار التعديل العام. تغييرهما قد يحوّل مبيعة احتجاز إلى مبيعة تسليم
+      // ويدخلها في فحوص الإيراد الكامل، أو يفصل الحركة النقدية عن صاحبها.
+      const incomingOrderId = parsed.data.orderId ?? null;
+      const existingOrderId = existing.orderId ?? null;
+      if (
+        parsed.data.source !== existing.source ||
+        incomingOrderId !== existingOrderId
+      ) {
+        return {
+          status: "error",
+          message: "لا يمكن تغيير مصدر المبيعة أو ربطها بطلب بعد تسجيلها",
+        };
+      }
+
+      // مبيعة الاحتجاز صافي إيراد تاريخي مرتبط بتسوية طلب ملغى؛ تغيير مبلغها
+      // من هنا يفسد التسوية. تصحيحها يمر عبر مسار تسوية العربون فقط.
+      if (
+        existing.source === "manual" &&
+        existingOrderId !== null &&
+        parsed.data.amountCents !== existing.amountCents
+      ) {
+        return {
+          status: "error",
+          message: "لا يمكن تعديل مبلغ عربون محتجز من مسار المبيعات العام",
+        };
+      }
+
       const [updatedSale] = await tx
         .update(sale)
         .set({
