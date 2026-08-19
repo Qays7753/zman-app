@@ -16,6 +16,7 @@ import {
   useCreateSale,
   useDeleteSale,
   useInfiniteSales,
+  useReverseSale,
   useSale,
   useUpdateSale,
 } from "../hooks";
@@ -39,6 +40,7 @@ export function SalesTab() {
   const newSale = searchParams.get("newSale") === "true";
   const editId = searchParams.get("editSale");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [reverseConfirmOpen, setReverseConfirmOpen] = useState(false);
 
   // هوك جلب البيانات اللانهائي
   const querySource = source === "manual" || source === "order" ? source : undefined;
@@ -58,6 +60,8 @@ export function SalesTab() {
   const createMutation = useCreateSale();
   const updateMutation = useUpdateSale();
   const deleteMutation = useDeleteSale();
+  const reverseMutation = useReverseSale();
+  const isOrderSale = activeSale?.source === "order" || Boolean(activeSale?.orderId);
 
   const sales = data?.pages.flatMap((page) => page.items) || [];
 
@@ -121,6 +125,11 @@ export function SalesTab() {
 
   const handleConfirmDelete = async () => {
     if (!editId) return;
+    if (activeSale?.source === "order" || activeSale?.orderId) {
+      setDeleteConfirmOpen(false);
+      toast.error("لا يمكن حذف مبيعة مرتبطة بطلب — استخدم عكس التسليم");
+      return;
+    }
     const updatedAt = activeSale?.updatedAt instanceof Date
       ? activeSale.updatedAt.toISOString()
       : String(activeSale?.updatedAt || "");
@@ -129,6 +138,19 @@ export function SalesTab() {
       toast.success("تم حذف المبيعات بنجاح");
       updateUrl({ editSale: null });
       setDeleteConfirmOpen(false);
+      refetch();
+    } else {
+      toast.error(res.message);
+    }
+  };
+
+  const handleConfirmReverse = async () => {
+    if (!activeSale?.orderId) return;
+    const res = await reverseMutation.mutateAsync({ orderId: activeSale.orderId });
+    if (res.status === "ok") {
+      toast.success("تم عكس التسليم وإعادة الطلب إلى الحالة المؤكدة");
+      setReverseConfirmOpen(false);
+      updateUrl({ editSale: null });
       refetch();
     } else {
       toast.error(res.message);
@@ -284,13 +306,14 @@ export function SalesTab() {
           <SaleForm
             initialData={activeSale}
             onSubmit={handleUpdate}
-            onDelete={() => setDeleteConfirmOpen(true)}
-            isSubmitting={updateMutation.isPending}
+            onDelete={isOrderSale ? undefined : () => setDeleteConfirmOpen(true)}
+            onReverse={isOrderSale ? () => setReverseConfirmOpen(true) : undefined}
+            isSubmitting={updateMutation.isPending || reverseMutation.isPending}
           />
         )}
       </ResponsiveModal>
 
-      {/* تأكيد الحذف */}
+      {/* تأكيد الحذف للمبيعات اليدوية فقط */}
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
         title="تأكيد حذف المبيعات"
@@ -298,6 +321,16 @@ export function SalesTab() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmOpen(false)}
         isLoading={deleteMutation.isPending}
+      />
+
+      {/* عكس التسليم مسار مستقل عن حذف المبيعات ورد الأموال */}
+      <ConfirmDialog
+        isOpen={reverseConfirmOpen}
+        title="تأكيد عكس التسليم"
+        message="سيُعاد الطلب إلى الحالة المؤكدة، وتُستعاد كميات المخزون، وتُعكس حركة المبيعات المرتبطة. هذا لا ينفذ ردّاً للأموال."
+        onConfirm={handleConfirmReverse}
+        onCancel={() => setReverseConfirmOpen(false)}
+        isLoading={reverseMutation.isPending}
       />
     </div>
   );
