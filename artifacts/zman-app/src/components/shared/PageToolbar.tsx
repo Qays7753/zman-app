@@ -190,6 +190,7 @@ export function PageToolbar({
         {search && (
           <HeaderIconButton
             label="بحث"
+            tone="quiet"
             isActive={!!search.value}
             onClick={() => setSearchOpen(true)}
           >
@@ -209,6 +210,7 @@ export function PageToolbar({
           <div ref={menuRef} className="relative">
             <HeaderIconButton
               label="أدوات الصفحة"
+              tone="quiet"
               isActive={menuOpen}
               onClick={() => setMenuOpen((o) => !o)}
             >

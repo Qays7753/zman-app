@@ -26,6 +26,8 @@ interface HeaderIconButtonProps
    *     تجاهل اللون (شمس / عمى ألوان)، ويبقى الصفّ متجانساً بصرياً.
    */
   variant?: "icon" | "tab";
+  /** tone يميز الإجراء الثانوي عن زر الفلترة أو الإجراء الأساسي */
+  tone?: "default" | "quiet" | "primary";
 }
 
 /**
@@ -38,7 +40,7 @@ interface HeaderIconButtonProps
 export const HeaderIconButton = React.forwardRef<
   HTMLButtonElement,
   HeaderIconButtonProps
->(({ label, isActive = false, badge = false, variant = "icon", className, children, ...props }, ref) => {
+>(({ label, isActive = false, badge = false, variant = "icon", tone = "default", className, children, ...props }, ref) => {
   const isTab = variant === "tab";
   return (
     <button
@@ -56,7 +58,11 @@ export const HeaderIconButton = React.forwardRef<
           ? isTab
             ? "border-brand bg-brand-soft text-brand border-b-2 font-bold"
             : "border-brand bg-brand-soft text-brand"
-          : "border-hairline bg-paper text-ink-2 hover:text-ink hover:bg-canvas",
+          : tone === "quiet" && !isTab
+            ? "border-transparent bg-transparent text-ink-2 hover:text-ink hover:bg-canvas"
+            : tone === "primary" && !isTab
+              ? "border-brand bg-brand text-paper hover:bg-brand-deep"
+              : "border-hairline bg-paper text-ink-2 hover:text-ink hover:bg-canvas",
         className,
       )}
       {...props}

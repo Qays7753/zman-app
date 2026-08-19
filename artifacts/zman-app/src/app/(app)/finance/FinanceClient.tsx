@@ -209,6 +209,7 @@ export default function FinanceClient() {
                     icon: <tab.icon className="h-4 w-4" />,
                   }))}
                   compact
+                  scrollable={false}
                 />
               )
             }

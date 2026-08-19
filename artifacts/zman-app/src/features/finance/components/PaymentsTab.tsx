@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Boxes, Loader2, MoreVertical, Pencil, Trash2, History } from "lucide-react";
+import { Boxes, Check, Filter, Loader2, MoreVertical, Pencil, Trash2, History } from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -63,6 +63,7 @@ export function PaymentsTab() {
   const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
   const [actionSheetItem, setActionSheetItem] = useState<PaymentItem | null>(null);
   const [receivablePaymentModalItem, setReceivablePaymentModalItem] = useState<PaymentItem | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const deleteExpenseMutation = useDeleteExpense();
   const deletePurchaseMutation = useDeletePurchase();
@@ -120,6 +121,7 @@ export function PaymentsTab() {
     startTransition(() => {
       router.replace(`${pathname}?${next.toString()}`);
     });
+    setIsFilterOpen(false);
   };
 
   // حذف مع تراجع
@@ -192,66 +194,126 @@ export function PaymentsTab() {
   };
 
   const defaultNewMode = newPurchase ? "purchase" : "expense";
+  const activeFilterLabel = FILTER_CHIPS.find((chip) => chip.id === filter)?.label ?? "الكل";
+  const hasActiveFilter = filter !== "all" || category !== "all" || Boolean(natureFilter);
 
   return (
     <div className="space-y-4 flex-1 flex flex-col pb-36">
-      {/* شريط رقاقات الفلترة السريعة (Chips) — سطر 1 دائم بدون سكرول أفقي */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {FILTER_CHIPS.map((chip) => {
-            const isActive = filter === chip.id;
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => handleChipChange(chip.id)}
-                className={cn(
-                  "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
-                  isActive
-                    ? "bg-paper text-brand border-brand/20 shadow-sm"
-                    : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
-                )}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* فلتر موحّد — يمنع انقسام الشرائح بين سطرين ويجمع التصنيف والفئة في مكان واحد */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setIsFilterOpen(true)}
+          aria-expanded={isFilterOpen}
+          className={cn(
+            "min-h-[44px] flex-1 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start transition-colors",
+            hasActiveFilter
+              ? "border-brand/30 bg-brand-soft/50 text-brand-deep"
+              : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Filter className="h-4 w-4 shrink-0 text-brand" />
+            <span className="truncate">{activeFilterLabel}</span>
+            {filter === "expense" && category !== "all" && (
+              <span className="truncate text-xs font-medium text-ink-2">· {category}</span>
+            )}
+          </span>
+          <span className="shrink-0 text-xs text-ink-3">تصفية</span>
+        </button>
 
-        {/* سطر 2: أدوات إضافية تظهر عند تفعيل فلتر المصاريف فقط (بعرض كامل وأهداف لمس 44px) */}
-        {filter === "expense" && (
-          <div className="flex items-center gap-2 w-full pt-0.5 animate-fade-in">
-            <select
-              value={category}
-              onChange={(e) =>
-                updateUrl({
-                  category: e.target.value === "all" || e.target.value === "الكل" ? null : e.target.value,
-                })
-              }
-              className="flex-1 min-w-0 text-xs h-11 min-h-[44px] rounded-lg border border-hairline bg-paper px-3 text-ink focus:outline-none focus:ring-1 focus:ring-info font-medium"
-              aria-label="تصفية حسب فئة المصروف"
-            >
-              <option value="all">كل الفئات</option>
-              {filterCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => updateUrl({ manageCatalog: "expenses" })}
-              icon={<Boxes className="w-4 h-4" />}
-              className="text-xs shrink-0 min-h-[44px] h-11 px-3"
-            >
-              إدارة الفئات
-            </Button>
-          </div>
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() => updateUrl({ filter: null, category: null, nature: null })}
+            className="min-h-[44px] shrink-0 rounded-lg px-3 text-xs font-bold text-ink-2 hover:bg-canvas"
+          >
+            مسح
+          </button>
         )}
       </div>
+
+      <ResponsiveModal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        title="تصفية المدفوعات"
+      >
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-ink-2">نوع الحركة</p>
+            <div className="grid grid-cols-2 gap-2">
+              {FILTER_CHIPS.map((chip) => {
+                const isActive = filter === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => handleChipChange(chip.id)}
+                    className={cn(
+                      "min-h-[44px] flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start",
+                      isActive
+                        ? "border-brand bg-brand-soft text-brand-deep"
+                        : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
+                    )}
+                  >
+                    <span>{chip.label}</span>
+                    {isActive && <Check className="h-4 w-4 shrink-0 text-brand" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {filter === "expense" && (
+            <div className="space-y-2 border-t border-hairline pt-4">
+              <label className="text-xs font-bold text-ink-2" htmlFor="expense-category-filter">
+                فئة المصروف
+              </label>
+              <select
+                id="expense-category-filter"
+                value={category}
+                onChange={(e) =>
+                  updateUrl({
+                    category: e.target.value === "all" || e.target.value === "الكل" ? null : e.target.value,
+                  })
+                }
+                className="w-full h-11 min-h-[44px] rounded-lg border border-hairline bg-paper px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand font-medium"
+              >
+                <option value="all">كل الفئات</option>
+                {filterCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setIsFilterOpen(false);
+                  updateUrl({ manageCatalog: "expenses" });
+                }}
+                icon={<Boxes className="w-4 h-4" />}
+                className="w-full min-h-[44px] h-11 text-sm"
+              >
+                إدارة فئات المصروفات
+              </Button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              updateUrl({ filter: null, category: null, nature: null });
+              setIsFilterOpen(false);
+            }}
+            className="w-full min-h-[44px] rounded-lg border border-hairline px-3 text-sm font-bold text-ink-2 hover:bg-canvas"
+          >
+            عرض كل المدفوعات
+          </button>
+        </div>
+      </ResponsiveModal>
 
       {isLoading ? (
         <SkeletonList count={4} />
