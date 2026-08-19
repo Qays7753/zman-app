@@ -32,8 +32,9 @@ export default function LoginPage() {
         } catch {
           // ignore
         }
-        router.refresh();
-        router.push("/");
+        // يكفي انتقال واحد بعد أن تضبط Server Action الكوكي؛
+        // refresh ثم push كانا يبدآن انتقالين متتاليين ويبطئان أول فتح.
+        router.replace("/");
       } else {
         setError(res.error || "حدث خطأ غير متوقع");
       }
