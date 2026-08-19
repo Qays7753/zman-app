@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { Button } from "@/components/shared/Button";
+import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { TextField } from "@/components/shared/TextField";
 import { assertOnline } from "@/lib/online";
 import type { CreateOrderInput, UpdateOrderInput } from "../schema";
@@ -80,6 +81,12 @@ export function OrderForm({
 }: OrderFormProps) {
   const isEditMode = !!initialData;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasStockShortage, setHasStockShortage] = useState(false);
+  const [stockCheckReady, setStockCheckReady] = useState(false);
+  const [stockWarningOpen, setStockWarningOpen] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState<
+    CreateOrderInput | UpdateOrderInput | null
+  >(null);
   const [isDeliveryProfit, setIsDeliveryProfit] = useState(
     () => (initialData?.additionalProfitCents ?? 0) > 0,
   );
@@ -242,7 +249,7 @@ export function OrderForm({
     watchedTotalPrice - totalCostCents + watchedAdditionalProfit;
   const isProfit = netProfitCents >= 0;
 
-  const onSubmit = async (data: CreateOrderInput | UpdateOrderInput) => {
+  const submitOrder = async (data: CreateOrderInput | UpdateOrderInput) => {
     setIsSubmitting(true);
     try {
       // Issue #5 — تحقّق من الاتصال قبل أي طلب تعديل للخادم.
@@ -278,6 +285,28 @@ export function OrderForm({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const onSubmit = async (data: CreateOrderInput | UpdateOrderInput) => {
+    if (hasStockShortage) {
+      setPendingSubmitData(data);
+      setStockWarningOpen(true);
+      return;
+    }
+    await submitOrder(data);
+  };
+
+  const handleConfirmStockWarning = async () => {
+    if (!pendingSubmitData) return;
+    setStockWarningOpen(false);
+    const data = pendingSubmitData;
+    setPendingSubmitData(null);
+    await submitOrder(data);
+  };
+
+  const handleCancelStockWarning = () => {
+    setStockWarningOpen(false);
+    setPendingSubmitData(null);
   };
 
   return (
@@ -397,6 +426,8 @@ export function OrderForm({
         <TrackedStockBanner
           components={watchedComponents}
           orderQuantity={watchedQuantity}
+          onShortageChange={setHasStockShortage}
+          onStockCheckReady={setStockCheckReady}
         />
         <ComponentsEditor
           control={control}
@@ -660,11 +691,47 @@ export function OrderForm({
         <Button
           type="submit"
           isLoading={isSubmitting}
+          disabled={isSubmitting || !stockCheckReady}
           className="flex-1"
         >
           {isEditMode ? "حفظ التعديلات" : "حفظ الطلب"}
         </Button>
       </div>
+
+      <ResponsiveModal
+        isOpen={stockWarningOpen}
+        onClose={handleCancelStockWarning}
+        title="تنبيه مهم قبل تسجيل الطلب"
+      >
+        <div className="space-y-4 p-4">
+          <div className="rounded-lg border border-warn/40 bg-warn-soft p-3 text-sm text-warn-deep leading-relaxed">
+            بعض المكوّنات المتتبَّعة المطلوبة لهذا الطلب تتجاوز الرصيد المتاح حالياً.
+            سيُسمح بحفظ الطلب، وقد يظهر رصيد سالب عند التسليم إذا لم تُضف الكمية لاحقاً.
+          </div>
+          <p className="text-sm text-ink-2 leading-relaxed">
+            يمكنك المتابعة وتسجيل الطلب كما هو، أو العودة لتعديل المكوّنات والكمية قبل الحفظ.
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1 min-h-[44px]"
+              onClick={handleCancelStockWarning}
+            >
+              مراجعة المكوّنات
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1 min-h-[44px]"
+              onClick={() => void handleConfirmStockWarning()}
+              isLoading={isSubmitting}
+            >
+              متابعة وحفظ الطلب
+            </Button>
+          </div>
+        </div>
+      </ResponsiveModal>
     </form>
   );
 }
@@ -695,13 +762,17 @@ interface ComponentLike {
 function TrackedStockBanner({
   components,
   orderQuantity,
+  onShortageChange,
+  onStockCheckReady,
 }: {
   components: ComponentLike[];
   orderQuantity: number;
+  onShortageChange: (hasShortage: boolean) => void;
+  onStockCheckReady: (ready: boolean) => void;
 }) {
   // اجلب أصناف الكتالوج لمعرفة أيها متتبَّع. (نعم، هذا fetch إضافي — نعذره لأن
   // البيانات صغيرة ومُخزَّنة مؤقتاً.)
-  const { data: catalogItems = [] } = useCatalogComponents();
+  const { data: catalogItems = [], isLoading: isCatalogLoading } = useCatalogComponents();
   const trackedMap = useMemo(() => {
     const m = new Map<string, boolean>();
     for (const c of catalogItems) m.set(c.id, c.tracked);
@@ -724,25 +795,52 @@ function TrackedStockBanner({
   // الأب عبر callback. أبسط نهج: كل Child يُعيد رصيده، والأب يجمع.
   // نستخدم state محلياً للأب لتجميع الأرصدة عبر effect.
   const [stocks, setStocks] = useState<Record<string, number>>({});
+  const [stockReady, setStockReady] = useState<Record<string, boolean>>({});
 
-  // إن لم تكن هناك أصناف متتبَّعة، لا تعرض شيئاً.
-  if (trackedCatalogIds.length === 0) return null;
-
-  // احسب المطلوب: Σ (component.quantity × orderQuantity) لكل مكوّن متتبَّع.
-  const totalRequired = components.reduce((sum, c) => {
-    if (c.catalogComponentId && trackedMap.get(c.catalogComponentId)) {
-      const q = Number(c.quantity) || 0;
-      return sum + q * (orderQuantity || 0);
+  // احسب المطلوب لكل صنف متتبَّع على حدة؛ لا يجوز أن يعوّض فائض صنف
+  // نقص صنف آخر لأن الوحدات قد تكون مختلفة.
+  const requiredById = useMemo(() => {
+    const required = new Map<string, number>();
+    for (const c of components) {
+      if (!c.catalogComponentId || !trackedMap.get(c.catalogComponentId)) continue;
+      const quantity = Number(c.quantity) || 0;
+      required.set(
+        c.catalogComponentId,
+        (required.get(c.catalogComponentId) ?? 0) + quantity * (orderQuantity || 0),
+      );
     }
-    return sum;
-  }, 0);
+    return required;
+  }, [components, orderQuantity, trackedMap]);
 
+  const totalRequired = trackedCatalogIds.reduce(
+    (sum, id) => sum + (requiredById.get(id) ?? 0),
+    0,
+  );
   const totalAvailable = trackedCatalogIds.reduce(
     (sum, id) => sum + (stocks[id] ?? 0),
     0,
   );
+  const stockDataReady = trackedCatalogIds.every((id) => stockReady[id]);
+  const shortages = stockDataReady
+    ? trackedCatalogIds
+        .map((id) => ({
+          id,
+          required: requiredById.get(id) ?? 0,
+          available: stocks[id] ?? 0,
+        }))
+        .filter((item) => item.required > item.available)
+    : [];
+  const isShort = shortages.length > 0;
 
-  const isShort = totalRequired > totalAvailable;
+  const stockCheckReady = !isCatalogLoading && stockDataReady;
+
+  useEffect(() => {
+    onShortageChange(stockCheckReady && isShort);
+    onStockCheckReady(stockCheckReady);
+  }, [isShort, onShortageChange, onStockCheckReady, stockCheckReady]);
+
+  // إن لم تكن هناك أصناف متتبَّعة، لا تعرض شيئاً ولا تمنع حفظ الطلب.
+  if (trackedCatalogIds.length === 0) return null;
 
   return (
     <div className="mb-4">
@@ -752,9 +850,12 @@ function TrackedStockBanner({
           <StockFetcher
             key={id}
             catalogComponentId={id}
-            onStock={(s) => {
+            onStock={(s, ready) => {
               if (stocks[id] !== s) {
                 setStocks((prev) => ({ ...prev, [id]: s }));
+              }
+              if (stockReady[id] !== ready) {
+                setStockReady((prev) => ({ ...prev, [id]: ready }));
               }
             }}
           />
@@ -779,12 +880,26 @@ function TrackedStockBanner({
           <span className="font-bold">
             المطلوب: {totalRequired}
           </span>
-          {isShort && (
-            <span className="block mt-1">
-              ⚠️ المطلوب يتجاوز المتاح بـ {totalRequired - totalAvailable}. يمكنك
-              المتابعة لكن سيُخصم رصيد سالب (مسموح). يُنصح بشراء كمية إضافية أو
-              تعديل المكوّنات.
-            </span>
+          {!stockDataReady ? (
+            <span className="block mt-1">جارٍ التحقق من أرصدة المكوّنات…</span>
+          ) : isShort ? (
+            <>
+              <span className="block mt-1 font-bold">
+                يوجد نقص في صنف أو أكثر. يمكنك المتابعة، وسيُسمح برصيد سالب عند التسليم.
+              </span>
+              <ul className="mt-2 space-y-1">
+                {shortages.map((shortage) => {
+                  const item = catalogItems.find((catalogItem) => catalogItem.id === shortage.id);
+                  return (
+                    <li key={shortage.id}>
+                      {item?.name ?? "مكوّن متتبَّع"}: المطلوب {shortage.required}، المتاح {shortage.available}، النقص {shortage.required - shortage.available}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
+            <span className="block mt-1">الأرصدة المتتبَّعة تكفي الكمية الحالية.</span>
           )}
         </div>
       </div>
@@ -802,13 +917,13 @@ function StockFetcher({
   onStock,
 }: {
   catalogComponentId: string;
-  onStock: (stock: number) => void;
+  onStock: (stock: number, ready: boolean) => void;
 }) {
-  const { data: stock = 0 } = useComponentStock(catalogComponentId);
+  const { data: stock = 0, isLoading } = useComponentStock(catalogComponentId);
 
   useEffect(() => {
-    onStock(stock);
-  }, [stock, onStock]);
+    onStock(stock, !isLoading);
+  }, [stock, isLoading, onStock]);
 
   return null;
 }

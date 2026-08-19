@@ -102,6 +102,10 @@ export function ComponentsEditor({
         صف المكوّنات داخل الوحدة الواحدة (الشتلة). «التكرار في الوحدة» = كم مرة
         يتكرر المكوّن في الوحدة الواحدة، والنظام يضربه في كمية المنتج.
       </p>
+      <p className="rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn-deep leading-relaxed">
+        يمكنك إضافة مكوّن حر للحالات المؤقتة أو الخاصة. المكوّن الحر يُحفظ في الطلب
+        وتدخل تكلفته في الحساب، لكنه لا يرتبط بالكتالوج ولا يُخصم من المخزون تلقائياً.
+      </p>
 
       {fields.length === 0 ? (
         <div className="border border-dashed border-hairline-2 rounded-lg p-6 text-center bg-paper">
@@ -141,7 +145,7 @@ export function ComponentsEditor({
                         </span>
                       ) : (
                         <span className="text-[10px] text-ink-3 ms-2">
-                          نص حر
+                          <span title="لا يرتبط هذا المكوّن بالكتالوج أو المخزون">نص حر · غير متتبَّع</span>
                         </span>
                       )}
                       {/* Phase 3 — عرض الوحدة المُلتقطة عند الاختيار. */}
@@ -222,7 +226,7 @@ export function ComponentsEditor({
           className="min-h-[44px] py-3 rounded-md border border-dashed border-hairline-2 text-ink-2 hover:bg-canvas transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
         >
           <Plus className="w-4 h-4" />
-          <span>إضافة يدوية</span>
+          <span>إضافة مكوّن حر</span>
         </button>
         <button
           type="button"
@@ -230,7 +234,7 @@ export function ComponentsEditor({
           className="min-h-[44px] py-3 rounded-md border border-info/30 text-info hover:bg-info-soft transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
         >
           <Boxes className="w-4 h-4" />
-          <span>من المكوّنات</span>
+          <span>اختيار من الكتالوج</span>
         </button>
       </div>
 
