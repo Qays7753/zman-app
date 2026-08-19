@@ -7,7 +7,7 @@ interface ScheduleDeleteWithUndoOptions {
   undoLabel?: string;
   /** مدة العد التنازلي قبل الحذف النهائي — افتراضي 5000 مللي ثانية. */
   durationMs?: number;
-  /** الحذف الفعلي بعد انتهاء المهلة أو إغلاق التنبيه يدوياً. */
+  /** الحذف الفعلي بعد انتهاء المهلة فقط، مع محاولة أخيرة عند إغلاق الصفحة. */
   onCommit: () => Promise<void>;
   /** يُستدعى عند الضغط على زر التراجع (إلغاء الحذف واستعادة الصف). */
   onUndo?: () => void;
@@ -28,7 +28,6 @@ interface ScheduleDeleteWithUndoOptions {
  * السلوك:
  * - انتهاء المهلة → onCommit ثم toast.success("تم الحذف") (ماضي فقط بعد تأكيد الخادم).
  * - ضغط «تراجع» → onUndo (ولا يُستدعى onCommit لاحقاً)
- * - إغلاق التنبيه يدوياً (X أو swipe) → onCommit فوراً (commit early)
  * - إغلاق الصفحة (pagehide) قبل الالتزام → onCommit fire-and-forget كمحاولة أخيرة
  * - فشل onCommit (رمى استثناء) → onError + استعادة الصف (مسؤولية المُستدعي)
  *
@@ -106,11 +105,7 @@ export function scheduleDeleteWithUndo(
         opts.onUndo?.();
       },
     },
-    onDismiss: () => {
-      // أُغلق التنبيه يدوياً (X أو swipe أو بعد انتهاء المهلة) — نفِّذ الحذف مبكراً.
-      // إن كان committed=true مسبقاً (ضغط تراجع أو نفّذ setTimeout أو pagehide)
-      // فهذه لا-عملية. commit() يزيل المستمع داخلياً.
-      void commit();
-    },
+    // إغلاق التنبيه يخفيه فقط؛ المؤقت هو الذي يثبت الحذف بعد المهلة.
+    // هذا يمنع تثبيت حذف مالي بمجرد لمس X أو سحب الإشعار.
   });
 }
