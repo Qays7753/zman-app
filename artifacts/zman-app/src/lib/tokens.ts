@@ -1,5 +1,8 @@
-// الألوان الدلالية الموحدة للتطبيق (Single Source of Truth)
+import { BRAND_TOKENS } from "./brand-tokens";
+
 export const COLOR_TOKENS = {
-  CANVAS: "#f6f4ee", // خلفية الصفحة
-  BRAND: "#1565c0", // اللون الأزرق الإرشادي للعلامة التجارية
+  CANVAS: BRAND_TOKENS.cream,
+  BRAND: BRAND_TOKENS.forest,
+  BRAND_DEEP: BRAND_TOKENS.forestDeep,
+  INFO: BRAND_TOKENS.semantic.info,
 } as const;

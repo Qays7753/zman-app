@@ -11,6 +11,7 @@ export function middleware(request: NextRequest) {
     pathname === "/login" ||
     pathname === "/manifest.webmanifest" ||
     pathname.startsWith("/icons/") ||
+    pathname.startsWith("/brand/") ||
     pathname === "/favicon.ico" ||
     pathname === "/sw.js"
   ) {
