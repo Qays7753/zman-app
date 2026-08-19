@@ -121,11 +121,13 @@ export const updateOrderSchema = z.object({
   notes: z.string().max(1000, "الملاحظات طويلة جداً").optional().default(""),
   deliveryDate: z.string().nullable().optional(),
   receivedDate: z.string().optional(),
+  // اختياري في التعديل: غيابه يعني «لا تغيّر العربون»، وليس صفراً.
+  // الإجراء الخادمي يطبّق القيمة الحالية من قاعدة البيانات عند غيابه.
   depositCents: z
     .number()
     .int()
     .nonnegative("العربون يجب أن يكون صفر أو أكثر")
-    .default(0),
+    .optional(),
   depositDate: z.string().nullable().optional(),
   // التوصيل: رقم واحد مسجّل للتوثيق فقط — لا يدخل أي حساب. أي ربح من فرق
   // التوصيل يُسجَّل يدوياً ضمن "الأرباح الإضافية".
@@ -140,9 +142,19 @@ export const updateOrderSchema = z.object({
     .int()
     .nonnegative("الأرباح الإضافية يجب أن تكون صفر أو أكثر")
     .default(0),
-}).refine((data) => data.depositCents <= data.totalPriceCents + (data.additionalProfitCents ?? 0), {
-  message: "العربون لا يمكن أن يتجاوز السعر الإجمالي + الأرباح الإضافية",
-  path: ["depositCents"],
+}).superRefine((data, ctx) => {
+  // لا يمكن إجراء هذا الفحص قبل قراءة القيمة الحالية من قاعدة البيانات عند
+  // غياب depositCents؛ updateOrder يعيد التحقق بالقيمة الفعلية داخل transaction.
+  if (
+    data.depositCents !== undefined &&
+    data.depositCents > data.totalPriceCents + (data.additionalProfitCents ?? 0)
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "العربون لا يمكن أن يتجاوز السعر الإجمالي + الأرباح الإضافية",
+      path: ["depositCents"],
+    });
+  }
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
