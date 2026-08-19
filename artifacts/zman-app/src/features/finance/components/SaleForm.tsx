@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link as LinkIcon, Trash2 } from "lucide-react";
+import { Link as LinkIcon, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -24,6 +24,7 @@ interface SaleFormProps {
    */
   onSubmit: (values: NewSale) => Promise<boolean>;
   onDelete?: () => void;
+  onReverse?: () => void;
   isSubmitting: boolean;
 }
 
@@ -31,6 +32,7 @@ export function SaleForm({
   initialData,
   onSubmit,
   onDelete,
+  onReverse,
   isSubmitting,
 }: SaleFormProps) {
   const formId = useId();
@@ -273,17 +275,30 @@ export function SaleForm({
           {initialData ? "حفظ التعديلات" : "إضافة مبيعات"}
         </Button>
 
-        {initialData && onDelete && (
+        {initialData?.orderId && onReverse ? (
           <Button
+            type="button"
+            variant="secondary"
+            onClick={onReverse}
+            disabled={isSubmitting}
+            className="min-h-[44px] flex-1 gap-2 border-brand/30 text-brand hover:bg-brand-soft"
+          >
+            <Undo2 className="h-5 w-5" aria-hidden="true" />
+            عكس التسليم
+          </Button>
+        ) : initialData && onDelete ? (
+          <Button
+            type="button"
             variant="icon"
             onClick={onDelete}
             disabled={isSubmitting}
-            className="text-alert border-alert hover:bg-alert/5"
+            className="min-h-[44px] min-w-[44px] text-alert border-alert hover:bg-alert/5"
             title="حذف المبيعات"
+            aria-label="حذف المبيعات"
           >
-            <Trash2 className="h-5 w-5" />
+            <Trash2 className="h-5 w-5" aria-hidden="true" />
           </Button>
-        )}
+        ) : null}
       </div>
     </form>
   );

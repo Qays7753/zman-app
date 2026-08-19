@@ -1333,6 +1333,17 @@ export async function deleteSale(
         return { status: "error", message: "السجل غير موجود" };
       }
 
+      // المبيعة الناتجة عن تسليم طلب ليست مبيعة يدوية قابلة للحذف.
+      // يجب أن تمر عبر reverseSale حتى يُعكس أثرها المالي والمخزني وحالة الطلب
+      // داخل transaction واحدة. هذا الحارس خادمي حتى لا يمكن تجاوز الحماية من
+      // أي مستدعٍ آخر غير واجهة SalesTab.
+      if (existing.source === "order" || existing.orderId) {
+        return {
+          status: "error",
+          message: "لا يمكن حذف مبيعة مرتبطة بطلب — استخدم عكس التسليم من تفاصيل الطلب",
+        };
+      }
+
       // فحص التزامن المتفائل
       const clientTime = new Date(updatedAt).getTime();
       const dbTime = new Date(existing.updatedAt).getTime();
