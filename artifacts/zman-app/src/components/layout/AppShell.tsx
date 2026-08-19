@@ -84,6 +84,13 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
     };
   }, []);
 
+  // عند تغيير المسار، أغلق أي شيت/نسخة احتياطية كانت مفتوحة قبل التنقل.
+  // AppShell يعيش عبر الصفحات، لذلك لا يكفي أن تعتمد النوافذ على unmount للصفحة.
+  useEffect(() => {
+    setIsMoreOpen(false);
+    setIsBackupOpen(false);
+  }, [pathname]);
+
   // ارتفاع القشرة من window.innerHeight بدل h-dvh:
   // في التطبيق المثبّت (standalone) على iOS/Android يُرجع dvh ارتفاعاً أكبر قليلاً من
   // المساحة المرئية، فيُدفَع شريط التبويب السفلي تحت الحافة ويبقى مخفياً عند التنقل.
@@ -238,6 +245,11 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => {
+                setIsMoreOpen(false);
+                setIsBackupOpen(false);
+              }}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 flex-1 h-16 text-[11px] transition-colors border-t-2 border-transparent",
                 isActive
