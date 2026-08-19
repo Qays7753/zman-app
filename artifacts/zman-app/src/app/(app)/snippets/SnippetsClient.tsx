@@ -86,7 +86,7 @@ export default function SnippetsClient() {
 
   return (
     <>
-      <AppShellHeader title="" action={pageAction} />
+      <AppShellHeader title="الملاحظات" action={pageAction} />
       <div className="flex-1 flex flex-col gap-4">
 
         {/* المحتوى */}
@@ -206,13 +206,16 @@ function SnippetCard({
           <button
             type="button"
             onClick={onCopy}
-            className="text-xs px-2 py-1 rounded border border-hairline text-ink/60 hover:text-ink hover:border-ink/30 transition-colors"
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-2 rounded border border-hairline text-xs font-semibold text-ink/60 hover:text-ink hover:border-ink/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 transition-colors"
           >
             {copied ? "✓ نُسخ" : "نسخ"}
           </button>
           <Button
             variant="icon"
             onClick={onEdit}
+            aria-label={`تحرير ${snippet.title}`}
+            title="تحرير الملاحظة"
+            className="min-h-[44px] min-w-[44px]"
           >
             <Edit3 className="w-3.5 h-3.5" />
           </Button>
