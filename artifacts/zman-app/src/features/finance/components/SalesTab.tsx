@@ -12,6 +12,7 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/shared/Button";
 import { cn } from "@/lib/utils";
+import { Check, Filter } from "lucide-react";
 import {
   useCreateSale,
   useDeleteSale,
@@ -41,6 +42,7 @@ export function SalesTab() {
   const editId = searchParams.get("editSale");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [reverseConfirmOpen, setReverseConfirmOpen] = useState(false);
+  const [isSourceFilterOpen, setIsSourceFilterOpen] = useState(false);
 
   // هوك جلب البيانات اللانهائي
   const querySource = source === "manual" || source === "order" ? source : undefined;
@@ -85,6 +87,7 @@ export function SalesTab() {
     startTransition(() => {
       router.replace(`${pathname}?${next.toString()}`);
     });
+    setIsSourceFilterOpen(false);
   };
 
   // يُرجِع نجاح الحفظ إلى SaleForm ليقرّر مسح المسودّة — لا تُمسح عند الرفض.
@@ -159,27 +162,69 @@ export function SalesTab() {
 
   return (
     <div className="space-y-4 flex-1 flex flex-col pb-24">
-      {/* شريط رقاقات فلترة المصدر */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {SALE_SOURCE_CHIPS.map((chip) => {
-          const isActive = source === chip.id;
-          return (
-            <button
-              key={chip.id}
-              type="button"
-              onClick={() => handleSourceChipChange(chip.id)}
-              className={cn(
-                "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
-                isActive
-                  ? "bg-brand-soft text-brand border-brand/20 shadow-sm"
-                  : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
-              )}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
+      {/* فلتر موحّد لمصدر المبيعة — نفس لغة المدفوعات */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setIsSourceFilterOpen(true)}
+          aria-expanded={isSourceFilterOpen}
+          className={cn(
+            "min-h-[44px] flex-1 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start transition-colors",
+            source !== "all"
+              ? "border-brand/30 bg-brand-soft/50 text-brand-deep"
+              : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Filter className="h-4 w-4 shrink-0 text-brand" />
+            <span className="truncate">
+              {SALE_SOURCE_CHIPS.find((chip) => chip.id === source)?.label ?? "الكل"}
+            </span>
+          </span>
+          <span className="shrink-0 text-xs text-ink-3">تصفية المصدر</span>
+        </button>
+
+        {source !== "all" && (
+          <button
+            type="button"
+            onClick={() => updateUrl({ source: null })}
+            className="min-h-[44px] shrink-0 rounded-lg px-3 text-xs font-bold text-ink-2 hover:bg-canvas"
+          >
+            مسح
+          </button>
+        )}
       </div>
+
+      <ResponsiveModal
+        isOpen={isSourceFilterOpen}
+        onClose={() => setIsSourceFilterOpen(false)}
+        title="تصفية المبيعات"
+      >
+        <div className="space-y-3">
+          <p className="text-xs font-bold text-ink-2">مصدر المبيعة</p>
+          <div className="space-y-2">
+            {SALE_SOURCE_CHIPS.map((chip) => {
+              const isActive = source === chip.id;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => handleSourceChipChange(chip.id)}
+                  className={cn(
+                    "min-h-[44px] w-full flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start",
+                    isActive
+                      ? "border-brand bg-brand-soft text-brand-deep"
+                      : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
+                  )}
+                >
+                  <span>{chip.label}</span>
+                  {isActive && <Check className="h-4 w-4 shrink-0 text-brand" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </ResponsiveModal>
 
       {isLoading ? (
         <SkeletonList />
