@@ -1,9 +1,27 @@
-import { BarChart3, ClipboardList, Home, MessageSquare, Wallet, Settings, Boxes, Clock, Package, Building2, ShieldCheck, Landmark } from "lucide-react";
+import {
+  BarChart3,
+  ClipboardList,
+  Home,
+  MessageSquare,
+  Wallet,
+  Settings,
+  Boxes,
+  Clock,
+  Package,
+  Building2,
+  ShieldCheck,
+  Landmark,
+} from "lucide-react";
 
 export interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+}
+
+export interface MoreNavGroup {
+  label: string;
+  items: NavItem[];
 }
 
 /** كل عناصر التنقل — تُستخدم في الشريط الجانبي (الديسكتوب) */
@@ -48,44 +66,58 @@ export const mainNavItems: NavItem[] = [
   navItems[3], // المخزون
 ];
 
-/** العناصر الإضافية التي تظهر في sheet "المزيد" */
-export const moreNavItems: NavItem[] = [
-  navItems[5], // التقارير
-  navItems[4], // الملاحظات
+const moreNavGroups: MoreNavGroup[] = [
   {
-    label: "الأصول الرأسمالية",
-    href: "/assets",
-    icon: Building2,
+    label: "العمل والتحليل",
+    items: [
+      navItems[5], // التقارير
+      navItems[4], // الملاحظات
+      {
+        label: "الأصول الرأسمالية",
+        href: "/assets",
+        icon: Building2,
+      },
+      {
+        label: "سجل النشاط",
+        href: "/activities",
+        icon: Clock,
+      },
+    ],
   },
   {
-    label: "كل الحركات المالية",
-    href: "/activities",
-    icon: Clock,
+    label: "المالية والإعداد",
+    items: [
+      {
+        label: "الأرصدة الافتتاحية",
+        href: "/settings/opening-balance",
+        icon: Settings,
+      },
+      {
+        label: "الحسابات والصناديق",
+        href: "/finance/accounts",
+        icon: Landmark,
+      },
+      {
+        label: "إدارة أصناف المشتريات",
+        href: "/finance?manageCatalog=purchases",
+        icon: Boxes,
+      },
+    ],
   },
   {
-    label: "الافتتاحي",
-    href: "/settings/opening-balance",
-    icon: Settings,
-  },
-  // Round 6 — «الحسابات والصناديق» نُقل من تبويبات /finance الظاهرة إلى قائمة «المزيد».
-  // يُعيد الطريق /finance/accounts التوجيه إلى /finance?tab=accounts تلقائياً (انظر app/(app)/finance/accounts/page.tsx).
-  {
-    label: "الحسابات والصناديق",
-    href: "/finance/accounts",
-    icon: Landmark,
-  },
-  {
-    label: "إدارة أصناف المشتريات",
-    href: "/finance?manageCatalog=purchases",
-    icon: Boxes,
-  },
-  // Issue #7 — «إدارة فئات المصاريف» نُقِل من هنا إلى زرّ مرئيّ في رأس تبويب
-  // المدفوعات داخل PaymentsTab.tsx (يفتح FinanceCatalogModal عبر ?manageCatalog=expenses).
-  // Issue #16 — سجل التدقيق: صفحة /settings/audit-log تعرض كل عمليات
-  // create/update/delete المالية. يستخدم ShieldCheck للأيقونة.
-  {
-    label: "سجل التدقيق",
-    href: "/settings/audit-log",
-    icon: ShieldCheck,
+    label: "المراجعة",
+    items: [
+      {
+        label: "سجل التدقيق",
+        href: "/settings/audit-log",
+        icon: ShieldCheck,
+      },
+    ],
   },
 ];
+
+/** العناصر الإضافية المسطحة للتوافق مع فحص الحالة النشطة */
+export const moreNavItems: NavItem[] = moreNavGroups.flatMap((group) => group.items);
+
+/** العناصر الإضافية مجمعة لعرض More على الهاتف */
+export { moreNavGroups };
