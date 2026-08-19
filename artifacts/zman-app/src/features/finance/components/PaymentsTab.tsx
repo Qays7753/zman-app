@@ -312,6 +312,15 @@ export function PaymentsTab() {
           <div className="space-y-3">
             {visiblePayments.map((item, idx) => {
               const isWriteoff = item.isInventoryWriteoff === true;
+              const movementKindLabel = isWriteoff
+                ? "تسوية مخزون تلقائية"
+                : item.kind === "receivable"
+                  ? "ذمّة مدينة"
+                  : item.isCapitalAsset
+                    ? "أصل رأسمالي"
+                    : item.kind === "purchase"
+                      ? "شراء مواد"
+                      : "مصروف تشغيلي";
               return (
                 <div
                   key={`${item.kind}-${item.id}`}
@@ -326,7 +335,7 @@ export function PaymentsTab() {
                 >
                   {/* السطر الأول: العنوان والمبلغ وأيقونة الإجراءات */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 flex-wrap">
                       <span
                         className={cn(
                           "font-bold text-base truncate",
@@ -336,6 +345,29 @@ export function PaymentsTab() {
                         {item.kind === "receivable"
                           ? `🤝 ${item.personName || item.title || "دَين لشخص"}`
                           : item.title || (item.kind === "expense" ? "مصروف عام" : "شراء مواد")}
+                      </span>
+
+                      {/* شارة نوع الحركة — توضح معنى الرقم قبل تصنيف المصروف */}
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 border",
+                          isWriteoff
+                            ? "bg-emerald-soft text-emerald-deep border-emerald/20"
+                            : item.isCapitalAsset
+                              ? "bg-warn-soft text-warn-deep border-warn/30"
+                              : item.kind === "purchase"
+                                ? "bg-brand-soft text-brand-deep border-brand/20"
+                                : item.kind === "receivable"
+                                  ? "bg-info-soft text-info border-info/20"
+                                  : "bg-canvas text-ink-2 border-hairline",
+                        )}
+                        title={
+                          isWriteoff
+                            ? "تسوية مخزون تلقائية — لا تُعدّل من قائمة المدفوعات"
+                            : "نوع الحركة يحدد كيف تدخل في التقارير المالية"
+                        }
+                      >
+                        {movementKindLabel}
                       </span>
 
                       {/* شارة التصنيف */}

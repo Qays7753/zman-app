@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShellHeader } from "@/providers/app-shell-context";
@@ -78,6 +79,7 @@ function StatCard({
   icon: Icon,
   colorClass,
   sign,
+  href,
 }: {
   label: string;
   amount: number;
@@ -85,9 +87,10 @@ function StatCard({
   icon: React.ComponentType<{ className?: string }>;
   colorClass: string;
   sign?: string;
+  href?: string;
 }) {
-  return (
-    <div className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2">
+  const content = (
+    <>
       <span className={`text-xs font-bold flex items-center gap-1.5 ${colorClass}`}>
         <Icon className="h-4 w-4 flex-shrink-0" />
         {label}
@@ -97,7 +100,15 @@ function StatCard({
         <AmountText amount={amount} />
       </span>
       <span className="text-[10px] text-ink/40 leading-snug">{sub}</span>
-    </div>
+    </>
+  );
+  const className = "p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2";
+  return href ? (
+    <Link href={href} className={`${className} hover:border-brand/40 hover:bg-brand-soft/20 focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors`}>
+      {content}
+    </Link>
+  ) : (
+    <div className={className}>{content}</div>
   );
 }
 
@@ -336,6 +347,7 @@ export default function ReportsPage() {
                       icon={ShoppingBag}
                       colorClass="text-brand"
                       sign="+"
+                      href="/finance?tab=sales"
                     />
                     <StatCard
                       label="إجمالي المشتريات"
@@ -344,6 +356,7 @@ export default function ReportsPage() {
                       icon={ShoppingCart}
                       colorClass="text-alert"
                       sign="−"
+                      href="/finance?tab=payments&filter=purchase"
                     />
                     <StatCard
                       label="إجمالي المصاريف"
@@ -352,6 +365,7 @@ export default function ReportsPage() {
                       icon={ArrowDownRight}
                       colorClass="text-alert"
                       sign="−"
+                      href="/finance?tab=payments&filter=expense"
                     />
                   </div>
                 </section>
@@ -416,7 +430,11 @@ export default function ReportsPage() {
                       {/* Legend & Progress Bars */}
                       <div className="flex-1 w-full space-y-3">
                         {data.expensesByCategory.map((cat, i) => (
-                          <div key={cat.category} className="space-y-1">
+                          <Link
+                            key={cat.category}
+                            href={`/finance?tab=payments&filter=expense&category=${encodeURIComponent(cat.category)}`}
+                            className="block space-y-1 rounded-lg px-2 py-2 -mx-2 hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors"
+                          >
                             <div className="flex items-center justify-between text-sm">
                               <span className="font-semibold text-ink/85 flex items-center gap-2">
                                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
@@ -433,7 +451,7 @@ export default function ReportsPage() {
                               </div>
                             </div>
                             <ProgressBar pct={cat.pct} style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-                          </div>
+                          </Link>
                         ))}
                       </div>
                     </div>
@@ -459,7 +477,11 @@ export default function ReportsPage() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {data.salesBySource.map((src) => (
-                        <div key={src.source} className="p-4 border border-hairline rounded-lg bg-canvas space-y-2">
+                        <Link
+                          key={src.source}
+                          href={`/finance?tab=sales&source=${encodeURIComponent(src.source)}`}
+                          className="block p-4 border border-hairline rounded-lg bg-canvas space-y-2 hover:border-brand/40 hover:bg-brand-soft/20 focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors"
+                        >
                           <p className="text-xs font-bold text-ink/65">{src.label}</p>
                           <p className="text-xl font-bold text-brand">
                             <AmountText amount={src.totalCents} />
@@ -469,7 +491,7 @@ export default function ReportsPage() {
                             <span>{src.pct.toFixed(1)}% من المبيعات</span>
                           </div>
                           <ProgressBar pct={src.pct} colorClass="bg-brand" />
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}
@@ -499,7 +521,11 @@ export default function ReportsPage() {
                   ) : (
                     <div className="divide-y divide-hairline">
                       {data.ordersByStatus.map((row) => (
-                        <div key={row.status} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 py-3">
+                        <Link
+                          key={row.status}
+                          href={`/orders?status=${encodeURIComponent(row.status)}`}
+                          className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 py-3 rounded-lg px-2 -mx-2 hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors"
+                        >
                           <span className={`px-2.5 py-1 rounded text-[11px] font-bold border flex-shrink-0 ${STATUS_COLORS[row.status] ?? "bg-canvas text-ink/60 border-hairline"}`}>
                             {row.label}
                           </span>
@@ -518,7 +544,7 @@ export default function ReportsPage() {
                             <AmountText amount={row.totalCents} />
                             <span className="text-[10px] bg-ink/10 text-ink-2 px-1 rounded font-normal shrink-0">تقديري</span>
                           </span>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}
@@ -548,7 +574,11 @@ export default function ReportsPage() {
                   ) : (
                     <div className="divide-y divide-hairline">
                       {data.topProducts.map((product, idx) => (
-                        <div key={product.name} className="flex items-center gap-3 py-3">
+                        <Link
+                          key={product.name}
+                          href={`/orders?q=${encodeURIComponent(product.name)}`}
+                          className="flex items-center gap-3 py-3 rounded-lg px-2 -mx-2 hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors"
+                        >
                           <span className="text-sm font-bold text-ink/25 w-6 text-center flex-shrink-0">
                             {idx + 1}
                           </span>
@@ -562,7 +592,7 @@ export default function ReportsPage() {
                             <AmountText amount={product.revenueCents} />
                             <span className="text-[10px] bg-ink/10 text-ink-2 px-1 rounded font-normal shrink-0">تقديري</span>
                           </span>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}
@@ -616,30 +646,30 @@ export default function ReportsPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-ink/65 font-medium">نقدية الصندوق</span>
-                        <span className="font-mono font-bold text-ink">
+                        <Link href="/finance?tab=accounts" className="font-mono font-bold text-ink underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30 rounded">
                           <AmountText amount={positionData.assets.cashCents} />
-                        </span>
+                        </Link>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-ink/65 font-medium">أرصدة البنك</span>
-                        <span className="font-mono font-bold text-ink">
+                        <Link href="/finance?tab=accounts" className="font-mono font-bold text-ink underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30 rounded">
                           <AmountText amount={positionData.assets.bankCents} />
-                        </span>
+                        </Link>
                       </div>
                       {positionData.assets.inventoryValueCents > 0 && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-ink/65 font-medium">قيمة المخزون</span>
-                          <span className="font-mono font-bold text-ink">
+                          <Link href="/inventory" className="font-mono font-bold text-ink underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30 rounded">
                             <AmountText amount={positionData.assets.inventoryValueCents} />
-                          </span>
+                          </Link>
                         </div>
                       )}
                       {positionData.assets.receivablesCents > 0 && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-ink/65 font-medium">ذمم مدينة (ديون مستردة)</span>
-                          <span className="font-mono font-bold text-ink">
+                          <Link href="/finance?tab=payments&filter=receivable" className="font-mono font-bold text-ink underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30 rounded">
                             <AmountText amount={positionData.assets.receivablesCents} />
-                          </span>
+                          </Link>
                         </div>
                       )}
                       <div className="flex items-center justify-between text-sm pt-2 border-t border-hairline font-bold text-brand">
@@ -660,9 +690,9 @@ export default function ReportsPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-ink/65 font-medium">عربونات مؤجلة (غير موصلة)</span>
-                        <span className="font-mono font-bold text-ink">
+                        <Link href="/orders?status=pending" className="font-mono font-bold text-ink underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30 rounded">
                           <AmountText amount={positionData.liabilities.depositsCents} />
-                        </span>
+                        </Link>
                       </div>
                       <div className="flex items-center justify-between text-sm pt-2 border-t border-hairline font-bold text-alert">
                         <span>إجمالي الالتزامات</span>
