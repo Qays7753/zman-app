@@ -108,14 +108,16 @@ export async function getFinancialSummary(
     );
 
   const depositsPromise = db
-    .select({ total: sql<any>`coalesce(sum(${cashMovement.amountCents}), 0)::bigint` })
+    .select({
+      // العربون المعروض = المقبوض من العربون - ما رُدّ منه فعلياً.
+      total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
+    })
     .from(cashMovement)
     .innerJoin(account, eq(cashMovement.accountId, account.id))
     .where(
       and(
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
-        eq(cashMovement.direction, "in"),
         eq(cashMovement.sourceType, "deposit"),
         sql`${cashMovement.date} >= ${startDate}`,
         sql`${cashMovement.date} <= ${endDate}`,

@@ -215,12 +215,13 @@ async function checkIC1EquityDrift(
   const drawings = Number(drawRow?.total) || 0;
 
   const [salesCashInRow] = await db
-    .select({ total: sum(cashMovement.amountCents) })
+    .select({
+      total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
+    })
     .from(cashMovement)
     .innerJoin(account, eq(cashMovement.accountId, account.id))
     .where(
       and(
-        eq(cashMovement.direction, "in"),
         sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
@@ -447,6 +448,7 @@ async function checkIC3DepositLiabilityConsistency(): Promise<IntegrityCheckResu
       and(
         eq(cashMovement.sourceType, "deposit"),
         eq(cashMovement.sourceId, order.id),
+        eq(cashMovement.direction, "in"),
         isNull(cashMovement.deletedAt),
       ),
     )
@@ -465,6 +467,7 @@ async function checkIC3DepositLiabilityConsistency(): Promise<IntegrityCheckResu
     .where(
       and(
         eq(cashMovement.sourceType, "deposit"),
+        eq(cashMovement.direction, "in"),
         isNull(cashMovement.deletedAt),
       ),
     )
@@ -478,6 +481,7 @@ async function checkIC3DepositLiabilityConsistency(): Promise<IntegrityCheckResu
     .where(
       and(
         eq(cashMovement.sourceType, "deposit"),
+        eq(cashMovement.direction, "in"),
         isNull(cashMovement.deletedAt),
         sql`${order.status} in ('delivered', 'cancelled')`,
       ),
@@ -495,12 +499,12 @@ async function checkIC3DepositLiabilityConsistency(): Promise<IntegrityCheckResu
     status: allBad.length === 0 ? "PASS" : "FAIL",
     titleAr: "اتساق عربونات الطلبات مع السجل",
     descriptionAr:
-      "كل طلب غير مُسلَّم بعربون > 0 يجب أن يكون له حركة عربون واحدة نشطة. الطلبات المُسلَّمة/الملغاة يجب ألا يكون لها حركة عربون نشطة.",
+      "كل طلب غير مُسلَّم بعربون متبقٍ > 0 يجب أن يكون له حركة عربون داخلة واحدة نشطة. حركات الرد الخارجة تاريخية ولا تُعدّ التزاماً أو ازدواجاً.",
     offendingIds: allBad.slice(0, 50),
     count: allBad.length,
     suggestedFixAr:
       allBad.length !== 0
-        ? `يوجد ${allBad.length} مخالفة. «مفقود» = عربون لم يُسجَّل في السجل. «مكرر» = عربون مسجَّل مرتين. «قديم» = حركة عربون نشطة لطلب مُسلَّم أو ملغى.`
+        ? `يوجد ${allBad.length} مخالفة. «مفقود» = عربون لم يُسجَّل في السجل. «مكرر» = حركة عربون داخلة مسجَّلة مرتين. «قديم» = حركة عربون داخلة نشطة لطلب مُسلَّم أو ملغى.`
         : undefined,
   };
 }
@@ -632,7 +636,6 @@ async function checkIC6PnlReconcilesRetainedProfit(
     .innerJoin(account, eq(cashMovement.accountId, account.id))
     .where(
       and(
-        eq(cashMovement.direction, "in"),
         sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
         isNull(cashMovement.deletedAt),
         isNull(account.deletedAt),
@@ -733,11 +736,12 @@ async function checkIC8SourceLedgerReconciliation(
 ): Promise<IntegrityCheckResult> {
   // 1. Ledger-side P&L Net (All time, archived-inclusive)
   const [ledgerSalesAllTimeRes] = await db
-    .select({ total: sum(cashMovement.amountCents) })
+    .select({
+      total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
+    })
     .from(cashMovement)
     .where(
       and(
-        eq(cashMovement.direction, "in"),
         sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
         isNull(cashMovement.deletedAt)
       )
@@ -797,7 +801,25 @@ async function checkIC8SourceLedgerReconciliation(
     );
   const activeDepositsCents = Number(activeDepositsRes?.total) || 0;
 
-  const sourceTablePnlNetCents = (srcSalesCents + activeDepositsCents) - srcPurchasesCents - srcExpensesCents;
+  const [deliveredRefundsRes] = await db
+    .select({ total: sum(cashMovement.amountCents) })
+    .from(cashMovement)
+    .innerJoin(order, eq(cashMovement.sourceId, order.id))
+    .where(
+      and(
+        eq(cashMovement.sourceType, "deposit"),
+        eq(cashMovement.direction, "out"),
+        eq(order.status, "delivered"),
+        isNull(cashMovement.deletedAt),
+        isNull(order.deletedAt),
+      ),
+    );
+  const deliveredRefundsCents = Number(deliveredRefundsRes?.total) || 0;
+
+  const sourceTablePnlNetCents =
+    (srcSalesCents + activeDepositsCents - deliveredRefundsCents) -
+    srcPurchasesCents -
+    srcExpensesCents;
   const drift = ledgerPnlNetCents - sourceTablePnlNetCents;
 
   return {

@@ -53,6 +53,7 @@ import {
   openingBalanceInputSchema,
   receivableInputSchema,
   receivablePaymentInputSchema,
+  refundOrderInputSchema,
 } from "./schema";
 // Issue #16 — logAction (defensive audit logger). Runs OUTSIDE the caller's
 // db.transaction, swallows ALL errors. Imported here so every create/update/
@@ -1527,6 +1528,7 @@ export async function convertOrderToSale(
           and(
             eq(cashMovement.sourceType, "deposit"),
             eq(cashMovement.sourceId, orderId),
+            eq(cashMovement.direction, "in"),
             isNull(cashMovement.deletedAt),
           ),
         );
@@ -1544,10 +1546,12 @@ export async function convertOrderToSale(
       }
 
       // 7. Insert the REMAINDER sale cash_movement, if remainder > 0.
-      //    remainder = realizedSaleCents - depositCents.
-      //    After this step, sum of sale cash_movements for this sale =
-      //    transformed_deposit_amount + remainder = realizedSaleCents.
-      const remainderCents = realizedSaleCents - orderRow.depositCents;
+      //    حركة العربون الأصلية تبقى بقيمتها التاريخية حتى بعد رد جزء منه؛
+      //    رد الأموال يُسجَّل كخروج مستقل. لذلك يُحسب المتبقي من قيمة حركة
+      //    العربون المحوَّلة فعلياً، لا من order.depositCents الذي يمثل الالتزام
+      //    المتبقي فقط، وإلا سيُعاد احتساب الجزء المُرَد كإيراد عند التسليم.
+      const collectedDepositCents = existingDepositMov?.amountCents ?? 0;
+      const remainderCents = realizedSaleCents - collectedDepositCents;
       if (remainderCents > 0) {
         await tx.insert(cashMovement).values({
           date: saleDate,
@@ -1653,7 +1657,7 @@ export async function reverseSale(
         return { status: "error", message: "لا توجد مبيعة نشطة لهذا الطلب لعكسها" };
       }
 
-      // 3. ابحث عن كل حركات sale النشطة المرتبطة بهذه المبيعة
+      // 3. ابحث عن كل حركات sale النشطة المرتبطة بهذه المبيعة.
       const saleMovs = await tx
         .select()
         .from(cashMovement)
@@ -1666,29 +1670,35 @@ export async function reverseSale(
           ),
         );
 
-      // 4. عكس كل حركة:
-      //    - حركة "محوَّل من عربون" → أعِد تصنيفها إلى deposit, sourceId=order.id
-      //    - حركة "المتبقي" → احذف ناعماً
+      if (saleMovs.length === 0) {
+        return { status: "error", message: "لا توجد حركات نقدية نشطة لهذه المبيعة لعكسها" };
+      }
+
+      // 4. حركة "محوَّل من عربون" تمثل الدفعة الأصلية المحصَّلة، لا العربون
+      // المتبقي بعد رد جزئي. نعيد تصنيفها كما هي ونبقي حركات refund الخارجة
+      // المرتبطة بالطلب مستقلة، ثم نحذف حركة المتبقي فقط.
+      const transformedDepositMov = saleMovs.find((mov) =>
+        (mov.description ?? "").includes("محوَّل من عربون"),
+      );
+
+      if (transformedDepositMov) {
+        await tx
+          .update(cashMovement)
+          .set({
+            sourceType: "deposit",
+            sourceId: orderId,
+            description: `عربون طلب - منتج: ${orderRow.productName}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(cashMovement.id, transformedDepositMov.id));
+      }
+
       for (const mov of saleMovs) {
-        const isTransformedDeposit = (mov.description ?? "").includes("محوَّل من عربون");
-        if (isTransformedDeposit) {
-          // أعِد تصنيف الحركة إلى deposit
-          await tx
-            .update(cashMovement)
-            .set({
-              sourceType: "deposit",
-              sourceId: orderId,
-              description: `عربون طلب - منتج: ${orderRow.productName}`,
-              updatedAt: new Date(),
-            })
-            .where(eq(cashMovement.id, mov.id));
-        } else {
-          // احذف ناعماً حركة المتبقي
-          await tx
-            .update(cashMovement)
-            .set({ deletedAt: new Date(), updatedAt: new Date() })
-            .where(eq(cashMovement.id, mov.id));
-        }
+        if (mov.id === transformedDepositMov?.id) continue;
+        await tx
+          .update(cashMovement)
+          .set({ deletedAt: new Date(), updatedAt: new Date() })
+          .where(eq(cashMovement.id, mov.id));
       }
 
       // 4.5. Phase 3 — استرجاع حركات المخزون قبل حذف المبيعة (card 3.E).
@@ -1703,10 +1713,16 @@ export async function reverseSale(
         .set({ deletedAt: new Date(), updatedAt: new Date() })
         .where(eq(sale.id, linkedSale.id));
 
-      // 6. أعِد حالة الطلب إلى "confirmed"
+      // 6. أعِد حالة الطلب إلى "confirmed" مع إبقاء order.depositCents
+      // مساوياً للالتزام المتبقي بعد أي رد أموال سابق.
       await tx
         .update(order)
-        .set({ status: "confirmed", updatedAt: new Date() })
+        .set({
+          status: "confirmed",
+          depositCents: orderRow.depositCents,
+          depositDate: orderRow.depositCents > 0 ? orderRow.depositDate : null,
+          updatedAt: new Date(),
+        })
         .where(eq(order.id, orderId));
 
       revalidatePath("/finance");
@@ -1720,6 +1736,235 @@ export async function reverseSale(
         entityType: "order",
         entityId: orderId,
         changesSnapshot: { reversed: true },
+      });
+    }
+    return result;
+  } catch (error) {
+    return {
+      status: "error",
+      message: mapDbError(error),
+    };
+  }
+}
+
+/**
+ * رد أموال عربون طلب — مسار مستقل عن reverseSale.
+ *
+ * يحافظ على حركة العربون الداخلة كسجل تاريخي، ويسجل الخروج في حركة deposit
+ * ثانية على الحساب الفعلي. order.depositCents يمثل المتبقي الذي ما زال التزاماً
+ * على الورشة، ولذلك يُخفَّض بعد كل رد حتى لا يُسمح برد المبلغ نفسه مرتين.
+ */
+export async function refundOrder(
+  rawInput: unknown,
+  requestId?: string,
+): Promise<ActionResponse<{ orderId: string; refundedCents: number; remainingDepositCents: number }>> {
+  const { success } = await checkRateLimit();
+  if (!success) {
+    return {
+      status: "error",
+      message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة",
+    };
+  }
+
+  const parsed = refundOrderInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "بيانات رد الأموال غير صالحة",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result: ActionResponse<{
+      orderId: string;
+      refundedCents: number;
+      remainingDepositCents: number;
+    }> = await db.transaction(async (tx) => {
+      if (requestId) {
+        const [existingKey] = await tx
+          .select()
+          .from(idempotencyKey)
+          .where(eq(idempotencyKey.requestId, requestId));
+
+        if (existingKey) {
+          if (existingKey.action === "refund_order") {
+            const [existingMovement] = await tx
+              .select({ sourceId: cashMovement.sourceId, amountCents: cashMovement.amountCents })
+              .from(cashMovement)
+              .where(eq(cashMovement.id, existingKey.targetId));
+            if (!existingMovement || existingMovement.sourceId !== parsed.data.orderId) {
+              return { status: "error", message: "معرف الطلب مستخدم لعملية رد أموال أخرى" };
+            }
+            const [existingOrder] = await tx
+              .select({ depositCents: order.depositCents })
+              .from(order)
+              .where(eq(order.id, parsed.data.orderId));
+            return {
+              status: "ok",
+              data: {
+                orderId: parsed.data.orderId,
+                refundedCents: existingMovement.amountCents,
+                remainingDepositCents: existingOrder?.depositCents ?? 0,
+              },
+            };
+          }
+          return { status: "error", message: "معرف الطلب مستخدم لعملية أخرى" };
+        }
+      }
+
+      const [orderRow] = await tx
+        .select()
+        .from(order)
+        .where(and(eq(order.id, parsed.data.orderId), isNull(order.deletedAt)))
+        .for("update");
+
+      if (!orderRow) {
+        return { status: "error", message: "الطلب غير موجود أو محذوف" };
+      }
+      if (orderRow.status === "delivered") {
+        return {
+          status: "error",
+          message: "اعكس التسليم أولاً، ثم نفّذ رد الأموال من الطلب المؤكد",
+        };
+      }
+      if (orderRow.status === "cancelled") {
+        return {
+          status: "error",
+          message: "لا يمكن رد أموال طلب ملغى من هذا المسار — راجع تسوية الإلغاء أولاً",
+        };
+      }
+      if (orderRow.depositCents <= 0) {
+        return { status: "error", message: "لا يوجد عربون متبقٍ قابل للرد لهذا الطلب" };
+      }
+      if (parsed.data.amountCents > orderRow.depositCents) {
+        return {
+          status: "error",
+          message: `مبلغ الرد يتجاوز العربون المتبقي (${(orderRow.depositCents / 1000).toFixed(3)} د.أ)`,
+        };
+      }
+
+      const [depositMovement] = await tx
+        .select({ amountCents: cashMovement.amountCents })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, orderRow.id),
+            eq(cashMovement.direction, "in"),
+            isNull(cashMovement.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (!depositMovement) {
+        return {
+          status: "error",
+          message: "لا توجد حركة تحصيل عربون أصلية يمكن ردها بأمان",
+        };
+      }
+      const [previousRefundsRow] = await tx
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, orderRow.id),
+            eq(cashMovement.direction, "out"),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+      const previousRefundedCents = Number(previousRefundsRow?.total) || 0;
+      if (previousRefundedCents + parsed.data.amountCents > depositMovement.amountCents) {
+        return {
+          status: "error",
+          message: "مجموع ردود الأموال يتجاوز حركة العربون الأصلية؛ راجع سلامة السجل أولاً",
+        };
+      }
+
+      const [accountRow] = await tx
+        .select()
+        .from(account)
+        .where(
+          and(
+            eq(account.id, parsed.data.accountId),
+            isNull(account.deletedAt),
+            eq(account.isArchived, false),
+          ),
+        )
+        .for("update");
+
+      if (!accountRow) {
+        return { status: "error", message: "الحساب المالي غير موجود أو مؤرشف" };
+      }
+
+      const remainingDepositCents = orderRow.depositCents - parsed.data.amountCents;
+      const now = new Date();
+
+      const [refundMovement] = await tx
+        .insert(cashMovement)
+        .values({
+          date: parsed.data.date,
+          accountId: accountRow.id,
+          direction: "out",
+          amountCents: parsed.data.amountCents,
+          sourceType: "deposit",
+          sourceId: orderRow.id,
+          description:
+            parsed.data.notes?.trim() ||
+            `رد أموال عربون الطلب #${orderRow.id.slice(0, 8)}`,
+        })
+        .returning();
+
+      if (!refundMovement) {
+        throw new Error("فشل تسجيل حركة رد الأموال");
+      }
+
+      const [updatedOrder] = await tx
+        .update(order)
+        .set({
+          depositCents: remainingDepositCents,
+          depositDate: remainingDepositCents > 0 ? orderRow.depositDate : null,
+          updatedAt: now,
+        })
+        .where(eq(order.id, orderRow.id))
+        .returning({ id: order.id, depositCents: order.depositCents });
+
+      if (!updatedOrder) {
+        throw new Error("فشل تحديث العربون المتبقي");
+      }
+
+      if (requestId) {
+        await tx.insert(idempotencyKey).values({
+          requestId,
+          action: "refund_order",
+          targetId: refundMovement.id,
+        });
+      }
+
+      revalidatePath("/orders");
+      revalidatePath(`/orders/${orderRow.id}`);
+      revalidatePath("/finance");
+      revalidatePath("/reports");
+      return {
+        status: "ok",
+        data: {
+          orderId: orderRow.id,
+          refundedCents: parsed.data.amountCents,
+          remainingDepositCents,
+        },
+      };
+    });
+
+    if (result.status === "ok") {
+      await logAction({
+        action: "refund_order",
+        entityType: "order",
+        entityId: result.data.orderId,
+        changesSnapshot: {
+          ...parsed.data,
+          refundedCents: result.data.refundedCents,
+          remainingDepositCents: result.data.remainingDepositCents,
+        },
       });
     }
     return result;
