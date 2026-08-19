@@ -2339,6 +2339,12 @@ export async function reverseDepositForfeiture(
         };
       }
       const [forfeitedMovement] = saleMovements;
+      if (forfeitureSale.amountCents !== forfeitedMovement.amountCents) {
+        return {
+          status: "error",
+          message: "مبلغ مبيعة الاحتجاز لا يطابق حركة الصندوق؛ راجع فحص السلامة أولاً",
+        };
+      }
 
       const [previousRefundsRow] = await tx
         .select({ total: sum(cashMovement.amountCents) })
