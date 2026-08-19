@@ -745,18 +745,30 @@ export async function getDashboardBundle(params: {
   const today = getAmmanDate();
   const isAllTime = startDate === "2020-01-01" && endDate === today;
 
-  // Fix connection pool exhaustion by avoiding huge Promise.all
-  const summary = await getFinancialSummary(startDate, endDate);
-  const summaryAllTimeRaw = isAllTime ? null : await getFinancialSummary("2020-01-01", today);
-  const stats = await getDashboardStats(startDate, endDate);
-  const cashSummary = await getCashSummary();
-  const balancesRes = await getAccountBalances();
-  const openingBalRes = await getOpeningBalance();
-  const avgMonthlySpend = await getAverageMonthlySpend(3);
-  const positionRes = await getFinancialPosition(endDate);
-  const monthlyProfit = await getMonthlyProfit(6);
-  const inventoryData = await getInventoryValuation();
-  const capitalAssetsData = await getAllCapitalAssets(endDate);
+  // توازٍ محدود: نقلل زمن الفتح البارد دون العودة إلى Promise.all ضخمة
+  // قد تستنزف connection pool. لا تتجاوز كل مجموعة ثلاث قراءات متوازية.
+  const [summary, summaryAllTimeRaw] = await Promise.all([
+    getFinancialSummary(startDate, endDate),
+    isAllTime ? Promise.resolve(null) : getFinancialSummary("2020-01-01", today),
+  ]);
+
+  const [stats, cashSummary, balancesRes] = await Promise.all([
+    getDashboardStats(startDate, endDate),
+    getCashSummary(),
+    getAccountBalances(),
+  ]);
+
+  const [openingBalRes, avgMonthlySpend, positionRes] = await Promise.all([
+    getOpeningBalance(),
+    getAverageMonthlySpend(3),
+    getFinancialPosition(endDate),
+  ]);
+
+  const [monthlyProfit, inventoryData, capitalAssetsData] = await Promise.all([
+    getMonthlyProfit(6),
+    getInventoryValuation(),
+    getAllCapitalAssets(endDate),
+  ]);
 
   if (balancesRes.status === "error") throw new Error(balancesRes.message);
   if (openingBalRes.status === "error") throw new Error(openingBalRes.message);
