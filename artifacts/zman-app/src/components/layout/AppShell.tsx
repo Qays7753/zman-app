@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Database } from "lucide-react";
 import { useEffect, useState } from "react";
-import { navItems, mainNavItems, moreNavItems } from "@/config/nav";
+import { navItems, mainNavItems, moreNavItems, moreNavGroups } from "@/config/nav";
 import { InstallButton } from "@/components/pwa/InstallButton";
 import { cn } from "@/lib/utils";
 import { useAppShell } from "@/providers/app-shell-context";
@@ -163,7 +163,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
           <h1 className="min-w-0 max-w-[38%] shrink-0 text-base font-bold text-ink truncate">{title}</h1>
         ) : null}
         {action && (
-          <div className={cn("flex items-center min-w-0", !title ? "flex-1 w-full" : "ms-3 flex-1 justify-end")}>
+          <div className={cn("flex items-center min-w-0 overflow-x-auto no-scrollbar", !title ? "flex-1 w-full" : "ms-3 flex-1 justify-end")}>
             {action}
           </div>
         )}
@@ -253,6 +253,9 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
         <button
           type="button"
           onClick={() => setIsMoreOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={isMoreOpen}
+          aria-label="فتح المزيد"
           className={cn(
             "flex flex-col items-center justify-center gap-0.5 flex-1 h-16 text-[11px] transition-colors border-t-2 border-transparent",
                 isMoreActive
@@ -272,30 +275,37 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
         title="المزيد"
       >
         <div className="py-1">
-          {moreNavItems.map((item) => {
-            const isActive =
-              !item.href.includes("?") &&
-              (pathname === item.href ||
-                (item.href !== "/" && pathname.startsWith(item.href)));
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                prefetch={false}
-                onClick={() => setIsMoreOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg",
-                  isActive
-                    ? "text-brand font-bold bg-brand-soft"
-                    : "text-ink-2 hover:bg-canvas hover:text-ink",
-                )}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+          {moreNavGroups.map((group) => (
+            <section key={group.label} className="space-y-1">
+              <h3 className="px-4 pt-3 pb-1 text-[11px] font-bold tracking-wide text-ink-3">
+                {group.label}
+              </h3>
+              {group.items.map((item) => {
+                const isActive =
+                  !item.href.includes("?") &&
+                  (pathname === item.href ||
+                    (item.href !== "/" && pathname.startsWith(item.href)));
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    prefetch={false}
+                    onClick={() => setIsMoreOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg",
+                      isActive
+                        ? "text-brand font-bold bg-brand-soft"
+                        : "text-ink-2 hover:bg-canvas hover:text-ink",
+                    )}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </section>
+          ))}
 
           <button
             type="button"

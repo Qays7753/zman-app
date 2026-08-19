@@ -177,19 +177,7 @@ export function OrderCard({
 
   return (
     <>
-      {/* biome-ignore lint/a11y/useSemanticElements: card is an interactive wrapper containing other buttons, so div role=button is the only valid HTML layout */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => onClick(order)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClick(order);
-          }
-        }}
-        className="rounded-xl bg-paper border border-hairline-2 shadow-sm hover:shadow-md hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col relative"
-      >
+      <article className="rounded-xl bg-paper border border-hairline-2 shadow-sm hover:shadow-md hover:border-ink/20 transition-all duration-200 flex flex-col relative">
         {/* الشريط العلوي: حالة الطلب الحالية — كامل العرض بلون الحالة */}
         <div
           className={cn(
@@ -207,13 +195,21 @@ export function OrderCard({
 
         {/* جسم البطاقة (بحواف داخلية) */}
         <div className="p-4 flex flex-col gap-3">
-        {/* السطر الأول: اسم العميل + زر الخيارات */}
+        {/* السطر الأول: تفاصيل الطلب كزر مستقل + زر الخيارات */}
         <div className="flex justify-between items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="font-bold text-ink truncate text-base leading-tight">
+          <button
+            type="button"
+            onClick={() => onClick(order)}
+            className="min-w-0 flex-1 min-h-[44px] rounded-lg text-start hover:bg-canvas/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 transition-colors"
+            aria-label={`فتح تفاصيل طلب ${order.customerName}`}
+          >
+            <span className="block font-bold text-ink truncate text-base leading-tight">
               {order.customerName}
             </span>
-          </div>
+            <span className="block text-sm text-ink-2 truncate mt-1">
+              {order.productName} {order.quantity > 1 && `(عدد ${order.quantity})`}
+            </span>
+          </button>
 
           {/* زر الخيارات: متجاوب وأكبر من 44px لملاءمة اللمس (§9.1) */}
           <button
@@ -229,10 +225,6 @@ export function OrderCard({
           </button>
         </div>
 
-        {/* السطر الثاني: اسم المنتج المطلوب */}
-        <div className="text-sm text-ink-2 truncate">
-          {order.productName} {order.quantity > 1 && `(عدد ${order.quantity})`}
-        </div>
 
         {/* التفاصيل الإضافية — تظهر لكل الطلبات */}
         {(
@@ -306,13 +298,8 @@ export function OrderCard({
           </div>
         </div>
 
-        {/* السطر الرابع: زر الحالة الذكي (ينقل للمرحلة التالية) + قائمة الحالات الأخرى */}
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops card-click propagation; children are the interactive elements */}
-        <div
-          className="flex items-center gap-2"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        {/* السطر الرابع: زر الحالة الذكي (ينقل للمرحلة التالية) + واتساب */}
+        <div className="flex items-center gap-2">
           {/* زر إرسال واتساب — يمين الزر الذكي (RTL).
               يظهر فقط إن كان للزبون رقم: الرقمان اختياريان الآن. */}
           {canWhatsApp && (
@@ -362,7 +349,7 @@ export function OrderCard({
 
         </div>
         </div>
-      </div>
+      </article>
 
       {/* تأكيد خفيف قبل تغيير الحالة */}
       <ResponsiveModal

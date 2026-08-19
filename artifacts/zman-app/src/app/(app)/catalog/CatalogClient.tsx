@@ -124,7 +124,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
 
   return (
     <>
-      {!hideHeader && <AppShellHeader title="" action={pageAction} />}
+      {!hideHeader && <AppShellHeader title="الكتالوج" action={pageAction} />}
       <div className="flex-1 flex flex-col gap-4">
         {/* شريط البحث والإضافة */}
         {hideHeader && (
@@ -372,7 +372,7 @@ function CatalogCard({
             {/* Round 5 — مفتاح تبديل التتبّع على البطاقة مباشرةً (بدل فتح المودال).
                 يظهر دائماً حتى يمكن تفعيل التتبّع من البطاقة، ويتغيّر اللون عبر
                 has-[:checked] حسب حالة الإدخال. */}
-            <label className="flex items-center gap-1.5 min-h-[44px] cursor-pointer text-[10px] px-1.5 py-0.5 rounded-full border border-info/30 has-[:checked]:bg-info-soft has-[:checked]:text-info text-ink-3">
+            <label className="flex items-center gap-1.5 min-h-[44px] cursor-pointer text-[10px] px-1.5 py-0.5 rounded-full border border-brand/30 has-[:checked]:bg-brand-soft has-[:checked]:text-brand text-ink-3">
               <PackageCheck className="w-3 h-3" />
               <span>{item.tracked ? "متتبَّع" : "تفعيل التتبع"}</span>
               <input
@@ -395,7 +395,8 @@ function CatalogCard({
           type="button"
           onClick={onOpenActions}
           className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
-          aria-label="إجراءات"
+          aria-label={`إجراءات ${item.name}`}
+          title={`إجراءات ${item.name}`}
         >
           <MoreVertical className="w-5 h-5" />
         </button>
@@ -406,7 +407,7 @@ function CatalogCard({
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-hairline flex-wrap">
           <span className="text-xs text-ink-2 flex items-center gap-1.5">
             <span className="text-ink-3">الرصيد الحالي:</span>
-            <span className="font-bold text-info">
+            <span className="font-bold text-brand">
               {stock ?? 0} {item.unit}
             </span>
           </span>
@@ -802,7 +803,7 @@ function AdjustStockForm({
     <div className="p-4 space-y-4">
       <div className="p-3 bg-canvas/30 rounded-md text-sm text-ink-2 flex items-center justify-between">
         <span>الرصيد الحالي:</span>
-        <span className="font-bold text-info">{currentStock} {item.unit}</span>
+        <span className="font-bold text-brand">{currentStock} {item.unit}</span>
       </div>
 
       <div className="space-y-2">

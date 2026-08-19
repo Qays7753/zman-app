@@ -139,7 +139,7 @@ export function OwnerTab() {
               className={cn(
                 "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
                 isActive
-                  ? "bg-paper text-info border-info/20 shadow-sm"
+                  ? "bg-paper text-brand border-brand/20 shadow-sm"
                   : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
               )}
             >
@@ -177,7 +177,7 @@ export function OwnerTab() {
                   <tr key={tx.id} className="hover:bg-canvas/30">
                     <td className="p-4 font-mono text-xs">{tx.date}</td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center gap-1 text-xs font-bold ${isDraw ? "text-alert" : "text-info"}`}>
+                      <span className={`inline-flex items-center gap-1 text-xs font-bold ${isDraw ? "text-alert" : "text-brand"}`}>
                         {isDraw ? (
                           <>
                             <ArrowDownRight className="h-3.5 w-3.5" />
@@ -228,7 +228,7 @@ export function OwnerTab() {
       {transactions && transactions.length > 0 && (
         <div className="bg-canvas p-4 rounded-lg border border-hairline flex justify-between items-center text-sm font-medium text-ink-3">
           <span>صافي تعاملات المالك (صافي الاستثمار):</span>
-          <span className="font-mono font-bold text-info">
+          <span className="font-mono font-bold text-brand">
             <AmountText amount={
               transactions.filter(tx => tx.type === "inject").reduce((s, tx) => s + tx.amountCents, 0) -
               transactions.filter(tx => tx.type === "draw").reduce((s, tx) => s + tx.amountCents, 0)
@@ -264,7 +264,7 @@ export function OwnerTab() {
                 onClick={() => setTxType("inject")}
                 className={`h-11 min-h-[44px] rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
                   txType === "inject"
-                    ? "bg-info/10 border-info text-info"
+                    ? "bg-brand/10 border-brand text-brand"
                     : "bg-canvas border-hairline hover:bg-canvas/80 text-ink/70"
                 }`}
               >
@@ -274,7 +274,7 @@ export function OwnerTab() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-ink/75 block">المبلغ (دينار أردني)</label>
               <input

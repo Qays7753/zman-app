@@ -165,7 +165,7 @@ export function PageToolbar({
                               setFilterOpen(false);
                             }}
                             className={cn(
-                              "flex items-center justify-between gap-2 min-h-[40px] px-2.5 rounded-md text-sm text-start transition-colors",
+                              "flex items-center justify-between gap-2 min-h-[44px] px-2.5 rounded-md text-sm text-start transition-colors",
                               active
                                 ? "bg-brand-soft text-brand font-bold"
                                 : "text-ink-2 hover:bg-canvas",
@@ -208,7 +208,7 @@ export function PageToolbar({
         {menuItems && menuItems.length > 0 ? (
           <div ref={menuRef} className="relative">
             <HeaderIconButton
-              label="إعدادات"
+              label="أدوات الصفحة"
               isActive={menuOpen}
               onClick={() => setMenuOpen((o) => !o)}
             >

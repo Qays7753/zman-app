@@ -103,7 +103,14 @@ function StatCard({
 
 function ProgressBar({ pct, colorClass, style }: { pct: number; colorClass?: string; style?: React.CSSProperties }) {
   return (
-    <div className="w-full bg-canvas rounded-full h-1.5 mt-1">
+    <div
+      role="progressbar"
+      aria-valuenow={Math.round(Math.min(100, pct))}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`${Math.round(Math.min(100, pct))}%`}
+      className="w-full bg-canvas rounded-full h-1.5 mt-1"
+    >
       <div
         className={`h-1.5 rounded-full ${colorClass || ""}`}
         style={{ width: `${Math.min(100, pct)}%`, ...style }}
@@ -368,8 +375,13 @@ export default function ReportsPage() {
                   ) : (
                     <div className="flex flex-col md:flex-row items-center gap-8">
                       {/* Donut SVG */}
-                      <div className="relative w-36 h-36 flex-shrink-0 flex items-center justify-center">
-                        <svg viewBox="0 0 100 100" className="w-36 h-36 -rotate-90">
+                      <div className="hidden md:flex relative w-36 h-36 flex-shrink-0 items-center justify-center">
+                        <svg
+                          viewBox="0 0 100 100"
+                          className="w-36 h-36 -rotate-90"
+                          role="img"
+                          aria-label="رسم توزيع المصاريف حسب الفئة"
+                        >
                           {(() => {
                             let cumulativePct = 0;
                             return data.expensesByCategory.map((cat, i) => {
@@ -487,7 +499,7 @@ export default function ReportsPage() {
                   ) : (
                     <div className="divide-y divide-hairline">
                       {data.ordersByStatus.map((row) => (
-                        <div key={row.status} className="flex items-center gap-4 py-3">
+                        <div key={row.status} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 py-3">
                           <span className={`px-2.5 py-1 rounded text-[11px] font-bold border flex-shrink-0 ${STATUS_COLORS[row.status] ?? "bg-canvas text-ink/60 border-hairline"}`}>
                             {row.label}
                           </span>
@@ -499,10 +511,10 @@ export default function ReportsPage() {
                               row.status === "draft" ? "bg-warn" : "bg-alert"
                             } />
                           </div>
-                          <span className="text-xs text-ink/45 w-8 text-end flex-shrink-0">
+                          <span className="text-xs text-ink/45 sm:w-8 text-end flex-shrink-0">
                             {row.count}
                           </span>
-                          <span className="text-sm font-bold text-ink-2 w-36 text-end flex-shrink-0 flex items-center justify-end gap-1.5">
+                          <span className="text-sm font-bold text-ink-2 sm:w-36 text-end flex-shrink-0 flex items-center justify-end gap-1.5">
                             <AmountText amount={row.totalCents} />
                             <span className="text-[10px] bg-ink/10 text-ink-2 px-1 rounded font-normal shrink-0">تقديري</span>
                           </span>
