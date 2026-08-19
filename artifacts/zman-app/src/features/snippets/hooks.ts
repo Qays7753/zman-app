@@ -18,8 +18,8 @@ export function useSnippets(search?: string) {
   return useQuery({
     queryKey: snippetsKeys.list(search),
     queryFn: () => getSnippets(search),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 60_000,
+    refetchOnMount: true,
   });
 }
 

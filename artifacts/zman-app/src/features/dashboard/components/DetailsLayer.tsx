@@ -149,9 +149,18 @@ export function DetailsLayer({
         className="w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-hairline bg-canvas hover:bg-canvas/80 active:scale-[0.99] transition-all min-h-[52px]"
         aria-expanded={expanded}
       >
-        <span className="text-sm font-bold text-ink/70">
-          {expanded ? "إخفاء التفاصيل المالية" : "عرض التفاصيل المالية"}
-        </span>
+        <div className="min-w-0 text-start">
+          <span className="block text-sm font-bold text-ink/70">
+            {expanded ? "إخفاء التفاصيل المالية" : "عرض التفاصيل المالية"}
+          </span>
+          {!expanded && (
+            <span className="mt-0.5 block truncate text-[10px] font-semibold text-ink/45">
+              ربح الفترة: <AmountText amount={netProfit} hideCurrency />
+              <span className="mx-1">·</span>
+              {pendingCount > 0 ? `${pendingCount} طلبات معلّقة` : "لا توجد طلبات معلّقة"}
+            </span>
+          )}
+        </div>
         {expanded ? (
           <ChevronUp className="h-4 w-4 text-info shrink-0" />
         ) : (

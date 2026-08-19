@@ -168,7 +168,7 @@ export function SalesTab() {
   };
 
   return (
-    <div className="space-y-4 flex-1 flex flex-col pb-24">
+    <div className="space-y-4 flex-1 flex flex-col fab-safe-area lg:pb-0">
       {/* فلتر موحّد لمصدر المبيعة — نفس لغة المدفوعات */}
       <div className="flex items-center justify-between gap-2">
         <button

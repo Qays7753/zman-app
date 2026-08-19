@@ -228,7 +228,7 @@ export function PaymentsTab() {
     filter !== "all" || category !== "all" || Boolean(natureFilter);
 
   return (
-    <div className="space-y-4 flex-1 flex flex-col pb-36">
+    <div className="space-y-4 flex-1 flex flex-col fab-safe-area lg:pb-0">
       {/* فلتر موحّد — يمنع انقسام الشرائح بين سطرين ويجمع التصنيف والفئة في مكان واحد */}
       <div className="flex items-center justify-between gap-2">
         <button
@@ -425,7 +425,7 @@ export function PaymentsTab() {
               const movementKindLabel = isWriteoff
                 ? "تسوية مخزون تلقائية"
                 : item.kind === "receivable"
-                  ? "ذمّة مدينة"
+                  ? "مبلغ مستحق على العميل"
                   : item.isCapitalAsset
                     ? "أصل رأسمالي"
                     : item.kind === "purchase"

@@ -41,8 +41,8 @@ export function useAllComponentStocks(asOfDate?: string) {
   return useQuery({
     queryKey: inventoryKeys.allStocks(asOfDate),
     queryFn: () => getAllComponentStocks(asOfDate),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30_000,
+    refetchOnMount: true,
   });
 }
 
@@ -60,8 +60,8 @@ export function useComponentStock(catalogComponentId?: string, asOfDate?: string
       : ["inventory", "stock", "none"],
     queryFn: () => getComponentStock(catalogComponentId!, asOfDate),
     enabled: !!catalogComponentId,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30_000,
+    refetchOnMount: true,
   });
 }
 
@@ -75,8 +75,8 @@ export function useCatalogMovements(catalogComponentId?: string, limit = 20) {
       : ["inventory", "movements", "none"],
     queryFn: () => getCatalogMovements(catalogComponentId!, limit),
     enabled: !!catalogComponentId,
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30_000,
+    refetchOnMount: true,
   });
 }
 
@@ -87,8 +87,8 @@ export function useInventoryValuation(asOfDate?: string) {
   return useQuery({
     queryKey: inventoryKeys.valuation(asOfDate),
     queryFn: () => getInventoryValuation(asOfDate),
-    staleTime: 0,
-    refetchOnMount: "always",
+    staleTime: 30_000,
+    refetchOnMount: true,
   });
 }
 

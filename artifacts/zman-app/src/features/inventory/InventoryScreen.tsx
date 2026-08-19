@@ -50,6 +50,7 @@ export function InventoryScreen() {
     <>
       <AppShellHeader title="المخزون" />
 
+      <div className="fab-safe-area lg:pb-0">
       {/* تنبيه الرصيد المنخفض */}
       {!isLoading && lowStockItems.length > 0 && (
         <div className="mb-4 flex items-start gap-3 rounded-xl bg-warn-soft border border-warn/20 px-4 py-3">
@@ -188,6 +189,8 @@ export function InventoryScreen() {
           ))}
         </div>
       )}
+
+      </div>
 
       {/* ═══ Issue #2 — FAB إجراءات المخزون ═══ */}
       <FloatingActionButton

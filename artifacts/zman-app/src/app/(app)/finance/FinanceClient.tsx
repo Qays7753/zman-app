@@ -51,10 +51,10 @@ const OwnerTab = dynamic(
 );
 
 /* ─── أنواع التبويبات اليومية ─── */
-// تبويبان رئيسيان للمالك: مدفوعاتي (مصاريف + مشتريات) · مبيعاتي
+// تبويبان رئيسيان للمالك: المدفوعات (مصاريف + مشتريات) · المبيعات
 const TABS = [
-  { id: "payments", label: "مدفوعاتي", icon: Wallet },
-  { id: "sales", label: "مبيعاتي", icon: Banknote },
+  { id: "payments", label: "المدفوعات", icon: Wallet },
+  { id: "sales", label: "المبيعات", icon: Banknote },
 ] as const;
 
 export default function FinanceClient() {
@@ -89,7 +89,7 @@ export default function FinanceClient() {
       // توجيه رابط الأرصدة الافتتاحية القديم لمكانه الصحيح
       router.replace("/settings/opening-balance");
     } else if (rawTab === "owner") {
-      // توجيه رابط سحب/حقن المالك إلى تبويب الحسابات مع الحفاظ على المعاملات
+      // توجيه رابط سحب/إيداع المالك إلى تبويب الحسابات مع الحفاظ على المعاملات
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", "accounts");
       router.replace(`${pathname}?${params.toString()}`);

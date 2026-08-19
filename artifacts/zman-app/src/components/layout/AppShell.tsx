@@ -328,7 +328,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
             className="w-full flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg text-ink-2 hover:bg-canvas hover:text-ink font-medium"
           >
             <Database className="w-5 h-5 flex-shrink-0 text-brand" />
-            <span>تصدير لقطة مرجعية</span>
+            <span>تصدير نسخة احتياطية</span>
           </button>
         </div>
         <div className="pt-4 border-t border-hairline mt-2">

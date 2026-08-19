@@ -137,6 +137,7 @@
 @utility z-sheet { z-index: 30; }
 @utility z-modal { z-index: 40; }
 @utility z-toast { z-index: 50; }
+@utility fab-safe-area { padding-bottom: calc(144px + env(safe-area-inset-bottom)); }
 
 html,
 body {

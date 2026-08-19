@@ -31,10 +31,10 @@ export function FinanceCatalogModal({
   type,
 }: FinanceCatalogModalProps) {
   const isPurchases = type === "purchases";
-  const title = isPurchases ? "إدارة أصناف المشتريات" : "إدارة فئات المصاريف";
+  const title = isPurchases ? "أصناف الشراء" : "إدارة فئات المصاريف";
   const searchPlaceholder = isPurchases ? "بحث عن صنف..." : "بحث عن فئة...";
   const addLabel = isPurchases ? "إضافة صنف جديد" : "إضافة فئة جديدة";
-  const emptyLabel = isPurchases ? "لا توجد أصناف مشتريات" : "لا توجد فئات مصاريف";
+  const emptyLabel = isPurchases ? "لا توجد أصناف شراء" : "لا توجد فئات مصاريف";
 
   // State
   const [search, setSearch] = useState("");

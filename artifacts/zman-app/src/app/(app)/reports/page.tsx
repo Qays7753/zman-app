@@ -316,7 +316,7 @@ export default function ReportsPage() {
                         ) : (
                           <TrendingDown className="h-4 w-4 text-alert" />
                         )}
-                        ملخص الأرباح والخسائر (P&L)
+                        ملخص الربح والخسارة (P&L)
                       </span>
                     </SectionTitle>
                     <DownloadBtn type="pnl" title="الأرباح والخسائر" downloadingId={downloadingId} onDownload={handleDownload} />
@@ -666,7 +666,7 @@ export default function ReportsPage() {
                       )}
                       {positionData.assets.receivablesCents > 0 && (
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-ink/65 font-medium">ذمم مدينة (ديون مستردة)</span>
+                          <span className="text-ink/65 font-medium">مبلغ مستحق على العميل (ديون مستردة)</span>
                           <Link href="/finance?tab=payments&filter=receivable" className="font-mono font-bold text-ink underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30 rounded">
                             <AmountText amount={positionData.assets.receivablesCents} />
                           </Link>
@@ -811,7 +811,7 @@ export default function ReportsPage() {
                       {/* تسوية الدفتر المالي مع الجداول المصدرية */}
                       <div className="space-y-2.5 pt-3 border-t border-hairline">
                         <h5 className="font-bold text-ink border-b border-hairline pb-2 flex items-center justify-between">
-                          <span>2. تسوية تطابق الدفتر النقدي (Ledger) مع الجداول المصدرية</span>
+                          <span>2. تسوية تطابق الحركات النقدية المسجلة مع السجلات الأصلية</span>
                           {positionData.pnlSourceReconciliationCents === 0 ? (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-brand/10 text-brand border border-brand/20">سليم ومطابق ✓</span>
                           ) : (
@@ -819,11 +819,11 @@ export default function ReportsPage() {
                           )}
                         </h5>
                         <div className="flex justify-between text-ink/75">
-                          <span>صافي الأرباح من الدفتر النقدي (Ledger Net Profit):</span>
+                          <span>صافي الأرباح من الحركات النقدية المسجلة:</span>
                           <span className="font-mono"><AmountText amount={positionData.ledgerPnlNetCents} /></span>
                         </div>
                         <div className="flex justify-between text-ink/75">
-                          <span>صافي الأرباح من الجداول المصدرية (Source Tables Net Profit):</span>
+                          <span>صافي الأرباح من السجلات الأصلية:</span>
                           <span className="font-mono"><AmountText amount={positionData.sourceTablePnlNetCents} /></span>
                         </div>
                         <div className="flex justify-between border-t border-dashed border-hairline pt-2 font-bold">

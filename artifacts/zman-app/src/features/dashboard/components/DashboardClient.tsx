@@ -13,6 +13,7 @@
  */
 
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import dynamic from "next/dynamic";
 import {
   AlertCircle,
   ArrowDownRight,
@@ -32,7 +33,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { GlobalSearch } from "./GlobalSearch";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
@@ -47,7 +48,17 @@ import { useDashboardBundle } from "../hooks";
 
 import { DetailsLayer } from "./DetailsLayer";
 import { FinanceComparePanel } from "./FinanceComparePanel";
-import { FinancialAdvisor } from "./FinancialAdvisor";
+const DeferredFinancialAdvisor = dynamic(
+  () => import("./FinancialAdvisor").then((m) => m.FinancialAdvisor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-xl border border-hairline bg-canvas px-4 py-3 text-xs font-semibold text-ink/50">
+        جارٍ تجهيز المستشار المالي بعد تحميل الملخص...
+      </div>
+    ),
+  },
+);
 import { LiquidityFlowPanel } from "./LiquidityFlowPanel";
 import { MonthlyProfitPanel } from "./MonthlyProfitPanel";
 import { SmartAlertsBar } from "./SmartAlertsBar";
@@ -80,6 +91,12 @@ export function DashboardClient() {
   } | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [isFabOpen, setIsFabOpen] = useState(false);
+  const [isAdvisorReady, setIsAdvisorReady] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIsAdvisorReady(true), 400);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const preset = presets[selectedPresetIdx] ?? presets[1]!;
   const range = customRange ?? preset.getValue();
@@ -196,7 +213,7 @@ export function DashboardClient() {
         }
       />
 
-      <div className="space-y-5 pb-28">
+      <div className="space-y-5 fab-safe-area lg:pb-0">
         {/* شريط تنبيه عند تعذّر التحديث مع وجود كاش سابق */}
         {isError && hasCachedData && (
           <div
@@ -249,6 +266,13 @@ export function DashboardClient() {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* يحتاج انتباهك — يظهر قبل أدوات التحليل */}
+            <SmartAlertsBar
+              lowStockCount={lowStockCount}
+              pendingOrdersCount={pendingOrdersCount}
+              isLowCash={asOfRealCashCents < 50000}
+            />
+
             {/* البحث الشامل */}
             <GlobalSearch />
 
@@ -311,7 +335,20 @@ export function DashboardClient() {
 
             {/* ═══ Layer 1: الطبقة الأولى — دائماً ظاهرة ═══ */}
 
-            {/* وصول سريع — كل الحركات + الملاحظات (Issue #10) */}
+            {/* بطاقة الصحة الكبيرة */}
+            <HealthCard
+              asOfRealCashCents={asOfRealCashCents}
+              asOfCashCents={asOfCashCents}
+              asOfBankCents={asOfBankCents}
+              asOfDepositsHeldCents={asOfDepositsHeldCents}
+              netProfit={summary?.netProfit ?? 0}
+              inventoryValueCents={summary?.inventoryValueCents ?? 0}
+            />
+
+            {/* طلبات تحتاج تسليم قريباً (Issue #9) */}
+            <UpcomingDeliveriesCard />
+
+            {/* وصول سريع — كل الحركات + الملاحظات (بعد الأولويات اليومية) */}
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/activities"
@@ -334,26 +371,6 @@ export function DashboardClient() {
                 <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
               </Link>
             </div>
-
-            {/* التنبيهات الذكية */}
-            <SmartAlertsBar
-              lowStockCount={lowStockCount}
-              pendingOrdersCount={pendingOrdersCount}
-              isLowCash={asOfRealCashCents < 50000}
-            />
-
-            {/* بطاقة الصحة الكبيرة */}
-            <HealthCard
-              asOfRealCashCents={asOfRealCashCents}
-              asOfCashCents={asOfCashCents}
-              asOfBankCents={asOfBankCents}
-              asOfDepositsHeldCents={asOfDepositsHeldCents}
-              netProfit={summary?.netProfit ?? 0}
-              inventoryValueCents={summary?.inventoryValueCents ?? 0}
-            />
-
-            {/* طلبات تحتاج تسليم قريباً (Issue #9) */}
-            <UpcomingDeliveriesCard />
 
             {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
             {summary && (
@@ -399,9 +416,9 @@ export function DashboardClient() {
               capitalAssetsNetValueCents={capitalAssetsNetValueCents}
             />
 
-            {/* المستشار المالي */}
-            {summary && cashSummary && accountBalances && (
-              <FinancialAdvisor
+            {/* المستشار المالي — يُحمّل بعد ظهور المحتوى الأساسي */}
+            {isAdvisorReady && summary && cashSummary && accountBalances && (
+              <DeferredFinancialAdvisor
                 data={{
                   realCash: asOfRealCashCents,
                   opening:
@@ -519,7 +536,7 @@ export function DashboardClient() {
 
           <QuickLink href="/finance?tab=accounts&newAccount=true" icon={<Landmark className="h-6 w-6 text-brand" />} label="حساب جديد" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=accounts&newTransfer=true" icon={<ArrowLeftRight className="h-6 w-6 text-brand" />} label="تحويل بيني" onClick={() => setIsFabOpen(false)} />
-          <QuickLink href="/finance?tab=accounts&newOwnerTx=true" icon={<User className="h-6 w-6 text-alert" />} label="سحب / حقن مالك" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/finance?tab=accounts&newOwnerTx=true" icon={<User className="h-6 w-6 text-alert" />} label="سحب / إيداع المالك" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/settings/opening-balance" icon={<Settings className="h-6 w-6 text-warn-deep" />} label="أرصدة البداية" onClick={() => setIsFabOpen(false)} />
         </div>
       </ResponsiveModal>

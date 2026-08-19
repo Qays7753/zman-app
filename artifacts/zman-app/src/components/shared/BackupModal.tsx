@@ -70,12 +70,12 @@ export function BackupModal({ isOpen, onClose }: BackupModalProps) {
   };
 
   return (
-    <ResponsiveModal isOpen={isOpen} onClose={onClose} title="تصدير بيانات مرجعية">
+    <ResponsiveModal isOpen={isOpen} onClose={onClose} title="تصدير نسخة احتياطية">
       <div className="space-y-5 py-2">
         <div className="flex items-center gap-3 p-4 bg-brand-soft border border-brand/20 rounded-xl text-brand-deep">
           <Database className="w-6 h-6 shrink-0" />
           <div>
-            <h4 className="font-bold text-sm">تصدير لقطة مرجعية</h4>
+            <h4 className="font-bold text-sm">تصدير نسخة احتياطية</h4>
             <p className="text-xs text-ink-2 mt-0.5">
               ينزّل ملف JSON على جهازك يحوي الحسابات والكتالوج والأصول الرأسمالية
               والرصيد الافتتاحي، مع <strong>آخر 100 طلب</strong>.
