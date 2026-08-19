@@ -79,12 +79,12 @@ export function InstallButton() {
   // iOS: تلميح يدوي
   if (isIOS() && !deferredPrompt) {
     return (
-      <div className="flex items-center gap-2 rounded-lg bg-info-soft border border-info/20 px-3 py-2 text-xs text-info">
+      <div className="flex items-center gap-2 rounded-lg bg-brand-soft border border-brand/20 px-3 py-2 text-xs text-brand-deep">
         <span className="flex-1">للتثبيت: شارك ← أضف إلى الشاشة الرئيسية</span>
         <button
           type="button"
           onClick={handleDismiss}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-info/10 transition-colors -me-1"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
           aria-label="إغلاق"
         >
           <X className="w-4 h-4" />
@@ -96,12 +96,12 @@ export function InstallButton() {
   // أندرويد بلا حدث مؤجَّل: تلميح يدوي (قائمة المتصفح ← تثبيت/إضافة للرئيسية)
   if (!deferredPrompt && isAndroid() && showAndroidHint) {
     return (
-      <div className="flex items-center gap-2 rounded-lg bg-info-soft border border-info/20 px-3 py-2 text-xs text-info">
+      <div className="flex items-center gap-2 rounded-lg bg-brand-soft border border-brand/20 px-3 py-2 text-xs text-brand-deep">
         <span className="flex-1">للتثبيت: قائمة المتصفح (⋮) ← تثبيت التطبيق</span>
         <button
           type="button"
           onClick={handleDismiss}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-info/10 transition-colors -me-1"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
           aria-label="إغلاق"
         >
           <X className="w-4 h-4" />
@@ -120,21 +120,21 @@ export function InstallButton() {
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-info-soft border border-info/20 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-lg bg-brand-soft border border-brand/20 px-3 py-2">
       <button
         type="button"
         onClick={handleInstall}
-        className="flex-1 text-sm font-bold text-info hover:text-info/80 transition-colors text-start min-h-[44px] flex items-center"
+        className="flex-1 text-sm font-bold text-brand-deep hover:text-brand transition-colors text-start min-h-[44px] flex items-center"
       >
         تثبيت التطبيق
       </button>
       <button
         type="button"
         onClick={handleDismiss}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-info/10 transition-colors -me-1"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
         aria-label="إغلاق"
       >
-        <X className="w-4 h-4 text-info/60" />
+        <X className="w-4 h-4 text-brand/60" />
       </button>
     </div>
   );
