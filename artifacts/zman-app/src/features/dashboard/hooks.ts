@@ -14,24 +14,11 @@ import {
 
 import { getAccountBalances } from "@/features/finance/actions";
 import { getFinancialPosition } from "@/features/reports/actions";
+import { dashboardKeys } from "./keys";
 
-export const dashboardKeys = {
-  all: ["dashboard"] as const,
-  bundle: (startDate: string, endDate: string) =>
-    [...dashboardKeys.all, "bundle", startDate, endDate] as const,
-  summary: (startDate: string, endDate: string) =>
-    [...dashboardKeys.all, "summary", startDate, endDate] as const,
-  activities: (startDate?: string, endDate?: string) => [...dashboardKeys.all, "activities", startDate, endDate] as const,
-  trend: (startDate: string, endDate: string) =>
-    [...dashboardKeys.all, "trend", startDate, endDate] as const,
-  stats: (startDate: string, endDate: string) =>
-    [...dashboardKeys.all, "stats", startDate, endDate] as const,
-  cash: () => [...dashboardKeys.all, "cash"] as const,
-  balances: () => [...dashboardKeys.all, "balances"] as const,
-  avgSpend: () => [...dashboardKeys.all, "avgSpend"] as const,
-  monthlyProfit: (months: number) => [...dashboardKeys.all, "monthlyProfit", months] as const,
-  position: (asOfDate: string) => [...dashboardKeys.all, "position", asOfDate] as const,
-};
+// المفاتيح تعيش في وحدة محايدة (keys.ts) ليستطيع الـ Server Component استيرادها.
+// إعادة التصدير هنا تحفظ كل المستوردين القدامى من "../hooks".
+export { dashboardKeys } from "./keys";
 
 export function useDashboardBundle(startDate: string, endDate: string) {
   return useQuery({
