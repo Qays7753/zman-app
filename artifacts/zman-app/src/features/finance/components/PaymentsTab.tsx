@@ -208,7 +208,7 @@ export function PaymentsTab() {
                 className={cn(
                   "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
                   isActive
-                    ? "bg-paper text-info border-info/20 shadow-sm"
+                    ? "bg-paper text-brand border-brand/20 shadow-sm"
                     : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
                 )}
               >
@@ -459,7 +459,7 @@ export function PaymentsTab() {
                           size="sm"
                           variant={item.debtStatus === "paid" ? "secondary" : "ink"}
                           onClick={() => setReceivablePaymentModalItem(item)}
-                          className="text-xs min-h-[36px] py-1 px-3 shrink-0"
+                          className="text-xs min-h-[44px] py-2 px-3 shrink-0"
                         >
                           {item.debtStatus === "paid" ? "سجل السداد" : "تسجيل سداد (+)"}
                         </Button>

@@ -202,7 +202,7 @@ export function AccountsTab() {
                   {acc.isArchived && " • مؤرشف"}
                 </span>
               </div>
-              <Landmark className="h-5 w-5 text-info" />
+              <Landmark className="h-5 w-5 text-brand" />
             </div>
             <div>
               <span className="text-xs text-ink/40 block">الرصيد الحالي</span>
@@ -217,8 +217,9 @@ export function AccountsTab() {
                   type="button"
                   onClick={() => handleArchive(acc.id)}
                   disabled={archiveMutation.isPending}
-                  title="أرشفة"
-                  className="p-2.5 rounded-md border border-hairline-2 text-ink-2 hover:bg-canvas transition-colors disabled:opacity-50 flex items-center justify-center"
+                  title={`أرشفة حساب ${acc.name}`}
+                  aria-label={`أرشفة حساب ${acc.name}`}
+                  className="min-h-[44px] min-w-[44px] p-2.5 rounded-md border border-hairline-2 text-ink-2 hover:bg-canvas transition-colors disabled:opacity-50 flex items-center justify-center"
                 >
                   <Archive className="h-4 w-4" />
                 </button>
@@ -227,8 +228,9 @@ export function AccountsTab() {
                   type="button"
                   onClick={() => handleUnarchive(acc.id)}
                   disabled={unarchiveMutation.isPending}
-                  title="إلغاء الأرشفة"
-                  className="p-2.5 rounded-md border border-info/30 text-info hover:bg-info-soft transition-colors disabled:opacity-50 flex items-center justify-center"
+                  title={`إلغاء أرشفة حساب ${acc.name}`}
+                  aria-label={`إلغاء أرشفة حساب ${acc.name}`}
+                  className="min-h-[44px] min-w-[44px] p-2.5 rounded-md border border-brand/30 text-brand hover:bg-brand-soft transition-colors disabled:opacity-50 flex items-center justify-center"
                 >
                   <ArchiveRestore className="h-4 w-4" />
                 </button>
@@ -237,8 +239,9 @@ export function AccountsTab() {
                 type="button"
                 onClick={() => setDeleteAccountId(acc.id)}
                 disabled={deleteMutation.isPending}
-                title="حذف"
-                className="p-2.5 rounded-md border border-alert/30 text-alert hover:bg-alert-soft transition-colors disabled:opacity-50 flex items-center justify-center"
+                title={`حذف حساب ${acc.name}`}
+                aria-label={`حذف حساب ${acc.name}`}
+                className="min-h-[44px] min-w-[44px] p-2.5 rounded-md border border-alert/30 text-alert hover:bg-alert-soft transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -258,13 +261,13 @@ export function AccountsTab() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-canvas p-4 rounded-lg border border-hairline font-medium text-sm text-ink-3">
         <div className="flex justify-between items-center">
           <span>إجمالي الصناديق النشطة:</span>
-          <span className="font-mono font-bold text-info">
+          <span className="font-mono font-bold text-brand">
             <AmountText amount={accounts?.filter((acc) => !acc.isArchived && acc.type === "cash").reduce((s, acc) => s + acc.balanceCents, 0) ?? 0} />
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span>إجمالي البنوك النشطة:</span>
-          <span className="font-mono font-bold text-info">
+          <span className="font-mono font-bold text-brand">
             <AmountText amount={accounts?.filter((acc) => !acc.isArchived && acc.type === "bank").reduce((s, acc) => s + acc.balanceCents, 0) ?? 0} />
           </span>
         </div>
@@ -339,7 +342,7 @@ export function AccountsTab() {
         title="تحويل مالي بين الحسابات"
       >
         <form onSubmit={handleTransferSubmit} className="space-y-4 p-4 font-medium text-ink">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-ink/75 block">من حساب (المرسل)</label>
               <select
@@ -371,7 +374,7 @@ export function AccountsTab() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-bold text-ink/75 block">المبلغ (دينار أردني)</label>
               <input
