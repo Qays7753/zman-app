@@ -72,6 +72,8 @@ export function OrderCard({
   const [localStatus, setLocalStatus] = useState(order.status);
   // الإجراءات الثانوية والتأكيدات تبقى داخل نافذة واحدة واضحة على الهاتف.
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [cancelOptionsOpen, setCancelOptionsOpen] = useState(false);
+  const [finalCancelConfirmOpen, setFinalCancelConfirmOpen] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
 
   // حساب المتبقي والعدّاد لتاريخ التسليم بالتوقيت المحلي لعمّان
@@ -135,7 +137,11 @@ export function OrderCard({
         updatedAt: new Date(order.updatedAt).toISOString(),
       });
       if (res.status === "ok") {
-        toast.success(`تم تحديث الحالة إلى: ${STATUS_LABELS[newStatus]}`);
+        toast.success(
+          newStatus === "confirmed"
+            ? "تم الإلغاء مؤقتاً وإعادة الطلب إلى حالة «مؤكد»"
+            : `تم تحديث الحالة إلى: ${STATUS_LABELS[newStatus]}`,
+        );
       } else {
         toast.error(res.message);
         setLocalStatus(oldStatus);
@@ -398,6 +404,89 @@ export function OrderCard({
         )}
       </ResponsiveModal>
 
+      {/* اختيار نوع الإلغاء قبل تنفيذ أي تغيير على حالة الطلب */}
+      <ResponsiveModal
+        isOpen={cancelOptionsOpen}
+        onClose={() => setCancelOptionsOpen(false)}
+        title="اختيار نوع الإلغاء"
+      >
+        <div className="space-y-3 p-4">
+          <p className="text-sm text-ink-2 leading-relaxed">
+            اختر ما يناسب وضع الطلب. الإلغاء المؤقت لا يرد الأموال، والإلغاء النهائي لا ينفذ رد أموال تلقائياً.
+          </p>
+          <button
+            type="button"
+            className="w-full min-h-[44px] rounded-lg bg-brand text-paper font-bold px-4 py-3"
+            onClick={() => {
+              setCancelOptionsOpen(false);
+              void applyStatus("confirmed");
+            }}
+            disabled={isUpdatingStatus || localStatus === "confirmed"}
+          >
+            {localStatus === "confirmed"
+              ? "الطلب مؤكد بالفعل"
+              : "إلغاء مؤقت — إبقاء الطلب «مؤكداً»"}
+          </button>
+          <button
+            type="button"
+            className="w-full min-h-[44px] rounded-lg bg-alert text-paper font-bold px-4 py-3"
+            onClick={() => {
+              setCancelOptionsOpen(false);
+              setFinalCancelConfirmOpen(true);
+            }}
+            disabled={isUpdatingStatus || order.depositCents > 0}
+          >
+            {order.depositCents > 0
+              ? "الإلغاء النهائي بعد تسوية العربون"
+              : "إلغاء نهائي — نقل الطلب إلى «ملغى»"}
+          </button>
+          {order.depositCents > 0 && (
+            <p className="px-1 text-xs text-warn-deep leading-relaxed">
+              يوجد عربون مسجّل. نفّذ رد الأموال أو سوِّ العربون أولاً، ثم يمكنك إغلاق الطلب نهائياً.
+            </p>
+          )}
+          <button
+            type="button"
+            className="w-full min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold px-4 py-3"
+            onClick={() => setCancelOptionsOpen(false)}
+          >
+            متابعة العمل على الطلب
+          </button>
+        </div>
+      </ResponsiveModal>
+
+      <ResponsiveModal
+        isOpen={finalCancelConfirmOpen}
+        onClose={() => setFinalCancelConfirmOpen(false)}
+        title="تأكيد الإلغاء النهائي"
+      >
+        <div className="space-y-4 p-4">
+          <p className="text-sm text-ink-2 leading-relaxed">
+            سيُنقل الطلب إلى «ملغى» ويُغلق مسار التنفيذ. لا يسجل هذا الإجراء رد أموال؛ نفّذ رد الأموال بشكل منفصل عند الحاجة قبل الإلغاء النهائي.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold"
+              onClick={() => setFinalCancelConfirmOpen(false)}
+            >
+              رجوع
+            </button>
+            <button
+              type="button"
+              className="flex-1 min-h-[44px] rounded-lg bg-alert text-paper font-bold disabled:opacity-50"
+              disabled={isUpdatingStatus}
+              onClick={() => {
+                setFinalCancelConfirmOpen(false);
+                void applyStatus("cancelled");
+              }}
+            >
+              تأكيد الإلغاء النهائي
+            </button>
+          </div>
+        </div>
+      </ResponsiveModal>
+
       {/* تأكيد تحويل الطلب إلى مبيعات (إيراد) */}
       <ResponsiveModal
         isOpen={showConvertConfirm}
@@ -484,22 +573,27 @@ export function OrderCard({
             <p className="px-4 text-xs font-bold text-ink-3">تغيير الحالة</p>
             {Object.entries(STATUS_LABELS).map(([val, lbl]) => {
               const active = val === localStatus;
-              const isDisabledForCancelled = isCancelled && val !== "cancelled";
+              const isDisabledForTerminal =
+                (isCancelled || localStatus === "delivered") && val !== localStatus;
               return (
                 <button
                   key={val}
                   type="button"
-                  disabled={active || isDisabledForCancelled || isUpdatingStatus}
+                  disabled={active || isDisabledForTerminal || isUpdatingStatus}
                   onClick={() => {
-                    if (isDisabledForCancelled || active) return;
+                    if (isDisabledForTerminal || active) return;
                     setIsActionsOpen(false);
-                    setPendingStatus(val);
+                    if (val === "cancelled") {
+                      setCancelOptionsOpen(true);
+                    } else {
+                      setPendingStatus(val);
+                    }
                   }}
                   className={cn(
                     "w-full flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-md text-sm text-start transition-colors",
                     active
                       ? "bg-canvas text-ink font-bold cursor-default"
-                      : isDisabledForCancelled
+                      : isDisabledForTerminal
                         ? "text-ink-3 cursor-not-allowed opacity-40"
                         : "text-ink-2 hover:bg-canvas",
                   )}

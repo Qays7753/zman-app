@@ -64,6 +64,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   const [isReversing, setIsReversing] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [cancelOptionsOpen, setCancelOptionsOpen] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const [showReverseConfirm, setShowReverseConfirm] = useState(false);
 
@@ -97,7 +98,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         orderId: orderData?.id ?? "",
       });
       if (response.status === "ok") {
-        toast.success("تم عكس البيع وإعادة الطلب إلى حالة «تحت التنفيذ»");
+        toast.success("تم عكس التسليم وإعادة الطلب إلى حالة «مؤكد»");
         onBack();
       } else {
         toast.error(response.message || "فشل عكس البيع");
@@ -474,7 +475,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               type="button"
               onClick={() => {
                 if (next.status === "cancelled") {
-                  setCancelConfirmOpen(true);
+                  setCancelOptionsOpen(true);
                 } else {
                   handleUpdateStatus(next.status);
                 }
@@ -517,7 +518,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             </Button>
           )}
 
-        {/* زر عكس البيع — يظهر فقط للطلبات المُسلَّمة */}
+        {/* زر عكس التسليم — يظهر فقط للطلبات المُسلَّمة */}
         {orderData.status === "delivered" && (
           <Button
             onClick={() => setShowReverseConfirm(true)}
@@ -526,7 +527,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             className="w-full py-3"
             icon={<ArrowLeft className="w-5 h-5" />}
           >
-            <span>عكس البيع (إعادة الطلب للتنفيذ)</span>
+              <span>عكس التسليم (إعادة الطلب للتنفيذ)</span>
           </Button>
         )}
       </div>
@@ -564,15 +565,15 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         </div>
       </ResponsiveModal>
 
-      {/* تأكيد عكس البيع — إعادة الطلب من "delivered" إلى "confirmed" */}
+      {/* تأكيد عكس التسليم — إعادة الطلب من "delivered" إلى "confirmed" */}
       <ResponsiveModal
         isOpen={showReverseConfirm}
         onClose={() => setShowReverseConfirm(false)}
-        title="تأكيد عكس البيع"
+        title="تأكيد عكس التسليم"
       >
         <div className="space-y-4 p-4 font-medium text-ink">
           <p className="text-sm text-ink-2 leading-relaxed">
-            هل أنت متأكد من عكس هذا البيع؟ سيتم:
+            هل أنت متأكد من عكس هذا التسليم؟ سيتم:
           </p>
           <ul className="text-xs text-ink-3 space-y-1 list-disc list-inside">
             <li>إعادة العربون المحوَّل إلى حركة عربون (deposit) نشطة.</li>
@@ -650,11 +651,65 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         </div>
       </ResponsiveModal>
 
+      {/* اختيار نوع الإلغاء قبل تنفيذ أي تغيير على حالة الطلب */}
+      <ResponsiveModal
+        isOpen={cancelOptionsOpen}
+        onClose={() => setCancelOptionsOpen(false)}
+        title="اختيار نوع الإلغاء"
+      >
+        <div className="space-y-3 p-4">
+          <p className="text-sm text-ink-2 leading-relaxed">
+            اختر ما يناسب وضع الطلب. الإلغاء المؤقت لا يرد الأموال، والإلغاء النهائي لا ينفذ رد أموال تلقائياً.
+          </p>
+          <Button
+            type="button"
+            variant="primary"
+            className="w-full min-h-[44px]"
+            onClick={() => {
+              setCancelOptionsOpen(false);
+              void handleUpdateStatus("confirmed");
+            }}
+            disabled={isUpdatingStatus || orderData.status === "confirmed"}
+          >
+            {orderData.status === "confirmed"
+              ? "الطلب مؤكد بالفعل"
+              : "إلغاء مؤقت — إبقاء الطلب «مؤكداً»"}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="w-full min-h-[44px]"
+            onClick={() => {
+              setCancelOptionsOpen(false);
+              setCancelConfirmOpen(true);
+            }}
+            disabled={isUpdatingStatus || orderData.depositCents > 0}
+          >
+            {orderData.depositCents > 0
+              ? "الإلغاء النهائي بعد تسوية العربون"
+              : "إلغاء نهائي — نقل الطلب إلى «ملغى»"}
+          </Button>
+          {orderData.depositCents > 0 && (
+            <p className="px-1 text-xs text-warn-deep leading-relaxed">
+              يوجد عربون مسجّل. نفّذ رد الأموال أو سوِّ العربون أولاً، ثم يمكنك إغلاق الطلب نهائياً.
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full min-h-[44px]"
+            onClick={() => setCancelOptionsOpen(false)}
+          >
+            متابعة العمل على الطلب
+          </Button>
+        </div>
+      </ResponsiveModal>
+
       <ConfirmDialog
         isOpen={cancelConfirmOpen}
-        title="تأكيد إلغاء الطلب"
-        message="هل أنت متأكد من إلغاء هذا الطلب؟ لا يمكن التراجع عن هذه العملية."
-        confirmLabel="نعم، إلغاء الطلب"
+        title="تأكيد الإلغاء النهائي"
+        message="سيُنقل الطلب إلى «ملغى» ويُغلق مسار التنفيذ. لا يسجل هذا الإجراء رد أموال؛ نفّذ رد الأموال بشكل منفصل عند الحاجة قبل الإلغاء النهائي."
+        confirmLabel="نعم، إلغاء نهائي"
         onConfirm={async () => {
           setCancelConfirmOpen(false);
           await handleUpdateStatus("cancelled");
