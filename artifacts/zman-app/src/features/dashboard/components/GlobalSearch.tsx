@@ -133,7 +133,7 @@ export function GlobalSearch() {
                   {results.catalog.map((c: { id: string; name: string; unit: string }) => (
                     <Link
                       key={c.id}
-                      href="/inventory"
+                      href={`/catalog?q=${encodeURIComponent(c.name)}`}
                       onClick={() => setIsOpen(false)}
                       className="flex items-center justify-between px-4 py-3 min-h-[44px] hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
                     >

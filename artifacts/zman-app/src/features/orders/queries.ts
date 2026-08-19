@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, ilike, isNull, or, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { order, orderComponent } from "./db";
 
@@ -26,7 +26,9 @@ export async function getOrders({
 }: GetOrdersFilters = {}) {
   const conditions: (SQL | undefined)[] = [isNull(order.deletedAt)];
 
-  if (status && status !== "all") {
+  if (status === "pending") {
+    conditions.push(inArray(order.status, ["sent", "confirmed"]));
+  } else if (status && status !== "all") {
     conditions.push(eq(order.status, status));
   }
 

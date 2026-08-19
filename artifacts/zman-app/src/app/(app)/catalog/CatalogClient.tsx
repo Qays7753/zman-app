@@ -2,6 +2,7 @@
 
 import { Plus, Trash2, PackageCheck, History, PackageMinus, AlertTriangle, MoreVertical, Pencil } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { toast } from "sonner";
 import { AppShellHeader } from "@/providers/app-shell-context";
@@ -46,8 +47,12 @@ interface FormValues {
 }
 
 export default function CatalogClient({ hideHeader = false }: { hideHeader?: boolean }) {
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const querySearch = searchParams.get("q") ?? "";
+  const [search, setSearch] = useState(querySearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(querySearch);
   const [editing, setEditing] = useState<CatalogComponent | null>(null);
   const [creating, setCreating] = useState(false);
   const [movementsFor, setMovementsFor] = useState<CatalogComponent | null>(null);
@@ -62,11 +67,20 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
   >(null);
 
   useEffect(() => {
+    if (querySearch !== search) setSearch(querySearch);
+  }, [querySearch, search]);
+
+  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
+      if (search === querySearch) return;
+      const params = new URLSearchParams(searchParams.toString());
+      if (search) params.set("q", search);
+      else params.delete("q");
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     }, 400);
     return () => clearTimeout(handler);
-  }, [search]);
+  }, [search, querySearch, searchParams, router, pathname]);
 
   // جلب المكونات وأرصدة المخزون دفعة واحدة (المرحلة 4 — حل مشكلة N+1)
   const { data: items = [], isLoading } = useCatalogComponents(debouncedSearch);

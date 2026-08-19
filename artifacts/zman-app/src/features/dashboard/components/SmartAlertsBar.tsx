@@ -36,7 +36,7 @@ export function SmartAlertsBar({
     <div className="flex flex-wrap gap-2" role="status" aria-label="تنبيهات النظام">
       {overdueOrdersCount > 0 && (
         <Link
-          href="/orders"
+          href="/orders?status=pending&sort=delivery"
           className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-alert/15 border border-alert/40 text-xs font-bold text-alert hover:bg-alert/25 active:scale-95 transition-all min-h-[44px]"
         >
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-alert" />
@@ -61,7 +61,7 @@ export function SmartAlertsBar({
 
       {lowStockCount > 0 && (
         <Link
-          href="/inventory"
+          href="/inventory?filter=low-stock"
           className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-alert-soft border border-alert/30 text-xs font-bold text-alert hover:bg-alert/15 active:scale-95 transition-all min-h-[44px]"
         >
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -75,7 +75,7 @@ export function SmartAlertsBar({
 
       {pendingOrdersCount > 0 && (
         <Link
-          href="/orders"
+          href="/orders?status=pending&sort=delivery"
           className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-canvas border border-hairline text-xs font-bold text-ink-2 hover:bg-paper active:scale-95 transition-all min-h-[44px]"
         >
           <Clock className="h-3.5 w-3.5 shrink-0" />
