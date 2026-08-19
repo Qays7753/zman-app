@@ -102,10 +102,14 @@ export default function FinanceClient() {
 
   // حالة مودال الكتالوج
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
-  const [catalogType, setCatalogType] = useState<"purchases" | "expenses">("purchases");
+  const [catalogType, setCatalogType] = useState<"purchases" | "expenses">(
+    "purchases",
+  );
 
   // مزامنة البحث مع URL
-  useEffect(() => { setSearchInput(currentQuery); }, [currentQuery]);
+  useEffect(() => {
+    setSearchInput(currentQuery);
+  }, [currentQuery]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -119,35 +123,39 @@ export default function FinanceClient() {
   }, [searchInput, currentQuery, pathname, router, searchParams]);
 
   /* ─── تبديل التبويبات وتنظيف المعاملات ─── */
-  const handleTabChange = useCallback((tabId: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", tabId);
-    params.delete("search");
-    params.delete("category");
-    params.delete("source");
-    params.delete("filter");
-    params.delete("type");
-    params.delete("nature");
-    params.delete("manageCatalog");
-    params.delete("newPayment");
-    params.delete("newPurchase");
-    params.delete("editPurchase");
-    params.delete("newExpense");
-    params.delete("editExpense");
-    params.delete("newSale");
-    params.delete("editSale");
-    params.delete("newAccount");
-    params.delete("newTransfer");
-    params.delete("newOwnerTx");
-    startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`);
-    });
-  }, [searchParams, pathname, router, startTransition]);
+  const handleTabChange = useCallback(
+    (tabId: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", tabId);
+      params.delete("search");
+      params.delete("category");
+      params.delete("source");
+      params.delete("filter");
+      params.delete("type");
+      params.delete("nature");
+      params.delete("manageCatalog");
+      params.delete("newPayment");
+      params.delete("newPurchase");
+      params.delete("editPurchase");
+      params.delete("newExpense");
+      params.delete("editExpense");
+      params.delete("newSale");
+      params.delete("editSale");
+      params.delete("newAccount");
+      params.delete("newTransfer");
+      params.delete("newOwnerTx");
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`);
+      });
+    },
+    [searchParams, pathname, router, startTransition],
+  );
 
   /* ─── حساب المتغيرات المشتقة للكتالوج ─── */
   const manageCatalogParam = searchParams.get("manageCatalog");
   const showCatalog = isCatalogOpen || !!manageCatalogParam;
-  const resolvedCatalogType = (manageCatalogParam as "purchases" | "expenses") || catalogType;
+  const resolvedCatalogType =
+    (manageCatalogParam as "purchases" | "expenses") || catalogType;
 
   const handleCloseCatalog = () => {
     setIsCatalogOpen(false);
@@ -158,7 +166,10 @@ export default function FinanceClient() {
     }
   };
 
-  const isActionableTab = activeTab === "payments" || activeTab === "sales" || activeTab === "accounts";
+  const isActionableTab =
+    activeTab === "payments" ||
+    activeTab === "sales" ||
+    activeTab === "accounts";
 
   /* ─── الإجراء الأساسي (+) ─── */
   const handleAdd = useCallback(() => {
@@ -197,18 +208,23 @@ export default function FinanceClient() {
                   >
                     <ArrowRight className="h-4 w-4 shrink-0 rtl:rotate-0" />
                   </HeaderIconButton>
-                  <span className="text-sm font-bold text-ink whitespace-nowrap">الحسابات والصناديق</span>
+                  <span className="text-sm font-bold text-ink whitespace-nowrap">
+                    الحسابات والصناديق
+                  </span>
                 </div>
               ) : (
                 <SegmentedControl
                   value={activeTab}
-                  onChange={(val) => handleTabChange(val as "payments" | "sales")}
+                  onChange={(val) =>
+                    handleTabChange(val as "payments" | "sales")
+                  }
                   options={TABS.map((tab) => ({
                     value: tab.id,
                     label: tab.label,
                     icon: <tab.icon className="h-4 w-4" />,
                   }))}
                   compact
+                  scrollable={false}
                 />
               )
             }

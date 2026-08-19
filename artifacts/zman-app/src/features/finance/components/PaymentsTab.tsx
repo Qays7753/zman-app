@@ -3,7 +3,16 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Boxes, Loader2, MoreVertical, Pencil, Trash2, History } from "lucide-react";
+import {
+  Boxes,
+  Check,
+  Filter,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  History,
+} from "lucide-react";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -60,9 +69,15 @@ export function PaymentsTab() {
   const editPurchaseId = searchParams.get("editPurchase");
 
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
-  const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<string | null>(null);
-  const [actionSheetItem, setActionSheetItem] = useState<PaymentItem | null>(null);
-  const [receivablePaymentModalItem, setReceivablePaymentModalItem] = useState<PaymentItem | null>(null);
+  const [stopDepreciationAssetId, setStopDepreciationAssetId] = useState<
+    string | null
+  >(null);
+  const [actionSheetItem, setActionSheetItem] = useState<PaymentItem | null>(
+    null,
+  );
+  const [receivablePaymentModalItem, setReceivablePaymentModalItem] =
+    useState<PaymentItem | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const deleteExpenseMutation = useDeleteExpense();
   const deletePurchaseMutation = useDeletePurchase();
@@ -78,7 +93,8 @@ export function PaymentsTab() {
   const { data: filterCategories = [] } = useExpenseFilterCategories();
 
   // استعلام المدفوعات الموحَّدة اللانهائي
-  const queryCategory = category === "الكل" || category === "all" ? undefined : category;
+  const queryCategory =
+    category === "الكل" || category === "all" ? undefined : category;
   const {
     data,
     isLoading,
@@ -120,13 +136,16 @@ export function PaymentsTab() {
     startTransition(() => {
       router.replace(`${pathname}?${next.toString()}`);
     });
+    setIsFilterOpen(false);
   };
 
   // حذف مع تراجع
   const handleDeleteWithUndo = (item: PaymentItem) => {
     const idToDelete = item.id;
     const updatedAt =
-      item.updatedAt instanceof Date ? item.updatedAt.toISOString() : String(item.updatedAt || "");
+      item.updatedAt instanceof Date
+        ? item.updatedAt.toISOString()
+        : String(item.updatedAt || "");
 
     if (item.kind === "expense") {
       updateUrl({ editExpense: null });
@@ -150,10 +169,19 @@ export function PaymentsTab() {
           : "سيُحذف الدَّين وسجل سداده — لا تغلق الصفحة",
       onCommit: async () => {
         const res = isExpense
-          ? await deleteExpenseMutation.mutateAsync({ id: idToDelete, updatedAt })
+          ? await deleteExpenseMutation.mutateAsync({
+              id: idToDelete,
+              updatedAt,
+            })
           : isPurchase
-            ? await deletePurchaseMutation.mutateAsync({ id: idToDelete, updatedAt })
-            : await deleteReceivableMutation.mutateAsync({ id: idToDelete, updatedAt });
+            ? await deletePurchaseMutation.mutateAsync({
+                id: idToDelete,
+                updatedAt,
+              })
+            : await deleteReceivableMutation.mutateAsync({
+                id: idToDelete,
+                updatedAt,
+              });
         if (res.status !== "ok") {
           throw new Error(res.message ?? "فشل الحذف");
         }
@@ -181,7 +209,9 @@ export function PaymentsTab() {
   // تأكيد إيقاف الإهلاك
   const handleConfirmStopDepreciation = async () => {
     if (!stopDepreciationAssetId) return;
-    const res = await deleteCapitalAssetMutation.mutateAsync(stopDepreciationAssetId);
+    const res = await deleteCapitalAssetMutation.mutateAsync(
+      stopDepreciationAssetId,
+    );
     if (res.status === "ok") {
       toast.success("تم إيقاف الإهلاك. لن يُخصَم من الربح التشغيلي مستقبلاً.");
       setStopDepreciationAssetId(null);
@@ -192,66 +222,140 @@ export function PaymentsTab() {
   };
 
   const defaultNewMode = newPurchase ? "purchase" : "expense";
+  const activeFilterLabel =
+    FILTER_CHIPS.find((chip) => chip.id === filter)?.label ?? "الكل";
+  const hasActiveFilter =
+    filter !== "all" || category !== "all" || Boolean(natureFilter);
 
   return (
     <div className="space-y-4 flex-1 flex flex-col pb-36">
-      {/* شريط رقاقات الفلترة السريعة (Chips) — سطر 1 دائم بدون سكرول أفقي */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {FILTER_CHIPS.map((chip) => {
-            const isActive = filter === chip.id;
-            return (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => handleChipChange(chip.id)}
-                className={cn(
-                  "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
-                  isActive
-                    ? "bg-paper text-brand border-brand/20 shadow-sm"
-                    : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
-                )}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* فلتر موحّد — يمنع انقسام الشرائح بين سطرين ويجمع التصنيف والفئة في مكان واحد */}
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setIsFilterOpen(true)}
+          aria-expanded={isFilterOpen}
+          className={cn(
+            "min-h-[44px] flex-1 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start transition-colors",
+            hasActiveFilter
+              ? "border-brand/30 bg-brand-soft/50 text-brand-deep"
+              : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Filter className="h-4 w-4 shrink-0 text-brand" />
+            <span className="truncate">{activeFilterLabel}</span>
+            {filter === "expense" && category !== "all" && (
+              <span className="truncate text-xs font-medium text-ink-2">
+                · {category}
+              </span>
+            )}
+          </span>
+          <span className="shrink-0 text-xs text-ink-3">تصفية</span>
+        </button>
 
-        {/* سطر 2: أدوات إضافية تظهر عند تفعيل فلتر المصاريف فقط (بعرض كامل وأهداف لمس 44px) */}
-        {filter === "expense" && (
-          <div className="flex items-center gap-2 w-full pt-0.5 animate-fade-in">
-            <select
-              value={category}
-              onChange={(e) =>
-                updateUrl({
-                  category: e.target.value === "all" || e.target.value === "الكل" ? null : e.target.value,
-                })
-              }
-              className="flex-1 min-w-0 text-xs h-11 min-h-[44px] rounded-lg border border-hairline bg-paper px-3 text-ink focus:outline-none focus:ring-1 focus:ring-info font-medium"
-              aria-label="تصفية حسب فئة المصروف"
-            >
-              <option value="all">كل الفئات</option>
-              {filterCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => updateUrl({ manageCatalog: "expenses" })}
-              icon={<Boxes className="w-4 h-4" />}
-              className="text-xs shrink-0 min-h-[44px] h-11 px-3"
-            >
-              إدارة الفئات
-            </Button>
-          </div>
+        {hasActiveFilter && (
+          <button
+            type="button"
+            onClick={() =>
+              updateUrl({ filter: null, category: null, nature: null })
+            }
+            className="min-h-[44px] shrink-0 rounded-lg px-3 text-xs font-bold text-ink-2 hover:bg-canvas"
+          >
+            مسح
+          </button>
         )}
       </div>
+
+      <ResponsiveModal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        title="تصفية المدفوعات"
+      >
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-ink-2">نوع الحركة</p>
+            <div className="grid grid-cols-2 gap-2">
+              {FILTER_CHIPS.map((chip) => {
+                const isActive = filter === chip.id;
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => handleChipChange(chip.id)}
+                    className={cn(
+                      "min-h-[44px] flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start",
+                      isActive
+                        ? "border-brand bg-brand-soft text-brand-deep"
+                        : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
+                    )}
+                  >
+                    <span>{chip.label}</span>
+                    {isActive && (
+                      <Check className="h-4 w-4 shrink-0 text-brand" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {filter === "expense" && (
+            <div className="space-y-2 border-t border-hairline pt-4">
+              <label
+                className="text-xs font-bold text-ink-2"
+                htmlFor="expense-category-filter"
+              >
+                فئة المصروف
+              </label>
+              <select
+                id="expense-category-filter"
+                value={category}
+                onChange={(e) =>
+                  updateUrl({
+                    category:
+                      e.target.value === "all" || e.target.value === "الكل"
+                        ? null
+                        : e.target.value,
+                  })
+                }
+                className="w-full h-11 min-h-[44px] rounded-lg border border-hairline bg-paper px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand font-medium"
+              >
+                <option value="all">كل الفئات</option>
+                {filterCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setIsFilterOpen(false);
+                  updateUrl({ manageCatalog: "expenses" });
+                }}
+                icon={<Boxes className="w-4 h-4" />}
+                className="w-full min-h-[44px] h-11 text-sm"
+              >
+                إدارة فئات المصروفات
+              </Button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              updateUrl({ filter: null, category: null, nature: null });
+              setIsFilterOpen(false);
+            }}
+            className="w-full min-h-[44px] rounded-lg border border-hairline px-3 text-sm font-bold text-ink-2 hover:bg-canvas"
+          >
+            عرض كل المدفوعات
+          </button>
+        </div>
+      </ResponsiveModal>
 
       {isLoading ? (
         <SkeletonList count={4} />
@@ -297,13 +401,19 @@ export function PaymentsTab() {
             {/* مفتاح الشارات (legend) مع InfoTooltip */}
             <div className="flex items-center gap-2 text-[10px] flex-wrap">
               <span className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 bg-warn-soft text-warn-deep rounded-full font-bold">رأس مال</span>
+                <span className="px-1.5 py-0.5 bg-warn-soft text-warn-deep rounded-full font-bold">
+                  رأس مال
+                </span>
               </span>
               <span className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 bg-info-soft text-info rounded-full font-bold">ثابتة</span>
+                <span className="px-1.5 py-0.5 bg-info-soft text-info rounded-full font-bold">
+                  ثابتة
+                </span>
               </span>
               <span className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 bg-canvas text-ink-3 rounded-full font-bold">متغيّرة</span>
+                <span className="px-1.5 py-0.5 bg-canvas text-ink-3 rounded-full font-bold">
+                  متغيّرة
+                </span>
               </span>
               <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: مصروف شهري ثابت تقريباً (إيجار، راتب). «متغيّرة»: مصروف يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
             </div>
@@ -330,7 +440,9 @@ export function PaymentsTab() {
                     isWriteoff
                       ? "bg-canvas/50 border-hairline/60 cursor-default opacity-85"
                       : "border-hairline hover:border-ink/20",
-                    hiddenIds.has(item.id) ? "opacity-50 pointer-events-none" : ""
+                    hiddenIds.has(item.id)
+                      ? "opacity-50 pointer-events-none"
+                      : "",
                   )}
                 >
                   {/* السطر الأول: العنوان والمبلغ وأيقونة الإجراءات */}
@@ -339,12 +451,15 @@ export function PaymentsTab() {
                       <span
                         className={cn(
                           "font-bold text-base truncate",
-                          isWriteoff ? "text-ink-2" : "text-ink"
+                          isWriteoff ? "text-ink-2" : "text-ink",
                         )}
                       >
                         {item.kind === "receivable"
                           ? `🤝 ${item.personName || item.title || "دَين لشخص"}`
-                          : item.title || (item.kind === "expense" ? "مصروف عام" : "شراء مواد")}
+                          : item.title ||
+                            (item.kind === "expense"
+                              ? "مصروف عام"
+                              : "شراء مواد")}
                       </span>
 
                       {/* شارة نوع الحركة — توضح معنى الرقم قبل تصنيف المصروف */}
@@ -416,7 +531,9 @@ export function PaymentsTab() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setStopDepreciationAssetId(item.activeCapitalAssetId!);
+                            setStopDepreciationAssetId(
+                              item.activeCapitalAssetId!,
+                            );
                           }}
                           className="min-h-[44px] min-w-[44px] inline-flex items-center px-3 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors shrink-0"
                           title="إيقاف الإهلاك — لن يُخصَم من الربح التشغيلي مستقبلاً"
@@ -429,7 +546,7 @@ export function PaymentsTab() {
                     <span
                       className={cn(
                         "font-bold text-base flex-shrink-0 tabular-nums",
-                        isWriteoff ? "text-ink-2" : "text-ink"
+                        isWriteoff ? "text-ink-2" : "text-ink",
                       )}
                     >
                       <AmountText amount={item.amountCents} />
@@ -467,15 +584,18 @@ export function PaymentsTab() {
                                 "font-mono font-bold",
                                 (item.remainingCents ?? item.amountCents) > 0
                                   ? "text-alert"
-                                  : "text-emerald-deep"
+                                  : "text-emerald-deep",
                               )}
                             >
-                              <AmountText amount={item.remainingCents ?? item.amountCents} />
+                              <AmountText
+                                amount={item.remainingCents ?? item.amountCents}
+                              />
                             </span>
                           </span>
                           {(item.paidAmountCents ?? 0) > 0 && (
                             <span className="text-ink/50 text-[11px]">
-                              (سُدِّد: <AmountText amount={item.paidAmountCents ?? 0} />)
+                              (سُدِّد:{" "}
+                              <AmountText amount={item.paidAmountCents ?? 0} />)
                             </span>
                           )}
                         </div>
@@ -484,16 +604,21 @@ export function PaymentsTab() {
 
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[10px] text-ink/45 truncate max-w-[160px]">
-                          {item.accountName ? `من: ${item.accountName}` : ""}{item.notes ? ` · ${item.notes}` : ""}
+                          {item.accountName ? `من: ${item.accountName}` : ""}
+                          {item.notes ? ` · ${item.notes}` : ""}
                         </span>
                         <Button
                           type="button"
                           size="sm"
-                          variant={item.debtStatus === "paid" ? "secondary" : "ink"}
+                          variant={
+                            item.debtStatus === "paid" ? "secondary" : "ink"
+                          }
                           onClick={() => setReceivablePaymentModalItem(item)}
                           className="text-xs min-h-[44px] py-2 px-3 shrink-0"
                         >
-                          {item.debtStatus === "paid" ? "سجل السداد" : "تسجيل سداد (+)"}
+                          {item.debtStatus === "paid"
+                            ? "سجل السداد"
+                            : "تسجيل سداد (+)"}
                         </Button>
                       </div>
                     </div>
@@ -506,7 +631,9 @@ export function PaymentsTab() {
                           </span>
                         )}
                         {item.isCapitalAsset && (
-                          <span className="text-[10px] text-ink-3">مصروف أصل</span>
+                          <span className="text-[10px] text-ink-3">
+                            مصروف أصل
+                          </span>
                         )}
                       </div>
                       <DateText date={item.date} relative />
@@ -525,7 +652,9 @@ export function PaymentsTab() {
                       <div className="flex justify-between items-center pt-1.5 border-t border-hairline text-[10px] text-ink-3">
                         <DateText date={item.date} relative />
                         {item.notes && (
-                          <span className="truncate max-w-[180px]">{item.notes}</span>
+                          <span className="truncate max-w-[180px]">
+                            {item.notes}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -572,7 +701,9 @@ export function PaymentsTab() {
         title="تعديل بيانات المصروف"
       >
         {isLoadingActiveExpense ? (
-          <div className="p-4 text-center text-sm text-ink-3">جاري التحميل...</div>
+          <div className="p-4 text-center text-sm text-ink-3">
+            جاري التحميل...
+          </div>
         ) : activeExpense?.isInventoryWriteoff ? (
           <div className="p-4 space-y-3 text-sm text-ink-2 leading-relaxed">
             <p className="font-bold text-ink">هذا مصروف تلقائي</p>
@@ -598,13 +729,16 @@ export function PaymentsTab() {
                       id: activeExpense.id,
                       updatedAt: activeExpense.updatedAt,
                       type: activeExpense.isCapitalAsset ? "asset" : "expense",
-                      date: new Date(activeExpense.date).toLocaleDateString("en-CA"),
+                      date: new Date(activeExpense.date).toLocaleDateString(
+                        "en-CA",
+                      ),
                       amountCents: activeExpense.amountCents,
                       description: activeExpense.description ?? "",
                       category: activeExpense.category,
                       isCapitalAsset: activeExpense.isCapitalAsset ?? false,
                       costNature:
-                        (activeExpense.costNature as "variable" | "fixed" | null) ?? null,
+                        (activeExpense.costNature as
+                          "variable" | "fixed" | null) ?? null,
                     }
                   : undefined
               }
@@ -630,7 +764,8 @@ export function PaymentsTab() {
                   notes: null,
                   isCapitalAsset: activeExpense.isCapitalAsset ?? false,
                   costNature: activeExpense.costNature,
-                  isInventoryWriteoff: activeExpense.isInventoryWriteoff ?? false,
+                  isInventoryWriteoff:
+                    activeExpense.isInventoryWriteoff ?? false,
                   activeCapitalAssetId: null,
                   createdAt: new Date(activeExpense.createdAt),
                   updatedAt: new Date(activeExpense.updatedAt),
@@ -653,7 +788,9 @@ export function PaymentsTab() {
         title="تعديل بيانات المشتريات"
       >
         {isLoadingActivePurchase ? (
-          <div className="p-4 text-center text-sm text-ink-3">جاري التحميل...</div>
+          <div className="p-4 text-center text-sm text-ink-3">
+            جاري التحميل...
+          </div>
         ) : (
           <div className="space-y-3">
             <SmartFinanceForm
@@ -662,19 +799,25 @@ export function PaymentsTab() {
                   ? {
                       id: activePurchase.id,
                       updatedAt: activePurchase.updatedAt,
-                      type: activePurchase.isCapitalAsset ? "asset" : "purchase",
-                      date: new Date(activePurchase.date).toLocaleDateString("en-CA"),
+                      type: activePurchase.isCapitalAsset
+                        ? "asset"
+                        : "purchase",
+                      date: new Date(activePurchase.date).toLocaleDateString(
+                        "en-CA",
+                      ),
                       amountCents: activePurchase.totalCents,
                       description: activePurchase.notes ?? "",
                       category: activePurchase.item,
                       isCapitalAsset: activePurchase.isCapitalAsset ?? false,
                       costNature:
-                        (activePurchase.costNature as "variable" | "fixed" | null) ?? null,
+                        (activePurchase.costNature as
+                          "variable" | "fixed" | null) ?? null,
                       itemName: activePurchase.item,
                       supplier: activePurchase.supplier,
                       quantity: activePurchase.quantity,
                       notes: activePurchase.notes ?? "",
-                      linkedCatalogComponentId: activePurchase.linkedCatalogComponentId ?? null,
+                      linkedCatalogComponentId:
+                        activePurchase.linkedCatalogComponentId ?? null,
                     }
                   : undefined
               }
