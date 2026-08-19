@@ -91,10 +91,10 @@ export function InventoryScreen() {
                 type="button"
                 onClick={() => setSort(opt.key)}
                 className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium transition-colors border",
+                  "min-h-[44px] px-3 rounded-full text-xs font-medium transition-colors border",
                   sort === opt.key
-                    ? "bg-info text-white border-info"
-                    : "bg-paper text-ink-2 border-hairline hover:border-info/40",
+                    ? "bg-brand text-paper border-brand"
+                    : "bg-paper text-ink-2 border-hairline hover:border-brand/40",
                 )}
               >
                 {opt.label}
@@ -194,7 +194,7 @@ export function InventoryScreen() {
             }}
             className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-[60px] text-start"
           >
-            <Plus className="w-5 h-5 text-info shrink-0" />
+            <Plus className="w-5 h-5 text-brand shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-ink">إضافة صنف مُتابَع</p>
               <p className="text-xs text-ink-3">إنشاء صنف جديد في الكتالوج وتفعيل تتبّع المخزون</p>
@@ -208,7 +208,7 @@ export function InventoryScreen() {
             }}
             className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-[60px] text-start"
           >
-            <PackageMinus className="w-5 h-5 text-info shrink-0" />
+            <PackageMinus className="w-5 h-5 text-brand shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-ink">تعديل سريع للمخزون</p>
               <p className="text-xs text-ink-3">صرف أو إضافة يدوية لصنف متتبَّع موجود</p>
