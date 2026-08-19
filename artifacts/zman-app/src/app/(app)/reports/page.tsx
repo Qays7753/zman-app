@@ -32,7 +32,7 @@ import {
 } from "@/features/reports/actions";
 import { IntegrityCheckReportPanel } from "@/features/reports/components/IntegrityCheckReportPanel";
 
-const DONUT_COLORS = ["#1565c0", "#0f9d58", "#9f7300", "#c0392b"];
+const DONUT_COLORS = ["#2E7D32", "#4CAF50", "#F9A825", "#C0392B"];
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -66,7 +66,7 @@ function DownloadBtn({
       title={`تحميل تقرير ${title}`}
       className="flex-shrink-0"
     >
-      <span className="hidden sm:inline">تحميل</span>
+      <span>تحميل</span>
     </Button>
   );
 }
@@ -243,7 +243,7 @@ export default function ReportsPage() {
                 type="date"
                 value={asOfDate}
                 onChange={(e) => setAsOfDate(e.target.value)}
-                className="h-10 px-3 bg-canvas border border-hairline rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ink"
+                className="h-10 px-3 bg-canvas border border-hairline rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
           )}
@@ -285,7 +285,7 @@ export default function ReportsPage() {
               {activeReportTab === "pnl" && (
                 /* ===== ١ — ملخص الأرباح والخسائر ===== */
                 <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
-                  <div className="p-3 bg-info-soft border border-info/10 rounded-lg text-xs font-semibold text-info flex items-center gap-1.5 w-full">
+                  <div className="p-3 bg-brand-soft border border-brand/10 rounded-lg text-xs font-semibold text-brand flex items-center gap-1.5 w-full">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     <span>أساس نقدي: يتم احتساب الإيرادات والمصاريف بناءً على المقبوضات والمدفوعات النقدية الفعلية فقط.</span>
                   </div>
@@ -294,7 +294,7 @@ export default function ReportsPage() {
                     <SectionTitle>
                       <span className="flex items-center gap-2">
                         {isProfit ? (
-                          <TrendingUp className="h-4 w-4 text-info" />
+                          <TrendingUp className="h-4 w-4 text-brand" />
                         ) : (
                           <TrendingDown className="h-4 w-4 text-alert" />
                         )}
@@ -305,9 +305,9 @@ export default function ReportsPage() {
                   </div>
 
                   {/* بطاقة صافي الربح */}
-                  <div className={`p-5 rounded-lg border ${isProfit ? "border-info/30 bg-info-soft" : "border-alert/30 bg-alert-soft"}`}>
+                  <div className={`p-5 rounded-lg border ${isProfit ? "border-brand/30 bg-brand-soft" : "border-alert/30 bg-alert-soft"}`}>
                     <p className="text-xs font-bold text-ink/60 mb-1.5">صافي الأرباح / الخسائر الإجمالية</p>
-                    <p className={`text-3xl font-bold flex items-baseline gap-1 ${isProfit ? "text-info" : "text-alert"}`}>
+                    <p className={`text-3xl font-bold flex items-baseline gap-1 ${isProfit ? "text-brand" : "text-alert"}`}>
                       <span className="font-mono text-2xl">{isProfit ? "+" : "−"}</span>
                       <AmountText amount={Math.abs(net)} />
                     </p>
@@ -327,7 +327,7 @@ export default function ReportsPage() {
                       amount={data.pnl.salesCents}
                       sub="مجموع الإيرادات الواردة"
                       icon={ShoppingBag}
-                      colorClass="text-info"
+                      colorClass="text-brand"
                       sign="+"
                     />
                     <StatCard
@@ -435,7 +435,7 @@ export default function ReportsPage() {
                   <div className="flex items-center justify-between">
                     <SectionTitle>
                       <span className="flex items-center gap-2">
-                        <BarChart2 className="h-4 w-4 text-info" />
+                        <BarChart2 className="h-4 w-4 text-brand" />
                         مصادر المبيعات والإيرادات
                       </span>
                     </SectionTitle>
@@ -449,14 +449,14 @@ export default function ReportsPage() {
                       {data.salesBySource.map((src) => (
                         <div key={src.source} className="p-4 border border-hairline rounded-lg bg-canvas space-y-2">
                           <p className="text-xs font-bold text-ink/65">{src.label}</p>
-                          <p className="text-xl font-bold text-info">
+                          <p className="text-xl font-bold text-brand">
                             <AmountText amount={src.totalCents} />
                           </p>
                           <div className="flex items-center justify-between text-xs text-ink/45">
                             <span>{src.count} عملية</span>
                             <span>{src.pct.toFixed(1)}% من المبيعات</span>
                           </div>
-                          <ProgressBar pct={src.pct} colorClass="bg-info" />
+                          <ProgressBar pct={src.pct} colorClass="bg-brand" />
                         </div>
                       ))}
                     </div>
@@ -493,8 +493,8 @@ export default function ReportsPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <ProgressBar pct={row.pct} colorClass={
-                              row.status === "delivered" ? "bg-info" :
-                              row.status === "confirmed" ? "bg-info/80" :
+                              row.status === "delivered" ? "bg-brand" :
+                              row.status === "confirmed" ? "bg-brand/80" :
                               row.status === "sent" ? "bg-info/60" :
                               row.status === "draft" ? "bg-warn" : "bg-alert"
                             } />
@@ -563,7 +563,7 @@ export default function ReportsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline pb-4">
               <div>
                 <h3 className="text-base font-bold text-ink flex items-center gap-2">
-                  <BarChart2 className="h-5 w-5 text-info" />
+                  <BarChart2 className="h-5 w-5 text-brand" />
                   وضع المشروع المالي
                 </h3>
                 <p className="text-xs text-ink/50 mt-1">كم تملك وكم عليك في تاريخ محدد</p>
@@ -578,7 +578,7 @@ export default function ReportsPage() {
             
             {positionLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-info" />
+                <Loader2 className="h-8 w-8 animate-spin text-brand" />
               </div>
             ) : !positionData ? (
               <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
@@ -597,8 +597,8 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-medium">
                   {/* الأصول Assets */}
                   <div className="bg-canvas/40 p-4 rounded-lg border border-hairline space-y-4">
-                    <h4 className="text-sm font-bold text-info border-b border-hairline pb-2 flex items-center gap-1.5">
-                      <TrendingUp className="h-4.5 w-4.5 text-info" />
+                    <h4 className="text-sm font-bold text-brand border-b border-hairline pb-2 flex items-center gap-1.5">
+                      <TrendingUp className="h-4.5 w-4.5 text-brand" />
                       ما تملك (الأصول)
                     </h4>
                     <div className="space-y-3">
@@ -630,7 +630,7 @@ export default function ReportsPage() {
                           </span>
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-sm pt-2 border-t border-hairline font-bold text-info">
+                      <div className="flex items-center justify-between text-sm pt-2 border-t border-hairline font-bold text-brand">
                         <span>إجمالي الأصول</span>
                         <span className="font-mono">
                           <AmountText amount={positionData.assets.totalCents} />
@@ -682,7 +682,7 @@ export default function ReportsPage() {
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-ink/65 font-medium">إيداعات إضافية للمالك</span>
-                        <span className="font-mono font-bold text-info">
+                        <span className="font-mono font-bold text-brand">
                           +<AmountText amount={positionData.equity.injectionsCents} />
                         </span>
                       </div>
@@ -710,9 +710,9 @@ export default function ReportsPage() {
 
                 {/* تأكيد التوازن المحاسبي */}
                 {positionData.balanced ? (
-                  <div className="p-4 bg-info/10 border border-info/20 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-semibold text-info-dark">
+                  <div className="p-4 bg-brand/10 border border-brand/20 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-semibold text-brand-deep">
                     <span className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-info animate-pulse" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-brand" />
                       المعادلة متوازنة: ما تملك = ما عليك + صافي ملكيتك
                     </span>
                     <div className="flex flex-wrap gap-x-6 gap-y-1 font-mono">
@@ -745,7 +745,7 @@ export default function ReportsPage() {
                         <h5 className="font-bold text-ink border-b border-hairline pb-2 flex items-center justify-between">
                           <span>1. تسوية توازن الأرباح المدورة (رصيد الميزانية)</span>
                           {positionData.pnlReconciliationCents === 0 ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-info/10 text-info border border-info/20" title="فحص بنيوي (يلتقط أخطاء الصيغة فقط)">تطابق بنيوي ✓</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-brand/10 text-brand border border-brand/20" title="فحص بنيوي (يلتقط أخطاء الصيغة فقط)">تطابق بنيوي ✓</span>
                           ) : (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-alert/10 text-alert border border-alert/20">فرق محاسبي ⚠</span>
                           )}
@@ -760,7 +760,7 @@ export default function ReportsPage() {
                         </div>
                         <div className="flex justify-between border-t border-dashed border-hairline pt-2 font-bold">
                           <span>فرق المطابقة الداخلي:</span>
-                          <span className={positionData.pnlReconciliationCents === 0 ? "text-info font-mono" : "text-alert font-mono"}>
+                          <span className={positionData.pnlReconciliationCents === 0 ? "text-brand font-mono" : "text-alert font-mono"}>
                             <AmountText amount={positionData.pnlReconciliationCents} />
                           </span>
                         </div>
@@ -771,7 +771,7 @@ export default function ReportsPage() {
                         <h5 className="font-bold text-ink border-b border-hairline pb-2 flex items-center justify-between">
                           <span>2. تسوية تطابق الدفتر النقدي (Ledger) مع الجداول المصدرية</span>
                           {positionData.pnlSourceReconciliationCents === 0 ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-info/10 text-info border border-info/20">سليم ومطابق ✓</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-brand/10 text-brand border border-brand/20">سليم ومطابق ✓</span>
                           ) : (
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-alert/10 text-alert border border-alert/20">انحراف غير مطابق ⚠</span>
                           )}
@@ -786,7 +786,7 @@ export default function ReportsPage() {
                         </div>
                         <div className="flex justify-between border-t border-dashed border-hairline pt-2 font-bold">
                           <span>فرق تسوية الدفتر والمصدر (Drift):</span>
-                          <span className={positionData.pnlSourceReconciliationCents === 0 ? "text-info font-mono" : "text-alert font-mono"}>
+                          <span className={positionData.pnlSourceReconciliationCents === 0 ? "text-brand font-mono" : "text-alert font-mono"}>
                             <AmountText amount={positionData.pnlSourceReconciliationCents} />
                           </span>
                         </div>

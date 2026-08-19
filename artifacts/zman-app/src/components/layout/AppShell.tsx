@@ -160,10 +160,10 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       {/* هيدر الموبايل */}
       <header className="lg:hidden flex-shrink-0 w-full h-[58px] bg-paper/95 backdrop-blur-sm shadow-sm border-b border-hairline flex items-center justify-between gap-2 px-3 z-sticky">
         {title ? (
-          <h1 className="text-base font-bold text-ink truncate">{title}</h1>
+          <h1 className="min-w-0 max-w-[38%] shrink-0 text-base font-bold text-ink truncate">{title}</h1>
         ) : null}
         {action && (
-          <div className={cn("flex items-center", !title ? "flex-1 w-full" : "ms-3")}>
+          <div className={cn("flex items-center min-w-0", !title ? "flex-1 w-full" : "ms-3 flex-1 justify-end")}>
             {action}
           </div>
         )}
@@ -180,7 +180,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               <span />
             )}
             {action && (
-              <div className={cn("flex items-center", !title ? "flex-1 w-full" : "ms-3")}>
+              <div className={cn("flex items-center min-w-0", !title ? "flex-1 w-full" : "ms-3 flex-1 justify-end")}>
                 {action}
               </div>
             )}
