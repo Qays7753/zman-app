@@ -188,7 +188,7 @@ export function DashboardClient() {
             onClick={() => setIsSelectorOpen(true)}
             className="lg:hidden h-10 min-h-[44px] px-3 bg-canvas border border-hairline text-ink rounded-md flex items-center gap-1.5 text-xs font-semibold"
           >
-            <Calendar className="h-4 w-4 text-info flex-shrink-0" />
+            <Calendar className="h-4 w-4 text-brand flex-shrink-0" />
             <span className="max-w-[90px] truncate">
               {customRange ? "فترة مخصصة" : (presets[selectedPresetIdx]?.label ?? "")}
             </span>
@@ -318,7 +318,7 @@ export function DashboardClient() {
                 className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-info shrink-0" />
+                  <Clock className="h-4 w-4 text-brand shrink-0" />
                   <span className="font-bold text-ink">كل الحركات</span>
                 </span>
                 <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
@@ -328,7 +328,7 @@ export function DashboardClient() {
                 className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
               >
                 <span className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-info shrink-0" />
+                  <MessageSquare className="h-4 w-4 text-brand shrink-0" />
                   <span className="font-bold text-ink">الملاحظات</span>
                 </span>
                 <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
@@ -479,7 +479,7 @@ export function DashboardClient() {
             </div>
             <button
               type="submit"
-              className="w-full h-11 bg-info text-paper rounded-md text-sm font-bold shadow-sm hover:bg-info/90 active:scale-95 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2"
+              className="w-full h-11 bg-brand text-paper rounded-md text-sm font-bold shadow-sm hover:bg-brand/90 active:scale-95 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
             >
               تطبيق التواريخ المخصصة
             </button>
@@ -506,8 +506,8 @@ export function DashboardClient() {
             <div className="flex-1 h-px bg-hairline" />
           </div>
 
-          <QuickLink href="/orders?new=true" icon={<ClipboardList className="h-6 w-6 text-info" />} label="طلب جديد" onClick={() => setIsFabOpen(false)} />
-          <QuickLink href="/finance?tab=sales&newSale=true" icon={<ShoppingBag className="h-6 w-6 text-info" />} label="عملية بيع" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/orders?new=true" icon={<ClipboardList className="h-6 w-6 text-brand" />} label="طلب جديد" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/finance?tab=sales&newSale=true" icon={<ShoppingBag className="h-6 w-6 text-brand" />} label="عملية بيع" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=payments&newExpense=true" icon={<ArrowDownRight className="h-6 w-6 text-alert" />} label="مصروف جديد" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=payments&newPurchase=true" icon={<ShoppingCart className="h-6 w-6 text-alert" />} label="تسجيل مشتريات" onClick={() => setIsFabOpen(false)} />
 
@@ -517,8 +517,8 @@ export function DashboardClient() {
             <div className="flex-1 h-px bg-hairline" />
           </div>
 
-          <QuickLink href="/finance?tab=accounts&newAccount=true" icon={<Landmark className="h-6 w-6 text-info" />} label="حساب جديد" onClick={() => setIsFabOpen(false)} />
-          <QuickLink href="/finance?tab=accounts&newTransfer=true" icon={<ArrowLeftRight className="h-6 w-6 text-info" />} label="تحويل بيني" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/finance?tab=accounts&newAccount=true" icon={<Landmark className="h-6 w-6 text-brand" />} label="حساب جديد" onClick={() => setIsFabOpen(false)} />
+          <QuickLink href="/finance?tab=accounts&newTransfer=true" icon={<ArrowLeftRight className="h-6 w-6 text-brand" />} label="تحويل بيني" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/finance?tab=accounts&newOwnerTx=true" icon={<User className="h-6 w-6 text-alert" />} label="سحب / حقن مالك" onClick={() => setIsFabOpen(false)} />
           <QuickLink href="/settings/opening-balance" icon={<Settings className="h-6 w-6 text-warn-deep" />} label="أرصدة البداية" onClick={() => setIsFabOpen(false)} />
         </div>
@@ -553,12 +553,12 @@ function HealthCard({
       {/* الصف العلوي: نقد + ربح */}
       <div className="grid grid-cols-2 divide-x divide-x-reverse divide-hairline">
         {/* النقد المتاح */}
-        <div className="bg-gradient-to-br from-info-soft to-info/5 p-4">
+        <div className="bg-gradient-to-br from-brand-soft to-brand/5 p-4">
           <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1 whitespace-nowrap mb-1">
-            <Wallet className="h-3.5 w-3.5 text-info shrink-0" />
+            <Wallet className="h-3.5 w-3.5 text-brand shrink-0" />
             النقد المتاح
           </span>
-          <p className="text-xl font-black text-info leading-tight">
+          <p className="text-xl font-black text-brand leading-tight">
             <AmountText amount={asOfRealCashCents} hideCurrency />
           </p>
           <p className="text-[10px] text-ink/40 mt-1 leading-tight">
@@ -605,13 +605,13 @@ function HealthCard({
       {inventoryValueCents > 0 && (
         <Link
           href="/inventory"
-          className="bg-info/5 border-t border-info/10 px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-info/10 hover:underline transition-colors cursor-pointer"
+          className="bg-brand/5 border-t border-brand/10 px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-brand/10 hover:underline transition-colors cursor-pointer"
         >
           <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
-            <ShoppingBag className="h-3 w-3 text-info/70 shrink-0" />
+            <ShoppingBag className="h-3 w-3 text-brand/70 shrink-0" />
             قيمة مخزونك
           </span>
-          <span className="text-xs font-black text-info/80 font-mono whitespace-nowrap">
+          <span className="text-xs font-black text-brand/80 font-mono whitespace-nowrap">
             <AmountText amount={inventoryValueCents} hideCurrency />
           </span>
         </Link>

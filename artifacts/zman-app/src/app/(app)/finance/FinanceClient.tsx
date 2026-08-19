@@ -184,7 +184,7 @@ export default function FinanceClient() {
   return (
     <>
       <AppShellHeader
-        title=""
+        title="المالية"
         action={
           <PageToolbar
             leading={
@@ -230,7 +230,7 @@ export default function FinanceClient() {
         <div className="flex-1 flex flex-col">
           {!isReady ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-info" />
+              <Loader2 className="h-8 w-8 animate-spin text-brand" />
             </div>
           ) : (
             <>

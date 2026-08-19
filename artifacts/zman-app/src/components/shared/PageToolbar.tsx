@@ -107,7 +107,7 @@ export function PageToolbar({
               }
             }}
             placeholder={search.placeholder ?? "ابحث..."}
-            className="w-full h-11 min-h-[44px] ps-10 pe-4 rounded-lg border border-hairline-2 bg-paper text-sm text-ink focus:outline-none focus:ring-2 focus:ring-info"
+            className="w-full h-11 min-h-[44px] ps-10 pe-4 rounded-lg border border-hairline-2 bg-paper text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
           />
         </div>
         <HeaderIconButton
@@ -167,7 +167,7 @@ export function PageToolbar({
                             className={cn(
                               "flex items-center justify-between gap-2 min-h-[40px] px-2.5 rounded-md text-sm text-start transition-colors",
                               active
-                                ? "bg-info-soft text-info font-bold"
+                                ? "bg-brand-soft text-brand font-bold"
                                 : "text-ink-2 hover:bg-canvas",
                             )}
                           >

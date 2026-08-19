@@ -7,37 +7,47 @@
      ويبقى مخفياً. القيمة الابتدائية 100dvh كاحتياط قبل تشغيل JS. */
   --app-height: 100dvh;
 
-  /* Surfaces */
-  --color-canvas: #f6f4ee; /* خلفية الصفحة */
-  --color-paper: #ffffff; /* خلفية البطاقات */
+  /* Brand surfaces */
+  --color-canvas: #FAFAF5; /* Cream — خلفية الصفحات اليومية */
+  --color-paper: #FFFFFF; /* White — البطاقات والنوافذ */
+  --color-warm: #F5F0E8; /* Warm — الأسطح الثانوية */
+
+  /* Brand core */
+  --color-brand: #2E7D32; /* Forest — الأفعال الأساسية والحالة النشطة */
+  --color-brand-deep: #1B5E20; /* Deep Forest — المداخل والمناطق القوية */
+  --color-brand-succulent: #4CAF50;
+  --color-brand-leaf: #81C784;
+  --color-brand-gold: #FBC02D;
+  --color-brand-gold-deep: #F9A825;
+  --color-brand-soft: #E8F5E9;
 
   /* Borders */
-  --color-hairline: rgba(20, 18, 12, 0.08);
-  --color-hairline-2: rgba(20, 18, 12, 0.14);
+  --color-hairline: #E4EDD8;
+  --color-hairline-2: rgba(61, 90, 53, 0.20);
 
   /* Typography */
-  --color-ink: #1a1b17; /* أساسي */
-  --color-ink-2: #54534d; /* ثانوي */
-  --color-ink-3: #6b6b66; /* باهت */
+  --color-ink: #1A2E1A; /* أساسي */
+  --color-ink-2: #3D5A35; /* ثانوي */
+  --color-ink-3: #7A9B6F; /* باهت */
 
   /* Alert (Red) */
-  --color-alert: #c0392b;
-  --color-alert-soft: #fbe9e6;
-  --color-alert-deep: #8b2718;
+  --color-alert: #C0392B;
+  --color-alert-soft: #FBE9E6;
+  --color-alert-deep: #8B2718;
 
-  /* Warning (Amber) */
-  --color-warn: #9f7300;
-  --color-warn-soft: #fbf1d8;
-  --color-warn-deep: #7a5800;
+  /* Warning (Gold Deep) */
+  --color-warn: #F9A825;
+  --color-warn-soft: #FFF8E1;
+  --color-warn-deep: #9A6700;
 
-  /* Info (Blue) — وهو نفسه لون الـ primary */
-  --color-info: #1565c0;
-  --color-info-soft: #e8f0f8;
+  /* Info (Blue) — معلومات تقنية فقط، وليس لون العلامة */
+  --color-info: #1565C0;
+  --color-info-soft: #E8F0F8;
 
-  /* Emerald (Green) */
-  --color-emerald: #0f9d58;
-  --color-emerald-soft: #e6f4ea;
-  --color-emerald-deep: #0b6e3f;
+  /* Emerald (Brand-aligned success) */
+  --color-emerald: #2E7D32;
+  --color-emerald-soft: #E8F5E9;
+  --color-emerald-deep: #1B5E20;
 
   /* Z-Index Scale */
   --z-base: 0; /* default flow */
@@ -51,6 +61,14 @@
 @theme {
   --color-canvas: var(--color-canvas);
   --color-paper: var(--color-paper);
+  --color-warm: var(--color-warm);
+  --color-brand: var(--color-brand);
+  --color-brand-deep: var(--color-brand-deep);
+  --color-brand-succulent: var(--color-brand-succulent);
+  --color-brand-leaf: var(--color-brand-leaf);
+  --color-brand-gold: var(--color-brand-gold);
+  --color-brand-gold-deep: var(--color-brand-gold-deep);
+  --color-brand-soft: var(--color-brand-soft);
   --color-hairline: var(--color-hairline);
   --color-hairline-2: var(--color-hairline-2);
   --color-ink: var(--color-ink);
@@ -75,7 +93,9 @@
   --z-modal: 40;
   --z-toast: 50;
 
-  --font-sans: var(--font-cairo), system-ui, sans-serif;
+  --font-sans: var(--font-tajawal), system-ui, sans-serif;
+  --font-latin: var(--font-montserrat), system-ui, sans-serif;
+  --font-display: var(--font-cormorant), Georgia, serif;
 
   /* Animations & Transitions */
   --animate-shimmer: shimmer 2s infinite linear;
@@ -129,6 +149,19 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   line-height: 1.6;
+}
+
+.font-latin {
+  font-family: var(--font-latin);
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+::selection {
+  background: var(--color-brand-soft);
+  color: var(--color-brand-deep);
 }
 
 h1, h2, h3, h4, h5, h6 {

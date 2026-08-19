@@ -1,12 +1,13 @@
 "use client";
 
-import { Lock, ShieldCheck } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { loginAction } from "./actions";
 import { Button } from "@/components/shared/Button";
 import { TextField } from "@/components/shared/TextField";
 import { InstallFab } from "@/components/pwa/InstallFab";
+import { BrandMark } from "@/components/brand/BrandMark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,16 +42,15 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-dvh bg-canvas text-ink font-sans flex flex-col items-center justify-center p-6"
+      className="min-h-dvh bg-brand-deep text-paper font-sans flex flex-col items-center justify-center p-6"
       dir="rtl"
     >
-      <div className="max-w-md w-full bg-paper border border-hairline p-8 rounded-xl shadow-sm space-y-6">
-        <div className="flex flex-col items-center text-center space-y-2">
-          <div className="w-12 h-12 bg-info/10 rounded-full flex items-center justify-center text-info mb-1">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <h2 className="text-xl font-bold text-ink">Zman Greens JO</h2>
-          <p className="text-xs text-ink-2 leading-relaxed">
+      <div className="max-w-md w-full bg-paper border border-brand-soft p-6 sm:p-8 rounded-2xl shadow-2xl space-y-6">
+        <div className="flex flex-col items-center text-center space-y-3">
+          <BrandMark size="lg" />
+          <h2 className="font-display text-3xl font-semibold tracking-wide text-brand-deep">Zman Greens JO</h2>
+          <div className="h-px w-12 bg-brand-gold" aria-hidden="true" />
+          <p className="text-sm text-ink-2 leading-relaxed">
             الرجاء إدخال رمز الدخول للوصول إلى لوحة التحكم والبيانات المالية.
           </p>
         </div>
@@ -78,7 +78,7 @@ export default function LoginPage() {
         </form>
 
         <div className="text-center">
-          <p className="text-[10px] text-ink-2 leading-relaxed">
+          <p className="text-xs text-ink-2 leading-relaxed">
             المشروع مؤمن مؤقتاً لحماية سرية البيانات والعمليات التجارية.
           </p>
         </div>

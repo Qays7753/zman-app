@@ -124,9 +124,8 @@ export default function OrdersClient() {
 
   const isInSubView = isNew || !!editId || !!viewId;
 
-  // لا عنوان للعرض الرئيسي (القائمة/التقويم) — يوفّر مساحة للأزرار.
-  // نُبقيه فقط في الشاشات الفرعية كسياق (إنشاء/تعديل/تفاصيل).
-  let pageTitle = "";
+  // عنوان ثابت للصفحة الرئيسية؛ لا نضحي بسياق المستخدم لصالح أزرار أيقونية.
+  let pageTitle = "الطلبات";
   if (isNew) pageTitle = "إنشاء طلب جديد";
   else if (editId) pageTitle = "تعديل بيانات الطلب";
   else if (viewId) pageTitle = "تفاصيل الطلب";
@@ -171,7 +170,7 @@ export default function OrdersClient() {
           {
             key: "upcoming",
             label: "طلبات قرب تسليمها (7 أيام)",
-            icon: <CalendarDays className="w-5 h-5 text-info" />,
+            icon: <CalendarDays className="w-5 h-5 text-brand" />,
             onClick: () => {
               const params = new URLSearchParams(searchParams.toString());
               params.set("sort", "delivery");
@@ -183,7 +182,7 @@ export default function OrdersClient() {
           {
             key: "template",
             label: "قالب رسالة واتساب",
-            icon: <MessageSquare className="w-5 h-5 text-info" />,
+            icon: <MessageSquare className="w-5 h-5 text-brand" />,
             onClick: () => setIsTemplateOpen(true),
           },
         ]}

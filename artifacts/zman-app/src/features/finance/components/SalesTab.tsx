@@ -149,7 +149,7 @@ export function SalesTab() {
               className={cn(
                 "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
                 isActive
-                  ? "bg-paper text-info border-info/20 shadow-sm"
+                  ? "bg-brand-soft text-brand border-brand/20 shadow-sm"
                   : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
               )}
             >
@@ -212,7 +212,7 @@ export function SalesTab() {
                   }
                 }}
                 style={{ animationDelay: `${Math.min(idx, 4) * 60}ms` }}
-                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 cursor-pointer transition-colors animate-fade-slide-in"
+                className="p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2 hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 cursor-pointer transition-colors animate-fade-slide-in"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-ink text-base">
@@ -228,14 +228,14 @@ export function SalesTab() {
                 </div>
                  {item.source === "order" && (item as any).depositCents !== undefined && (item as any).depositCents !== null && (
                   <div className="text-xs text-ink/50 border-t border-hairline/60 pt-1.5 mt-0.5 flex justify-between items-center font-medium">
-                    <span>منها عربون مُحصَّل سابقاً: <span className="font-mono text-info font-bold"><AmountText amount={(item as any).depositCents} /></span></span>
-                    <span>المتبقي المُرحَّل: <span className="font-mono text-info font-bold"><AmountText amount={item.amountCents - (Number((item as any).depositCents) || 0)} /></span></span>
+                    <span>منها عربون مُحصَّل سابقاً: <span className="font-mono text-brand font-bold"><AmountText amount={(item as any).depositCents} /></span></span>
+                    <span>المتبقي المُرحَّل: <span className="font-mono text-brand font-bold"><AmountText amount={item.amountCents - (Number((item as any).depositCents) || 0)} /></span></span>
                   </div>
                 )}
                 <div className="flex justify-between items-center text-xs text-ink/60">
                   <span className="flex items-center gap-1">
                     {item.source === "order" ? (
-                      <span className="px-2 py-0.5 bg-info-soft text-info rounded text-[10px] font-bold">
+                      <span className="px-2 py-0.5 bg-brand-soft text-brand rounded text-[10px] font-bold">
                         طلب محوّل
                       </span>
                     ) : (
