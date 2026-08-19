@@ -85,9 +85,7 @@ export function PageToolbar({
   useClickOutside(filterRef, () => setFilterOpen(false), filterOpen);
   useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
-  const hasActiveFilter = filters?.some(
-    (g) => g.value !== g.options[0]?.value,
-  );
+  const hasActiveFilter = filters?.some((g) => g.value !== g.options[0]?.value);
 
   // وضع البحث المتوسّع: يأخذ كامل العرض ويخفي بقية الأزرار
   if (search && searchOpen) {
@@ -119,7 +117,9 @@ export function PageToolbar({
         >
           <X className="w-5 h-5" />
         </HeaderIconButton>
-        {trailing && <div className="flex items-center shrink-0">{trailing}</div>}
+        {trailing && (
+          <div className="flex items-center shrink-0">{trailing}</div>
+        )}
       </div>
     );
   }
@@ -127,9 +127,7 @@ export function PageToolbar({
   return (
     <div className="flex items-center flex-nowrap justify-between w-full gap-2">
       {/* يمين (start في RTL): زر الإضافة (الإجراء الأساسي) */}
-      <div className="flex items-center shrink-0">
-        {trailing}
-      </div>
+      <div className="flex items-center shrink-0">{trailing}</div>
 
       {/* الوسط: فلتر + بحث + تبديل العرض (مجموعة متماسكة تتمدد وتتوسط) */}
       <div className="flex items-center justify-center gap-2 flex-nowrap flex-1">
@@ -190,6 +188,7 @@ export function PageToolbar({
         {search && (
           <HeaderIconButton
             label="بحث"
+            tone="quiet"
             isActive={!!search.value}
             onClick={() => setSearchOpen(true)}
           >
@@ -209,6 +208,7 @@ export function PageToolbar({
           <div ref={menuRef} className="relative">
             <HeaderIconButton
               label="أدوات الصفحة"
+              tone="quiet"
               isActive={menuOpen}
               onClick={() => setMenuOpen((o) => !o)}
             >

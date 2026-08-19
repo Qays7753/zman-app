@@ -16,6 +16,8 @@ interface SegmentedControlProps<T = string> {
   className?: string;
   /** compact = الأزرار بعرض محتواها لا تتمدّد (للهيدر المزدحم) */
   compact?: boolean;
+  /** scrollable = يسمح بالتمرير فقط عندما تكون الخيارات أطول من المساحة المتاحة */
+  scrollable?: boolean;
 }
 
 export function SegmentedControl<T = string>({
@@ -24,12 +26,14 @@ export function SegmentedControl<T = string>({
   onChange,
   className,
   compact = false,
+  scrollable = true,
 }: SegmentedControlProps<T>) {
   return (
     <div
       className={cn(
-        "flex items-center rounded-lg border border-hairline bg-canvas p-1 gap-0.5 overflow-x-auto no-scrollbar whitespace-nowrap",
-        className
+        "flex items-center rounded-lg border border-hairline bg-canvas p-1 gap-0.5 max-w-full whitespace-nowrap",
+        scrollable ? "overflow-x-auto no-scrollbar" : "overflow-hidden w-full",
+        className,
       )}
     >
       {options.map((opt) => {
@@ -46,11 +50,13 @@ export function SegmentedControl<T = string>({
               // compact). All touch-surface buttons MUST be ≥ 44×44 px per
               // design-baseline.md.
               compact
-                ? "min-h-[44px] h-11 px-3.5 rounded-md"
+                ? scrollable
+                  ? "min-h-[44px] h-11 px-3.5 rounded-md"
+                  : "min-h-[44px] h-11 px-2 rounded-md flex-1 min-w-0"
                 : "min-h-[44px] h-11 px-3 rounded-md flex-none min-w-[88px]",
               isActive
                 ? "bg-brand text-paper shadow-sm"
-                : "text-ink-2 hover:text-ink hover:bg-paper/60"
+                : "text-ink-2 hover:text-ink hover:bg-paper/60",
             )}
           >
             {opt.icon && <span className="shrink-0">{opt.icon}</span>}
