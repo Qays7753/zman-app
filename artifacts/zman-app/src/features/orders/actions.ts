@@ -770,6 +770,32 @@ export async function updateOrderStatus(
         };
       }
 
+      // الإلغاء النهائي لا يقرر مصير العربون تلقائياً. إذا كان هناك عربون نشط،
+      // نوقف المسار هنا حتى يُنفَّذ رد الأموال أو تُسوّى الحركة في المسار المالي
+      // المنفصل (المرحلة التالية). حذف حركة العربون ضمن الإلغاء سيخفي نقداً فعلياً
+      // من الدفتر ويجعل قرار الاحتفاظ به أو رده غير قابل للتدقيق.
+      if (newStatus === "cancelled") {
+        const [activeDeposit] = await tx
+          .select({ id: cashMovement.id })
+          .from(cashMovement)
+          .where(
+            and(
+              eq(cashMovement.sourceType, "deposit"),
+              eq(cashMovement.sourceId, id),
+              isNull(cashMovement.deletedAt),
+            ),
+          )
+          .limit(1);
+
+        if (existing.depositCents > 0 || activeDeposit) {
+          return {
+            status: "error",
+            message:
+              "لا يمكن الإلغاء النهائي مع عربون مسجّل. نفّذ رد الأموال أو سوِّ العربون أولاً، ثم أعد الإلغاء النهائي.",
+          };
+        }
+      }
+
       // Task 5: منع مغادرة حالة "delivered" عبر updateOrderStatus الخام.
       // يجب استخدام reverseSale لعكس البيع بشكل مالي صحيح.
       if (existing.status === "delivered" && newStatus !== "delivered") {
