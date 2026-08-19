@@ -5,7 +5,6 @@ import {
   Calendar,
   Check,
   CheckCircle2,
-  ChevronDown,
   Clock,
   Edit,
   FileEdit,
@@ -21,12 +20,11 @@ import {
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AmountText } from "@/components/shared/AmountText";
 import { DateText } from "@/components/shared/DateText";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
-import { useClickOutside } from "@/components/shared/useClickOutside";
 import { cn, formatAmmanDate, getAmmanDate } from "@/lib/utils";
 import { formatDate } from "@/lib/dates";
 import { buildOrderWhatsAppLink, hasWhatsAppNumber } from "@/lib/whatsapp";
@@ -72,12 +70,9 @@ export function OrderCard({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [localStatus, setLocalStatus] = useState(order.status);
-  // قائمة الحالات الأخرى (⋯) + تأكيد خفيف للنقل
-  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  // الإجراءات الثانوية والتأكيدات تبقى داخل نافذة واحدة واضحة على الهاتف.
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
-  const statusMenuRef = useRef<HTMLDivElement>(null);
-  useClickOutside(statusMenuRef, () => setStatusMenuOpen(false), statusMenuOpen);
 
   // حساب المتبقي والعدّاد لتاريخ التسليم بالتوقيت المحلي لعمّان
   let countdownText = "—";
@@ -125,7 +120,6 @@ export function OrderCard({
     // مبيعات صفرية — فنحوّل هنا للمسار الصحيح.
     if (newStatus === "delivered") {
       setPendingStatus(null);
-      setStatusMenuOpen(false);
       await handleConvertToSale();
       return;
     }
@@ -134,7 +128,6 @@ export function OrderCard({
     setLocalStatus(newStatus);
     setIsUpdatingStatus(true);
     setPendingStatus(null);
-    setStatusMenuOpen(false);
     try {
       const res = await updateStatusMutation.mutateAsync({
         id: order.id,
@@ -195,13 +188,13 @@ export function OrderCard({
             onClick(order);
           }
         }}
-        className="rounded-xl bg-paper border border-hairline-2 shadow-sm hover:shadow-md hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col relative"
+        className="rounded-xl bg-paper border border-hairline-2 shadow-sm hover:shadow-md hover:border-ink/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col relative"
       >
         {/* الشريط العلوي: حالة الطلب الحالية — كامل العرض بلون الحالة */}
         <div
           className={cn(
             "flex items-center gap-2 px-4 h-9 text-sm font-bold rounded-t-xl",
-            STATUS_STRIP[localStatus] || "bg-info-soft text-info",
+            STATUS_STRIP[localStatus] || "bg-brand-soft text-brand",
           )}
         >
           {(() => {
@@ -290,7 +283,7 @@ export function OrderCard({
                 </span>
                 <span className="text-ink-3">·</span>
                 <span>متبقٍّ: </span>
-                <span className="font-semibold text-info">
+                <span className="font-semibold text-brand">
                   <AmountText amount={order.totalPriceCents + (order.additionalProfitCents || 0) - order.depositCents} />
                 </span>
               </div>
@@ -307,7 +300,7 @@ export function OrderCard({
 
           {/* السعر النهائي عريض باللون الدلالي الأساسي (§10.1) */}
           <div className="flex flex-col items-end gap-1">
-            <span className="text-lg font-bold text-info leading-none">
+            <span className="text-lg font-bold text-brand leading-none">
               <AmountText amount={order.totalPriceCents} />
             </span>
           </div>
@@ -352,7 +345,7 @@ export function OrderCard({
                 "flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:opacity-50",
                 nextStatus === "delivered"
                   ? "bg-emerald text-paper hover:bg-emerald/90"
-                  : "bg-info text-paper hover:bg-info/90",
+                  : "bg-brand text-paper hover:bg-brand-deep",
               )}
             >
               <ArrowLeft className="w-4 h-4" />
@@ -366,72 +359,7 @@ export function OrderCard({
             </div>
           )}
 
-          {/* زر تحويل إلى إيراد مستقل */}
-          {canConvertToSale && (
-            <button
-              type="button"
-              disabled={isConverting}
-              onClick={() => setShowConvertConfirm(true)}
-              className="px-3 min-h-[44px] rounded-lg border border-emerald text-emerald hover:bg-emerald-soft flex items-center justify-center gap-1.5 transition-all duration-150 active:scale-[0.97] disabled:opacity-50 font-bold text-sm shrink-0"
-              title="تحويل إلى مبيعات (تسجيل إيراد)"
-            >
-              <ShoppingCart className="w-4.5 h-4.5" />
-              <span className="hidden sm:inline">تسجيل إيراد</span>
-            </button>
-          )}
 
-          {/* قائمة الحالات الأخرى (⋯) */}
-          <div ref={statusMenuRef} className="relative shrink-0">
-            <button
-              type="button"
-              disabled={isUpdatingStatus}
-              onClick={() => setStatusMenuOpen((o) => !o)}
-              className="min-h-[44px] min-w-[44px] px-2 rounded-lg border border-hairline-2 bg-paper text-ink-2 hover:bg-canvas flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
-              aria-label="حالات أخرى"
-              title="تغيير لحالة أخرى"
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
-            {statusMenuOpen && (
-              <div className="absolute bottom-full mb-2 end-0 z-dropdown w-44 bg-paper rounded-lg border border-hairline-2 shadow-lg p-1.5 animate-fade-in">
-                {Object.entries(STATUS_LABELS).map(([val, lbl]) => {
-                  const active = val === localStatus;
-                  // للطلبات الملغاة: اعرض فقط الحالة الحالية (ملغى) كمعطّلة
-                  // لا توجد انتقالات أخرى مسموحة
-                  const isDisabledForCancelled = isCancelled && val !== "cancelled";
-                  return (
-                    <button
-                      key={val}
-                      type="button"
-                      disabled={active || isDisabledForCancelled}
-                      onClick={() => !isDisabledForCancelled && setPendingStatus(val)}
-                      className={cn(
-                        "w-full flex items-center gap-2 min-h-[40px] px-2.5 rounded-md text-sm text-start transition-colors",
-                        active
-                          ? "bg-canvas text-ink font-bold cursor-default"
-                          : isDisabledForCancelled
-                            ? "text-ink-3 cursor-not-allowed opacity-40"
-                            : "text-ink-2 hover:bg-canvas",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "w-2.5 h-2.5 rounded-full shrink-0",
-                          val === "draft" && "bg-warn",
-                          val === "sent" && "bg-info/70",
-                          val === "confirmed" && "bg-info",
-                          val === "delivered" && "bg-emerald",
-                          val === "cancelled" && "bg-alert",
-                        )}
-                      />
-                      <span className="flex-1">{lbl}</span>
-                      {active && <Check className="w-4 h-4 shrink-0 text-ink" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
         </div>
       </div>
@@ -473,7 +401,7 @@ export function OrderCard({
                     ? "bg-emerald hover:bg-emerald/90"
                     : pendingStatus === "cancelled"
                       ? "bg-alert hover:bg-alert/90"
-                      : "bg-info hover:bg-info/90",
+                      : "bg-brand hover:bg-brand-deep",
                 )}
               >
                 تأكيد
@@ -530,7 +458,7 @@ export function OrderCard({
               onClick={handleWhatsApp}
               className="w-full min-h-[44px] px-4 py-3 rounded-md hover:bg-canvas text-ink-2 flex items-center gap-3 transition-colors text-start"
             >
-              <MessageSquare className="w-5 h-5 text-info" />
+              <MessageSquare className="w-5 h-5 text-brand" />
               <span>إرسال تفاصيل العرض عبر واتساب</span>
             </button>
           )}
@@ -548,6 +476,63 @@ export function OrderCard({
             <Edit className="w-5 h-5" />
             <span>تعديل بيانات الطلب</span>
           </button>
+
+          {/* الإجراءات الحساسة تبقى داخل قائمة معنونة بدل وضعها بجانب الفعل الأساسي. */}
+          {canConvertToSale && (
+            <button
+              type="button"
+              disabled={isConverting}
+              onClick={() => {
+                setIsActionsOpen(false);
+                setShowConvertConfirm(true);
+              }}
+              className="w-full min-h-[44px] px-4 py-3 rounded-md hover:bg-brand-soft text-brand flex items-center gap-3 transition-colors text-start font-semibold disabled:opacity-50"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              <span>تسجيل إيراد</span>
+            </button>
+          )}
+
+          <div className="space-y-1 pt-1">
+            <p className="px-4 text-xs font-bold text-ink-3">تغيير الحالة</p>
+            {Object.entries(STATUS_LABELS).map(([val, lbl]) => {
+              const active = val === localStatus;
+              const isDisabledForCancelled = isCancelled && val !== "cancelled";
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  disabled={active || isDisabledForCancelled || isUpdatingStatus}
+                  onClick={() => {
+                    if (isDisabledForCancelled || active) return;
+                    setIsActionsOpen(false);
+                    setPendingStatus(val);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-md text-sm text-start transition-colors",
+                    active
+                      ? "bg-canvas text-ink font-bold cursor-default"
+                      : isDisabledForCancelled
+                        ? "text-ink-3 cursor-not-allowed opacity-40"
+                        : "text-ink-2 hover:bg-canvas",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "w-2.5 h-2.5 rounded-full shrink-0",
+                      val === "draft" && "bg-warn",
+                      val === "sent" && "bg-info/70",
+                      val === "confirmed" && "bg-brand",
+                      val === "delivered" && "bg-emerald",
+                      val === "cancelled" && "bg-alert",
+                    )}
+                  />
+                  <span className="flex-1">{lbl}</span>
+                  {active && <Check className="w-4 h-4 shrink-0 text-ink" />}
+                </button>
+              );
+            })}
+          </div>
 
           <hr className="border-hairline my-2" />
 
