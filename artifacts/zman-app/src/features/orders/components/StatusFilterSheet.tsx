@@ -10,6 +10,7 @@ import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 // لون النقطة/الشارة لكل حالة (متّسق مع STATUS_COLORS)
 const STATUS_DOT: Record<string, string> = {
   all: "bg-ink-3",
+  pending: "bg-info",
   draft: "bg-warn",
   sent: "bg-info/70",
   confirmed: "bg-info",
@@ -20,6 +21,7 @@ const STATUS_DOT: Record<string, string> = {
 // خلفية الصف النشط لكل حالة (لمسة لونية خفيفة)
 const STATUS_ACTIVE_BG: Record<string, string> = {
   all: "bg-canvas border-hairline-2",
+  pending: "bg-info-soft border-info/30",
   draft: "bg-warn-soft border-warn/30",
   sent: "bg-info-soft border-info/30",
   confirmed: "bg-info-soft border-info/40",
@@ -27,7 +29,7 @@ const STATUS_ACTIVE_BG: Record<string, string> = {
   cancelled: "bg-alert-soft border-alert/30",
 };
 
-const STATUS_ORDER = ["all", "draft", "sent", "confirmed", "delivered", "cancelled"];
+const STATUS_ORDER = ["all", "pending", "draft", "sent", "confirmed", "delivered", "cancelled"];
 
 const SORT_OPTIONS = [
   { value: "newest", label: "الأحدث" },
@@ -71,16 +73,23 @@ export function StatusFilterSheet({
     }
   }, [open]);
 
-  const totalActive = STATUS_ORDER.filter((s) => s !== "all").reduce(
-    (sum, s) => sum + (counts[s] ?? 0),
-    0,
-  );
+  const pendingCount = (counts.sent ?? 0) + (counts.confirmed ?? 0);
+  const totalActive =
+    pendingCount +
+    STATUS_ORDER.filter((s) => s !== "all" && s !== "pending").reduce(
+      (sum, s) => sum + (counts[s] ?? 0),
+      0,
+    );
   const isFiltering = value !== "all";
 
   const label = (status: string) =>
-    status === "all" ? "كل الحالات" : (STATUS_LABELS[status] ?? status);
+    status === "all"
+      ? "كل الحالات"
+      : status === "pending"
+        ? "المعلّقة (مرسل/مؤكد)"
+        : (STATUS_LABELS[status] ?? status);
   const count = (status: string) =>
-    status === "all" ? totalActive : (counts[status] ?? 0);
+    status === "all" ? totalActive : status === "pending" ? pendingCount : (counts[status] ?? 0);
 
   return (
     <>

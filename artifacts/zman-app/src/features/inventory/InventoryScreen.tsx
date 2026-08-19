@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, ArrowUpDown, Package, PackageMinus, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { SkeletonList } from "@/components/shared/SkeletonList";
@@ -26,6 +26,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 
 export function InventoryScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sort, setSort] = useState<SortKey>("alpha");
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isQuickAdjustOpen, setIsQuickAdjustOpen] = useState(false);
@@ -35,8 +36,10 @@ export function InventoryScreen() {
   const items = data?.items ?? [];
 
   const lowStockItems = items.filter((i) => i.lowStock);
+  const lowStockOnly = searchParams.get("filter") === "low-stock";
+  const visibleItems = lowStockOnly ? lowStockItems : items;
 
-  const sorted = [...items].sort((a, b) => {
+  const sorted = [...visibleItems].sort((a, b) => {
     if (sort === "alpha") return a.name.localeCompare(b.name, "ar");
     if (sort === "lowest") return a.balance - b.balance;
     if (sort === "highest") return b.bookValueCents - a.bookValueCents;
@@ -80,8 +83,21 @@ export function InventoryScreen() {
         </div>
       )}
 
+      {lowStockOnly && !isLoading && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-warn/30 bg-warn-soft px-4 py-3">
+          <p className="text-xs font-semibold text-warn-deep">عرض الأصناف منخفضة الرصيد فقط</p>
+          <button
+            type="button"
+            onClick={() => router.replace("/inventory")}
+            className="min-h-[44px] px-3 rounded-lg border border-warn/30 bg-paper text-xs font-bold text-warn-deep"
+          >
+            عرض الكل
+          </button>
+        </div>
+      )}
+
       {/* شريط الترتيب */}
-      {!isLoading && items.length > 1 && (
+      {!isLoading && visibleItems.length > 1 && (
         <div className="flex items-center gap-2 mb-4">
           <ArrowUpDown className="w-3.5 h-3.5 text-ink-3 flex-shrink-0" />
           <div className="flex gap-1.5 flex-wrap">
@@ -116,8 +132,8 @@ export function InventoryScreen() {
       {/* القائمة */}
       {!isLoading && !isError && sorted.length === 0 && (
         <EmptyState
-          title="لا يوجد مخزون متتبَّع حتى الآن"
-          description="تتبع كميات وقيم خامات الورشة لمنع النفاد واحتساب القيمة الدفترية."
+          title={lowStockOnly ? "لا توجد أصناف منخفضة الرصيد" : "لا يوجد مخزون متتبَّع حتى الآن"}
+          description={lowStockOnly ? "كل الأصناف المتتبَّعة ضمن الرصيد المتاح حالياً." : "تتبع كميات وقيم خامات الورشة لمنع النفاد واحتساب القيمة الدفترية."}
           steps={[
             "اذهب إلى شاشة الكتالوج الخاصة بالخامات",
             "اختر الصنف المراد تتبعه وفعّل خيار (تتبع المخزون)",
