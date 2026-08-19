@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, isNull, inArray } from "drizzle-orm";
+import { and, eq, isNull, inArray, sum } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
@@ -278,6 +278,34 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
         };
       }
 
+      // لا تسمح بتعديل العربون إلى أقل من مجموع ردوده السابقة. حركة الرد
+      // تبقى أثراً نقدياً مستقلاً، لذلك خفض الالتزام دون هذا الحارس يجعل
+      // المبلغ المردود أكبر من العربون المسجّل على الطلب.
+      const [refundsRow] = await tx
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, id),
+            eq(cashMovement.direction, "out"),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+      const refundedDepositCents = Number(refundsRow?.total) || 0;
+      if (refundedDepositCents > 0 && depositCents !== existing.depositCents) {
+        return {
+          status: "error",
+          message: "لا يمكن تعديل العربون بعد تسجيل رد أموال؛ نفّذ حركة مالية مستقلة بدلاً من تغيير التاريخ.",
+        };
+      }
+      if (depositCents < refundedDepositCents) {
+        return {
+          status: "error",
+          message: `لا يمكن خفض العربون تحت المبلغ المردود سابقاً (${(refundedDepositCents / 1000).toFixed(3)} د.أ)`,
+        };
+      }
+
       // 5. احتساب إجمالي التكلفة (§5.5). كمية المكوّن = تكرار في الوحدة،
       //    فتكلفة المكوّنات الكلية = Σ(تكلفة×تكرار) × كمية المنتج.
       const unitComponentsCostCents = components.reduce(
@@ -397,12 +425,13 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
             and(
               eq(cashMovement.sourceType, "deposit"),
               eq(cashMovement.sourceId, id),
+              eq(cashMovement.direction, "in"),
               isNull(cashMovement.deletedAt)
             )
           );
 
         const movDate = depositDate || receivedDate || getAmmanDate();
-        if (depositCents > 0) {
+        if (depositCents > 0 && refundedDepositCents === 0) {
           const defaultAccountId = await getOrCreateDefaultCashAccount(tx);
           if (existingDepositMov) {
             await tx
@@ -426,7 +455,7 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
               description: `عربون طلب - منتج: ${productName}`,
             });
           }
-        } else if (existingDepositMov) {
+        } else if (existingDepositMov && refundedDepositCents === 0) {
           await tx
             .update(cashMovement)
             .set({
@@ -617,6 +646,25 @@ export async function deleteOrder(
         };
       }
 
+      const [refundMovement] = await tx
+        .select({ id: cashMovement.id })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, id),
+            eq(cashMovement.direction, "out"),
+            isNull(cashMovement.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (refundMovement) {
+        return {
+          status: "error",
+          message: "لا يمكن حذف طلب لديه رد أموال مسجّل؛ احتفظ بسجله للمراجعة المالية.",
+        };
+      }
+
       // 4. إجراء الحذف اللطيف (تعيين deleted_at) (§5.1)
       const [deleted] = await tx
         .update(order)
@@ -776,22 +824,37 @@ export async function updateOrderStatus(
       // من الدفتر ويجعل قرار الاحتفاظ به أو رده غير قابل للتدقيق.
       if (newStatus === "cancelled") {
         const [activeDeposit] = await tx
-          .select({ id: cashMovement.id })
+          .select({ amountCents: cashMovement.amountCents })
           .from(cashMovement)
           .where(
             and(
               eq(cashMovement.sourceType, "deposit"),
               eq(cashMovement.sourceId, id),
+              eq(cashMovement.direction, "in"),
               isNull(cashMovement.deletedAt),
             ),
           )
           .limit(1);
+        const [refundsRow] = await tx
+          .select({ total: sum(cashMovement.amountCents) })
+          .from(cashMovement)
+          .where(
+            and(
+              eq(cashMovement.sourceType, "deposit"),
+              eq(cashMovement.sourceId, id),
+              eq(cashMovement.direction, "out"),
+              isNull(cashMovement.deletedAt),
+            ),
+          );
+        const refundedCents = Number(refundsRow?.total) || 0;
+        const unsettledDeposit =
+          activeDeposit && refundedCents < activeDeposit.amountCents;
 
-        if (existing.depositCents > 0 || activeDeposit) {
+        if (existing.depositCents > 0 || unsettledDeposit) {
           return {
             status: "error",
             message:
-              "لا يمكن الإلغاء النهائي مع عربون مسجّل. نفّذ رد الأموال أو سوِّ العربون أولاً، ثم أعد الإلغاء النهائي.",
+              "لا يمكن الإلغاء النهائي مع عربون غير مُسوّى. نفّذ رد الأموال أو سوِّ العربون أولاً، ثم أعد الإلغاء النهائي.",
           };
         }
       }
@@ -876,20 +939,37 @@ export async function updateOrderStatus(
             );
         }
 
-        // إرجاع كاش العربون أيضاً
-        await tx
-          .update(cashMovement)
-          .set({
-            deletedAt: new Date(),
-            updatedAt: new Date(),
-          })
+        // إذا تم رد العربون، تبقى حركة التحصيل الداخلة كسجل تاريخي ويُترك
+        // أثر الخروج المستقل. بدون ذلك سيصبح صافي الدفتر سالباً بعد الإلغاء.
+        const [refundMovement] = await tx
+          .select({ id: cashMovement.id })
+          .from(cashMovement)
           .where(
             and(
               eq(cashMovement.sourceType, "deposit"),
               eq(cashMovement.sourceId, id),
-              isNull(cashMovement.deletedAt)
-            )
-          );
+              eq(cashMovement.direction, "out"),
+              isNull(cashMovement.deletedAt),
+            ),
+          )
+          .limit(1);
+
+        if (!refundMovement) {
+          await tx
+            .update(cashMovement)
+            .set({
+              deletedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(cashMovement.sourceType, "deposit"),
+                eq(cashMovement.sourceId, id),
+                eq(cashMovement.direction, "in"),
+                isNull(cashMovement.deletedAt),
+              ),
+            );
+        }
       }
 
       revalidatePath("/orders");

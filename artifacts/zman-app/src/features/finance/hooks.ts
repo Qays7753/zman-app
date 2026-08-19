@@ -9,6 +9,7 @@ import {
 import {
   convertOrderToSale,
   reverseSale,
+  refundOrder,
   createExpense,
   createPurchase,
   createSale,
@@ -418,6 +419,29 @@ export function useReverseSale() {
           queryClient.invalidateQueries({ queryKey: ["finance"] }),
         ]);
         await queryClient.refetchQueries({ queryKey: ["orders"] });
+      }
+    },
+  });
+}
+
+export function useRefundOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ values, requestId }: { values: unknown; requestId?: string }) =>
+      refundOrder(values, requestId),
+    onSuccess: async (res, variables) => {
+      if (res.status === "ok") {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["orders"] }),
+          queryClient.invalidateQueries({ queryKey: financeKeys.sales() }),
+          queryClient.invalidateQueries({ queryKey: ["reports"] }),
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+          queryClient.invalidateQueries({ queryKey: ["finance"] }),
+          queryClient.invalidateQueries({ queryKey: ["finance", "account-balances"] }),
+        ]);
+        await queryClient.refetchQueries({
+          queryKey: ["orders", "detail", (variables.values as { orderId: string }).orderId],
+        });
       }
     },
   });

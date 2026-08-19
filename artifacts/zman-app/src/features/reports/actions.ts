@@ -855,12 +855,13 @@ export async function getFinancialPosition(
       //    يتغير (كان يطرح capitalOut أصلاً). بطرح capitalAdditions من totalEquity
       //    نُلغي الزيادة فتبقى المعادلة متوازنة.
       const [salesCashInRes] = await tx
-        .select({ total: sum(cashMovement.amountCents) })
+        .select({
+          total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
+        })
         .from(cashMovement)
         .innerJoin(account, eq(cashMovement.accountId, account.id))
         .where(
           and(
-            eq(cashMovement.direction, "in"),
             sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
             isNull(account.deletedAt),
             sql`${cashMovement.date} <= ${asOfDate}`,
@@ -946,11 +947,12 @@ export async function getFinancialPosition(
       
       // 1. Ledger-side P&L Net (All time, archived-inclusive)
       const [ledgerSalesAllTimeRes] = await tx
-        .select({ total: sum(cashMovement.amountCents) })
+        .select({
+          total: sql<any>`coalesce(sum(case when ${cashMovement.direction} = 'in' then ${cashMovement.amountCents} else -${cashMovement.amountCents} end), 0)::bigint`,
+        })
         .from(cashMovement)
         .where(
           and(
-            eq(cashMovement.direction, "in"),
             sql`${cashMovement.sourceType} in ('sale', 'deposit')`,
             isNull(cashMovement.deletedAt)
           )
@@ -1012,7 +1014,27 @@ export async function getFinancialPosition(
         );
       const activeDepositsCents = Number(activeDepositsRes?.total) || 0;
 
-      const sourceTablePnlNetCents = (srcSalesAllTimeCents + activeDepositsCents) - srcPurchasesAllTimeCents - srcExpensesAllTimeCents;
+      // ردّ عربون طلب أصبح مُسلَّماً يُخصم من إيراد المبيعة المصدرية؛
+      // أما الطلب غير المُسلَّم فينعكس الرد فيه مباشرةً على order.depositCents.
+      const [deliveredRefundsRes] = await tx
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .innerJoin(order, eq(cashMovement.sourceId, order.id))
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.direction, "out"),
+            eq(order.status, "delivered"),
+            isNull(cashMovement.deletedAt),
+            isNull(order.deletedAt),
+          ),
+        );
+      const deliveredRefundsCents = Number(deliveredRefundsRes?.total) || 0;
+
+      const sourceTablePnlNetCents =
+        (srcSalesAllTimeCents + activeDepositsCents - deliveredRefundsCents) -
+        srcPurchasesAllTimeCents -
+        srcExpensesAllTimeCents;
       const pnlSourceReconciliationCents = ledgerPnlNetCents - sourceTablePnlNetCents;
 
       if (Math.abs(equityDriftCents) > 0) {

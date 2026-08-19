@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Trash2,
   PackageMinus,
+  Wallet,
 } from "lucide-react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useRouter } from "next/navigation";
@@ -20,9 +21,16 @@ import { DateText } from "@/components/shared/DateText";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { Button } from "@/components/shared/Button";
+import { MoneyInput } from "@/components/shared/MoneyInput";
+import { TextArea } from "@/components/shared/TextArea";
 import { cn } from "@/lib/utils";
 import { buildOrderWhatsAppLink, hasWhatsAppNumber } from "@/lib/whatsapp";
-import { useConvertOrderToSale, useReverseSale } from "../../finance/hooks";
+import {
+  useAccounts,
+  useConvertOrderToSale,
+  useRefundOrder,
+  useReverseSale,
+} from "../../finance/hooks";
 import { useDeleteOrder, useOrder, useUpdateOrderStatus, useMessageTemplate } from "../hooks";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 // Phase 3 — استعلام حركات المخزون المُستهلكة عند التسليم (card 3.M).
@@ -49,6 +57,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   const updateStatusMutation = useUpdateOrderStatus();
   const convertOrderToSaleMutation = useConvertOrderToSale();
   const reverseSaleMutation = useReverseSale();
+  const refundOrderMutation = useRefundOrder();
+  const { data: accounts = [] } = useAccounts();
 
   // Phase 3 — حركات المخزون المُستهلكة (card 3.M). تُجلب دائماً، لكن تُعرض فقط
   // إن كان الطلب مُسلَّماً. يُعاد جلبها تلقائياً عند تغيّر حالة الطلب.
@@ -67,6 +77,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   const [cancelOptionsOpen, setCancelOptionsOpen] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const [showReverseConfirm, setShowReverseConfirm] = useState(false);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [refundAmountCents, setRefundAmountCents] = useState(0);
+  const [refundAccountId, setRefundAccountId] = useState("");
+  const [refundDate, setRefundDate] = useState(new Date().toLocaleDateString("en-CA"));
+  const [refundNotes, setRefundNotes] = useState("");
 
   const handleConvertToSale = async () => {
     setIsConverting(true);
@@ -87,6 +102,48 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
       setIsConverting(false);
+    }
+  };
+
+  const handleOpenRefund = () => {
+    setRefundAmountCents(orderData?.depositCents ?? 0);
+    setRefundAccountId(
+      accounts.find((account) => account.type === "cash" && !account.isArchived)?.id ??
+        accounts.find((account) => !account.isArchived)?.id ??
+        "",
+    );
+    setRefundDate(new Date().toLocaleDateString("en-CA"));
+    setRefundNotes("");
+    setRefundModalOpen(true);
+  };
+
+  const handleRefund = async () => {
+    if (!orderData || !refundAccountId || refundAmountCents <= 0) {
+      toast.error("اختر الحساب وأدخل مبلغاً صالحاً للرد");
+      return;
+    }
+    if (refundAmountCents > orderData.depositCents) {
+      toast.error("مبلغ الرد يتجاوز العربون المتبقي");
+      return;
+    }
+
+    const response = await refundOrderMutation.mutateAsync({
+      values: {
+        orderId: orderData.id,
+        date: refundDate,
+        amountCents: refundAmountCents,
+        accountId: refundAccountId,
+        notes: refundNotes,
+      },
+      requestId: crypto.randomUUID(),
+    });
+
+    if (response.status === "ok") {
+      toast.success("تم تسجيل رد الأموال وتحديث العربون المتبقي");
+      setRefundModalOpen(false);
+      await refetch();
+    } else {
+      toast.error(response.message);
     }
   };
 
@@ -405,7 +462,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           {orderData.depositCents > 0 && (
             <>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-ink-2">العربون المستلم:</span>
+                <span className="text-ink-2">العربون المتبقي القابل للرد:</span>
                 <span className="font-semibold text-info">
                   <AmountText amount={orderData.depositCents} />
                   {orderData.depositDate && (
@@ -518,6 +575,20 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             </Button>
           )}
 
+        {orderData.status !== "delivered" &&
+          orderData.status !== "cancelled" &&
+          orderData.depositCents > 0 && (
+            <Button
+              onClick={handleOpenRefund}
+              disabled={refundOrderMutation.isPending}
+              variant="secondary"
+              className="w-full py-3"
+              icon={<Wallet className="w-5 h-5" />}
+            >
+              <span>رد أموال العربون</span>
+            </Button>
+          )}
+
         {/* زر عكس التسليم — يظهر فقط للطلبات المُسلَّمة */}
         {orderData.status === "delivered" && (
           <Button
@@ -561,6 +632,110 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             >
               {isConverting ? "جارٍ التحويل..." : "تأكيد التحويل"}
             </button>
+          </div>
+        </div>
+      </ResponsiveModal>
+
+      {/* نموذج رد الأموال — مستقل عن عكس التسليم والإلغاء النهائي */}
+      <ResponsiveModal
+        isOpen={refundModalOpen}
+        onClose={() => setRefundModalOpen(false)}
+        title="رد أموال العربون"
+      >
+        <div className="space-y-4 p-4">
+          <div className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-sm text-warn-deep leading-relaxed">
+            المتاح للرد الآن: <AmountText amount={orderData.depositCents} />. سيُسجَّل الخروج من الحساب الذي تختاره، ولا يغيّر هذا الإجراء حالة الطلب.
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-bold text-ink/75">المبلغ المراد رده</label>
+              <button
+                type="button"
+                className="min-h-[44px] px-2 text-xs font-bold text-brand"
+                onClick={() => setRefundAmountCents(orderData.depositCents)}
+              >
+                رد كامل المبلغ
+              </button>
+            </div>
+            <MoneyInput
+              value={refundAmountCents}
+              onChange={(value) => setRefundAmountCents(Number(value) || 0)}
+              error={
+                refundAmountCents > orderData.depositCents
+                  ? "المبلغ يتجاوز العربون المتبقي"
+                  : undefined
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="refund-date" className="text-sm font-bold text-ink/75">
+              تاريخ الرد
+            </label>
+            <input
+              id="refund-date"
+              type="date"
+              value={refundDate}
+              onChange={(event) => setRefundDate(event.target.value)}
+              className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="refund-account" className="text-sm font-bold text-ink/75">
+              الحساب الذي خرجت منه الأموال
+            </label>
+            <select
+              id="refund-account"
+              value={refundAccountId}
+              onChange={(event) => setRefundAccountId(event.target.value)}
+              className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            >
+              <option value="">اختر الحساب الفعلي</option>
+              {accounts
+                .filter((account) => !account.isArchived)
+                .map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.type === "cash" ? "صندوق" : "بنك"})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <TextArea
+            label="ملاحظات الرد (اختياري)"
+            id="refund-notes"
+            value={refundNotes}
+            onChange={(event) => setRefundNotes(event.target.value)}
+            placeholder="سبب الرد أو تفاصيله..."
+          />
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1 min-h-[44px]"
+              onClick={() => setRefundModalOpen(false)}
+              disabled={refundOrderMutation.isPending}
+            >
+              إلغاء
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1 min-h-[44px]"
+              onClick={() => void handleRefund()}
+              isLoading={refundOrderMutation.isPending}
+              disabled={
+                refundOrderMutation.isPending ||
+                !refundAccountId ||
+                refundAmountCents <= 0 ||
+                refundAmountCents > orderData.depositCents
+              }
+            >
+              تأكيد رد الأموال
+            </Button>
           </div>
         </div>
       </ResponsiveModal>

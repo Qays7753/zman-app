@@ -302,6 +302,8 @@ export const cashMovement = pgTable(
       .references(() => account.id),
     direction: text("direction").notNull(), // 'in' | 'out'
     amountCents: integer("amount_cents").notNull(),
+    // deposit direction='in' = تحصيل العربون، وdirection='out' = ردّه؛
+    // كلاهما مرتبط بالطلب نفسه للحفاظ على أثر نقدي قابل للتدقيق دون migration جديدة.
     sourceType: text("source_type").notNull(), // 'sale' | 'expense' | 'purchase' | 'deposit' | 'owner_draw' | 'owner_inject' | 'opening' | 'transfer' | 'receivable' | 'receivable_payment'
     sourceId: uuid("source_id"),
     description: text("description").notNull().default(""),

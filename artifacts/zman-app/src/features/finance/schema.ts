@@ -99,7 +99,25 @@ export const saleInputSchema = z
     },
   );
 
-// 4. مخطط التحقق للحسابات
+// 4. مخطط التحقق لرد أموال عربون الطلب — مسار مستقل عن عكس التسليم.
+export const refundOrderInputSchema = z.object({
+  orderId: z.string().uuid({ message: "معرف الطلب غير صالح" }),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, {
+    message: "التاريخ يجب أن يكون بتنسيق YYYY-MM-DD",
+  }),
+  amountCents: z.coerce
+    .number()
+    .int({ message: "مبلغ الرد يجب أن يكون عدداً صحيحاً" })
+    .positive({ message: "مبلغ الرد يجب أن يكون أكبر من 0" }),
+  accountId: z.string().uuid({ message: "الحساب المالي غير صالح" }),
+  notes: z
+    .string()
+    .max(1000, { message: "الملاحظات لا تتعدى 1000 حرف" })
+    .optional()
+    .default(""),
+});
+
+// 5. مخطط التحقق للحسابات
 export const accountInputSchema = z.object({
   name: z
     .string()
