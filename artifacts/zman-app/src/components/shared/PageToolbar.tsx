@@ -125,12 +125,12 @@ export function PageToolbar({
   }
 
   return (
-    <div className="flex items-center flex-nowrap justify-between w-full gap-2">
+    <div className="flex items-center flex-nowrap justify-end w-full gap-1 min-w-0">
       {/* يمين (start في RTL): زر الإضافة (الإجراء الأساسي) */}
       <div className="flex items-center shrink-0">{trailing}</div>
 
       {/* الوسط: فلتر + بحث + تبديل العرض (مجموعة متماسكة تتمدد وتتوسط) */}
-      <div className="flex items-center justify-center gap-2 flex-nowrap flex-1">
+      <div className="flex items-center justify-end gap-1 flex-nowrap flex-1 min-w-0 overflow-visible">
         {/* فلتر مخصّص (يحلّ محلّ الفلتر الافتراضي) */}
         {filterSlot}
 
@@ -183,8 +183,6 @@ export function PageToolbar({
         )}
 
         {/* فاصل بسيط قبل البحث */}
-        {search && <span className="w-2 shrink-0" aria-hidden="true" />}
-
         {search && (
           <HeaderIconButton
             label="بحث"
@@ -195,9 +193,6 @@ export function PageToolbar({
             <Search className="w-5 h-5" />
           </HeaderIconButton>
         )}
-
-        {/* فاصل بسيط قبل مبدّل العرض */}
-        {leading && <span className="w-2 shrink-0" aria-hidden="true" />}
 
         {leading}
       </div>

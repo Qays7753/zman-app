@@ -37,9 +37,11 @@ export function SegmentedControl<T = string>({
     <div
       className={cn(
         isUnderline
-          ? "flex items-stretch border-b border-hairline max-w-full whitespace-nowrap"
+          ? compact && !scrollable
+            ? "flex items-stretch w-fit whitespace-nowrap overflow-visible"
+            : "flex items-stretch border-b border-hairline max-w-full whitespace-nowrap"
           : "flex items-center rounded-lg border border-hairline bg-canvas p-1 gap-0.5 max-w-full whitespace-nowrap",
-        scrollable ? "overflow-x-auto no-scrollbar" : "overflow-hidden w-full",
+        scrollable ? "overflow-x-auto no-scrollbar" : compact ? "overflow-visible" : "overflow-hidden w-full",
         className,
       )}
     >
@@ -51,9 +53,12 @@ export function SegmentedControl<T = string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-[120ms] ease-out active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+              "flex items-center justify-center font-bold transition-colors duration-[120ms] ease-out active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+              compact && !scrollable ? "gap-1 text-xs" : "gap-1.5 text-sm",
               isUnderline
-                ? "min-h-12 h-12 px-3 rounded-none border-b-2 border-transparent flex-1 min-w-0"
+                ? compact && !scrollable
+                  ? "min-h-12 h-12 px-1.5 rounded-none border-b-2 border-transparent flex-none"
+                  : "min-h-12 h-12 px-3 rounded-none border-b-2 border-transparent flex-1 min-w-0"
                 : compact
                   ? scrollable
                     ? "min-h-12 h-12 px-3.5 rounded-md"
