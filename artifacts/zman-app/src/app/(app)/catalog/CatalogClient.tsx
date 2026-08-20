@@ -126,6 +126,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
           <Button
             onClick={() => setCreating(true)}
             size="icon"
+            className="rounded-lg"
             aria-label="إضافة مكوّن جديد"
             title="إضافة مكوّن جديد"
           >

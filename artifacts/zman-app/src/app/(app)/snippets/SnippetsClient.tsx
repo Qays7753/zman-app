@@ -75,6 +75,7 @@ export default function SnippetsClient() {
         <Button
           onClick={() => setCreating(true)}
           size="icon"
+          className="rounded-lg"
           aria-label="إضافة ملاحظة"
           title="إضافة ملاحظة"
         >

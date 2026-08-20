@@ -137,6 +137,7 @@ export default function OrdersClient() {
           <Button
             size="icon"
             variant="primary"
+            className="rounded-lg"
             aria-label="طلب جديد"
             onClick={handleShowCreate}
           >

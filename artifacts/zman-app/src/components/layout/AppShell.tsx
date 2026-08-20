@@ -169,12 +169,12 @@ export function AppShell({
       </aside>
 
       {/* هيدر الموبايل */}
-      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper border-b border-hairline shadow-none flex items-center gap-2 px-3 z-sticky">
+      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper border-b border-hairline shadow-none flex items-center justify-between gap-2 px-3 z-sticky">
         {title ? (
-          <h1 className="min-w-0 flex-1 text-base font-bold text-ink truncate">{title}</h1>
+          <h1 className="min-w-0 max-w-[38%] shrink-0 text-base font-bold text-ink truncate">{title}</h1>
         ) : null}
         {action && (
-          <div className={cn("flex items-center gap-2 shrink-0", !title && "flex-1 justify-end")}>
+          <div className={cn("flex items-center min-w-0 overflow-x-auto no-scrollbar", !title ? "flex-1 w-full" : "ms-3 flex-1 justify-end")}>
             {action}
           </div>
         )}
