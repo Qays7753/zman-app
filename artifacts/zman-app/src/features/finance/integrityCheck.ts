@@ -1563,14 +1563,29 @@ async function checkIC16DepositSettlement(): Promise<IntegrityCheckResult> {
     const settlement = activeSales[0];
     const saleAmountCents = settlement.saleAmountCents;
     const movementAmountCents = settlement.movementAmountCents;
+    const [refundsRow] = await db
+      .select({ total: sum(cashMovement.amountCents) })
+      .from(cashMovement)
+      .where(
+        and(
+          eq(cashMovement.sourceType, "deposit"),
+          eq(cashMovement.sourceId, orderId),
+          eq(cashMovement.direction, "out"),
+          isNull(cashMovement.deletedAt),
+        ),
+      );
+    const refundedCents = Number(refundsRow?.total) || 0;
+    const expectedForfeitedCents =
+      movementAmountCents === null ? null : movementAmountCents - refundedCents;
     if (
       settlement.orderStatus !== "cancelled" ||
       settlement.orderDepositCents !== 0 ||
       settlement.movementId === null ||
       saleAmountCents === null ||
       movementAmountCents === null ||
-      saleAmountCents !== movementAmountCents ||
-      saleAmountCents <= 0
+      expectedForfeitedCents === null ||
+      expectedForfeitedCents <= 0 ||
+      saleAmountCents !== expectedForfeitedCents
     ) {
       offenders.push(`احتجاز-غير-متطابق:${orderId}`);
     }
@@ -1582,7 +1597,7 @@ async function checkIC16DepositSettlement(): Promise<IntegrityCheckResult> {
     status: offenders.length === 0 ? "PASS" : "FAIL",
     titleAr: "تطابق تسوية احتجاز العربون",
     descriptionAr:
-      "كل إلغاء باحتجاز يجب أن يملك مبيعة manual مرتبطة وحركة sale واحدة بالمبلغ نفسه، مع تصفير العربون. الرد الكامل لا ينشئ مبيعة احتجاز.",
+      "كل إلغاء باحتجاز يجب أن يملك مبيعة manual مرتبطة بقيمة التحصيل ناقص الردود السابقة وحركة sale واحدة بالمبلغ نفسه، مع تصفير العربون. الرد الكامل لا ينشئ مبيعة احتجاز.",
     offendingIds: offenders.slice(0, 50),
     count: offenders.length,
     suggestedFixAr:

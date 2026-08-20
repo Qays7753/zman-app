@@ -2339,12 +2339,6 @@ export async function reverseDepositForfeiture(
         };
       }
       const [forfeitedMovement] = saleMovements;
-      if (forfeitureSale.amountCents !== forfeitedMovement.amountCents) {
-        return {
-          status: "error",
-          message: "مبلغ مبيعة الاحتجاز لا يطابق حركة الصندوق؛ راجع فحص السلامة أولاً",
-        };
-      }
 
       const [previousRefundsRow] = await tx
         .select({ total: sum(cashMovement.amountCents) })
@@ -2358,8 +2352,14 @@ export async function reverseDepositForfeiture(
           ),
         );
       const previousRefundedCents = Number(previousRefundsRow?.total) || 0;
-      const restoredCents = forfeitedMovement.amountCents;
-      const originalDepositCents = restoredCents + previousRefundedCents;
+      const restoredCents = forfeitedMovement.amountCents - previousRefundedCents;
+      if (restoredCents <= 0 || forfeitureSale.amountCents !== restoredCents) {
+        return {
+          status: "error",
+          message: "مبلغ مبيعة الاحتجاز لا يطابق حركة الصندوق والردود السابقة؛ راجع فحص السلامة أولاً",
+        };
+      }
+      const remainingDepositCents = restoredCents;
 
       await tx
         .update(cashMovement)
@@ -2380,8 +2380,8 @@ export async function reverseDepositForfeiture(
         .update(order)
         .set({
           status: "confirmed",
-          depositCents: originalDepositCents,
-          depositDate: forfeitedMovement.date,
+          depositCents: remainingDepositCents,
+          depositDate: remainingDepositCents > 0 ? forfeitedMovement.date : null,
           updatedAt: new Date(),
         })
         .where(eq(order.id, orderRow.id))
