@@ -103,6 +103,9 @@ export function DashboardClient() {
   const range = customRange ?? preset.getValue();
   const startDateStr = format(range.start, "yyyy-MM-dd");
   const endDateStr = format(range.end, "yyyy-MM-dd");
+  const periodLabel = customRange
+    ? `${format(range.start, "dd/MM/yyyy")} – ${format(range.end, "dd/MM/yyyy")}`
+    : preset.label;
 
   // ── استعلام الحزمة المجمَّعة الموحَّدة للوحة التحكم (المرحلة 3) ────────────
   const {
@@ -348,6 +351,7 @@ export function DashboardClient() {
               {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
               {summary && (
               <FinanceComparePanel
+                periodLabel={periodLabel}
                 actualSales={summary.actualSales ?? 0}
                 cogsCents={summary.cogsCents ?? 0}
                 operatingExpenses={summary.operatingExpensesCents ?? 0}
@@ -365,6 +369,7 @@ export function DashboardClient() {
             {/* حركة الكاش */}
             {summary && (
               <LiquidityFlowPanel
+                periodLabel={periodLabel}
                 actualSales={summary.actualSales ?? 0}
                 deposits={summary.deposits ?? 0}
                 ownerInject={summary.ownerInject ?? 0}
@@ -382,6 +387,7 @@ export function DashboardClient() {
 
             {/* ═══ Layer 2: التفاصيل المالية (قابلة للطي) ═══ */}
             <DetailsLayer
+              periodLabel={periodLabel}
               summaryAllTime={summaryAllTime}
               position={position}
               stats={stats}
@@ -393,6 +399,7 @@ export function DashboardClient() {
             {/* المستشار المالي — يُحمّل بعد ظهور المحتوى الأساسي */}
             {isAdvisorReady && summary && cashSummary && accountBalances && (
               <DeferredFinancialAdvisor
+                periodLabel={periodLabel}
                 data={{
                   realCash: asOfRealCashCents,
                   opening:

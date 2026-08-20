@@ -149,14 +149,17 @@ function generateAdvice(d: AdvisorData): { summary: string; sections: { title: s
   return { summary: health.label + " — " + summary, sections };
 }
 
-export function FinancialAdvisor({ data }: { data: AdvisorData }) {
+export function FinancialAdvisor({
+  periodLabel,
+  data,
+}: {
+  periodLabel?: string;
+  data: AdvisorData;
+}) {
   const [expanded, setExpanded] = useState(false);
   const advice = generateAdvice(data);
   const health = getHealthState(data);
   const HealthIcon = health.icon;
-
-  // السطر الثاني في العرض المطوي — أوّل سطر من أوّل قسم تحليلي
-  const secondaryLine = advice.sections[0]?.body[0];
 
   return (
     <div className="rounded-xl border border-hairline bg-paper overflow-hidden">
@@ -173,9 +176,9 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
             {health.label}
           </span>
         </div>
-        {secondaryLine && !expanded && (
-          <p className="text-xs text-ink-2 mt-1.5 line-clamp-1 ps-7">{secondaryLine}</p>
-        )}
+        <p className="text-[10px] font-semibold text-ink-3 mt-1.5 ps-7">
+          نطاق التحليل: {periodLabel ?? "الفترة الحالية"}
+        </p>
       </div>
 
       {/* زرّ التبديل — اقرأ المزيد / إخفاء التفاصيل */}

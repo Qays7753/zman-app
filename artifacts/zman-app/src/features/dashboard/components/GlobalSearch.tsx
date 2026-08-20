@@ -46,9 +46,13 @@ export function GlobalSearch() {
       .slice(0, 4);
 
     const matchingExpenses = allExpenses
-      .filter((e: { description: string; category: string }) => 
-        e.description.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)
-      )
+      .filter((e: { description: string; category: string }) => {
+        const searchableText = [e.description, e.category]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return searchableText.includes(q);
+      })
       .slice(0, 4);
 
     return {
@@ -154,20 +158,27 @@ export function GlobalSearch() {
                     <ArrowDownRight className="w-3.5 h-3.5 text-alert" />
                     <span>المصاريف والعمليات</span>
                   </div>
-                  {results.expenses.map((e: { id: string; description: string; category: string }) => (
-                    <Link
-                      key={e.id}
-                      href={`/finance?tab=payments&filter=expense&search=${encodeURIComponent(e.description)}`}
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center justify-between px-4 py-3 min-h-12 hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
-                    >
-                      <div>
-                        <p className="font-bold text-ink">{e.description}</p>
-                        <p className="text-[11px] text-ink-3">{e.category}</p>
-                      </div>
-                      <ChevronLeft className="w-4 h-4 text-ink-3 shrink-0" />
-                    </Link>
-                  ))}
+                  {results.expenses.map((e: {
+                    id: string;
+                    description: string;
+                    category: string;
+                  }) => {
+                    const label = e.description.trim() || e.category;
+                    return (
+                      <Link
+                        key={e.id}
+                        href={`/finance?tab=payments&filter=expense&search=${encodeURIComponent(label)}`}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center justify-between px-4 py-3 min-h-12 hover:bg-canvas text-xs transition-colors border-b border-hairline/30 last:border-0"
+                      >
+                        <div>
+                          <p className="font-bold text-ink">{label}</p>
+                          <p className="text-[11px] text-ink-3">{e.category}</p>
+                        </div>
+                        <ChevronLeft className="w-4 h-4 text-ink-3 shrink-0" />
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
