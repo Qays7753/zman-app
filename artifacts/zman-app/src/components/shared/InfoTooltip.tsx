@@ -16,15 +16,10 @@ import { useState, useId } from "react";
  * SA2 (Round 4 — Part C item 9 accessibility floor): aria-describedby + role="tooltip"
  * + Escape-for-dismiss + focus management. لا يزال النقر/التحويم يعمل كما كان.
  *
- * SA-A (Round 5 — R5-1 fix): إصلاح قص الشاشة على الجوال. القاعدة القديمة
- * `absolute end-0 w-56` كانت تُثبّت الحافة الطرفية للـ popup على الـ trigger،
- * فيمتد جسم 224px خارج الشاشة — 66px مقصوص على 390px وأسوأ على 360px
- * (10 من 12 tooltip مقصوصة على كل من العرضين). على الجوال (< sm) أصبح الـ
- * popup مثبّتاً على إطار العرض: `fixed start-4 end-4 bottom-20` يحصر كلا
- * الطرفين بـ 16px من حافة العرض، فيصبح العرض = vw − 32 و rect.left = 16
- * و rect.right = vw − 16 لأي موضع للـ trigger. z-50 يعلو فوق الزر العائم
- * (z-dropdown=20). على الكمبيوتر (sm+) نبقى على القاعدة القديمة — الـ
- * tooltips قصيرة والعرض كبير، فـ end-0 صحيحة هناك.
+ * SA-A visual correction: على الجوال يُثبّت الـ popup قرب الأيقونة داخل تدفق
+ * البطاقة، بعرض محصور وارتفاع أقصى مع تمرير داخلي للنص الطويل؛ لا يُثبت فوق
+ * إطار العرض ولا يغطي الجارت أو الزر العائم. على الكمبيوتر يبقى فوق المحفز
+ * بعرض مختصر مناسب للمساحة الواسعة.
  */
 export function InfoTooltip({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
@@ -52,14 +47,12 @@ export function InfoTooltip({ text }: { text: string }) {
         <span
           id={tooltipId}
           className={[
-            // Mobile (< sm): viewport-anchored, full width minus 16px margins,
-            // positioned above the bottom nav. Survives a trigger at either
-            // edge — the previous `end-0` anchor let the 224px popup extend
-            // past the viewport edge on 360/390px (66px off-screen at 390px).
-            "fixed start-4 end-4 bottom-20 mb-1 z-50 w-auto max-w-none",
-            // sm+: keep the existing absolute-end-anchored popup. Tooltips
-            // are short and the desktop viewport is wide, so end-0 is correct.
-            "sm:absolute sm:start-auto sm:end-0 sm:bottom-full sm:w-56 sm:max-w-[calc(100vw-2rem)]",
+            // Mobile: keep the explanation next to its trigger instead of
+            // pinning a full-width dark bar over the chart and FAB.
+            // The max height protects long explanations on 360px screens.
+            "absolute start-0 top-full mt-1 z-50 w-[min(18rem,calc(100vw-2rem))] max-h-32 overflow-y-auto",
+            // Desktop: place the short explanation above the trigger.
+            "sm:start-auto sm:end-0 sm:top-auto sm:bottom-full sm:mt-0 sm:w-56 sm:max-w-[calc(100vw-2rem)]",
             "p-2.5 rounded-lg bg-ink text-paper text-[11px] leading-relaxed shadow-lg whitespace-normal",
           ].join(" ")}
           role="tooltip"
