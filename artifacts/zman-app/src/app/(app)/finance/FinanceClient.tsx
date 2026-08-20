@@ -196,7 +196,7 @@ export default function FinanceClient() {
     <>
       <AppShellHeader
         title="المالية"
-        context={
+        action={
           <PageToolbar
             leading={
               activeTab === "accounts" ? (

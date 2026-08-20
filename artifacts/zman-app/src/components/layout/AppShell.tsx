@@ -15,14 +15,12 @@ interface AppShellProps {
   children: React.ReactNode;
   title?: string;
   action?: React.ReactNode;
-  context?: React.ReactNode;
 }
 
 export function AppShell({
   children,
   title: propTitle,
   action: propAction,
-  context: propContext,
 }: AppShellProps) {
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
@@ -77,8 +75,6 @@ export function AppShell({
 
   const title = propTitle !== undefined ? propTitle : context ? context.title : "Zman";
   const action = propAction !== undefined ? propAction : context ? context.action : null;
-  const contextBar =
-    propContext !== undefined ? propContext : context ? context.contextBar : null;
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -201,18 +197,6 @@ export function AppShell({
             )}
           </div>
         </div>
-
-        {contextBar && (
-          <div className="flex-shrink-0 border-b border-hairline bg-canvas">
-            <div
-              className="w-full max-w-6xl mx-auto px-3 py-2 lg:px-8"
-              role="region"
-              aria-label="أدوات الصفحة"
-            >
-              {contextBar}
-            </div>
-          </div>
-        )}
 
         {/* منطقة المحتوى القابلة للتمرير مع دعم السحب للتحديث */}
         <div
