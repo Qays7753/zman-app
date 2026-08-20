@@ -58,6 +58,7 @@ interface DashboardStats {
 }
 
 interface DetailsLayerProps {
+  periodLabel?: string;
   summaryAllTime: SummaryAllTime | undefined;
   position: FinancialPosition | undefined;
   stats: DashboardStats | undefined;
@@ -72,6 +73,7 @@ interface DetailsLayerProps {
 const LS_KEY = "zman_details_expanded";
 
 export function DetailsLayer({
+  periodLabel,
   summaryAllTime,
   position,
   stats,
@@ -171,6 +173,9 @@ export function DetailsLayer({
       {/* المحتوى القابل للطي */}
       {expanded && (
         <div className="space-y-4 pt-2">
+          <div className="rounded-lg border border-info/20 bg-info-soft px-3 py-2 text-[11px] font-semibold leading-relaxed text-ink-2">
+            الفترة المختارة: {periodLabel ?? "الفترة الحالية"}. بعض القيم هنا تراكمية أو تمثل الوضع حتى نهاية الفترة، مثل قيمة المخزون وصافي قيمة المشروع.
+          </div>
 
           {/* ── 0. مؤشرات الصحة التفصيلية (مُنقَّلة من بطاقة الصحة R6) ── */}
           {(ownerDraw > 0 || position?.equity.totalCents !== 0 || capitalAssetsNetValueCents > 0) && (
