@@ -5,8 +5,6 @@ interface AppShellContextType {
   setTitle: (title: string) => void;
   action: ReactNode;
   setAction: (action: ReactNode) => void;
-  contextBar: ReactNode;
-  setContextBar: (contextBar: ReactNode) => void;
 }
 
 const AppShellContext = createContext<AppShellContextType | undefined>(undefined);
@@ -14,12 +12,9 @@ const AppShellContext = createContext<AppShellContextType | undefined>(undefined
 export function AppShellProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState("Zman");
   const [action, setAction] = useState<ReactNode>(null);
-  const [contextBar, setContextBar] = useState<ReactNode>(null);
 
   return (
-    <AppShellContext.Provider
-      value={{ title, setTitle, action, setAction, contextBar, setContextBar }}
-    >
+    <AppShellContext.Provider value={{ title, setTitle, action, setAction }}>
       {children}
     </AppShellContext.Provider>
   );
@@ -35,14 +30,12 @@ export function useAppShell() {
 
 interface AppShellHeaderProps {
   title: string;
-  /** One primary/header-level action. Complex toolbars belong in context. */
+  /** One header-level action group. Complex controls still live inside this one row. */
   action?: ReactNode;
-  /** Page context controls rendered in a consistent row below the title bar. */
-  context?: ReactNode;
 }
 
-export function AppShellHeader({ title, action, context }: AppShellHeaderProps) {
-  const { setTitle, setAction, setContextBar } = useAppShell();
+export function AppShellHeader({ title, action }: AppShellHeaderProps) {
+  const { setTitle, setAction } = useAppShell();
 
   useEffect(() => {
     setTitle(title);
@@ -54,17 +47,10 @@ export function AppShellHeader({ title, action, context }: AppShellHeaderProps) 
     setAction(action || null);
   }, [action, setAction]);
 
+  // تنظيف الهيدر عند إلغاء التركيب فقط (مغادرة الصفحة)
   useEffect(() => {
-    setContextBar(context || null);
-  }, [context, setContextBar]);
-
-  // تنظيف الرأس وشريط السياق عند مغادرة الصفحة.
-  useEffect(() => {
-    return () => {
-      setAction(null);
-      setContextBar(null);
-    };
-  }, [setAction, setContextBar]);
+    return () => setAction(null);
+  }, [setAction]);
 
   return null;
 }

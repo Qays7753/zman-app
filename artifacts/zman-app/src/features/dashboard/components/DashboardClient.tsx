@@ -205,20 +205,17 @@ export function DashboardClient() {
     <>
       <AppShellHeader
         title="لوحة القيادة"
-        context={
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-bold text-ink-2">الفترة المحاسبية</span>
-            <button
-              type="button"
-              onClick={() => setIsSelectorOpen(true)}
-              className="h-12 min-h-12 px-3 bg-paper border border-border-field text-ink rounded-lg flex items-center gap-1.5 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-            >
-              <Calendar className="h-4 w-4 text-brand-deep flex-shrink-0" />
-              <span className="max-w-[140px] truncate">
-                {customRange ? "فترة مخصصة" : (presets[selectedPresetIdx]?.label ?? "")}
-              </span>
-            </button>
-          </div>
+        action={
+          <button
+            type="button"
+            onClick={() => setIsSelectorOpen(true)}
+            className="h-12 min-h-12 px-3 bg-paper border border-border-field text-ink rounded-lg flex items-center gap-1.5 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
+            <Calendar className="h-4 w-4 text-brand-deep flex-shrink-0" />
+            <span className="max-w-[140px] truncate">
+              {customRange ? "فترة مخصصة" : (presets[selectedPresetIdx]?.label ?? "")}
+            </span>
+          </button>
         }
       />
 

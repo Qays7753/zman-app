@@ -217,6 +217,7 @@ export default function ReportsPage() {
               isLoading={isLoading || positionLoading}
               size="icon"
               variant="secondary"
+              className="rounded-lg"
               aria-label="تحديث البيانات"
               title="تحديث البيانات"
             >

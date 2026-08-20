@@ -126,6 +126,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
           <Button
             onClick={() => setCreating(true)}
             size="icon"
+            className="rounded-lg"
             aria-label="إضافة مكوّن جديد"
             title="إضافة مكوّن جديد"
           >
@@ -138,7 +139,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
 
   return (
     <>
-      {!hideHeader && <AppShellHeader title="الكتالوج" context={pageAction} />}
+      {!hideHeader && <AppShellHeader title="الكتالوج" action={pageAction} />}
       <div className="flex-1 flex flex-col gap-4">
         {/* شريط البحث والإضافة */}
         {hideHeader && (

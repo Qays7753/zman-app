@@ -15,14 +15,12 @@ interface AppShellProps {
   children: React.ReactNode;
   title?: string;
   action?: React.ReactNode;
-  context?: React.ReactNode;
 }
 
 export function AppShell({
   children,
   title: propTitle,
   action: propAction,
-  context: propContext,
 }: AppShellProps) {
   const pathname = usePathname();
   const [isOnline, setIsOnline] = useState(true);
@@ -77,8 +75,6 @@ export function AppShell({
 
   const title = propTitle !== undefined ? propTitle : context ? context.title : "Zman";
   const action = propAction !== undefined ? propAction : context ? context.action : null;
-  const contextBar =
-    propContext !== undefined ? propContext : context ? context.contextBar : null;
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -173,12 +169,12 @@ export function AppShell({
       </aside>
 
       {/* هيدر الموبايل */}
-      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper border-b border-hairline shadow-none flex items-center gap-2 px-3 z-sticky">
+      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper border-b border-hairline shadow-none flex items-center justify-between gap-2 px-3 z-sticky">
         {title ? (
-          <h1 className="min-w-0 flex-1 text-base font-bold text-ink truncate">{title}</h1>
+          <h1 className="min-w-0 max-w-[38%] shrink-0 text-base font-bold text-ink truncate">{title}</h1>
         ) : null}
         {action && (
-          <div className={cn("flex items-center gap-2 shrink-0", !title && "flex-1 justify-end")}>
+          <div className={cn("flex items-center min-w-0 overflow-x-auto no-scrollbar", !title ? "flex-1 w-full" : "ms-3 flex-1 justify-end")}>
             {action}
           </div>
         )}
@@ -201,18 +197,6 @@ export function AppShell({
             )}
           </div>
         </div>
-
-        {contextBar && (
-          <div className="flex-shrink-0 border-b border-hairline bg-canvas">
-            <div
-              className="w-full max-w-6xl mx-auto px-3 py-2 lg:px-8"
-              role="region"
-              aria-label="أدوات الصفحة"
-            >
-              {contextBar}
-            </div>
-          </div>
-        )}
 
         {/* منطقة المحتوى القابلة للتمرير مع دعم السحب للتحديث */}
         <div

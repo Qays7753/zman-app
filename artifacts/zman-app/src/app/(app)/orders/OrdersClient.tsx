@@ -137,6 +137,7 @@ export default function OrdersClient() {
           <Button
             size="icon"
             variant="primary"
+            className="rounded-lg"
             aria-label="طلب جديد"
             onClick={handleShowCreate}
           >
@@ -232,7 +233,7 @@ export default function OrdersClient() {
 
   return (
     <>
-      <AppShellHeader title={pageTitle} context={pageAction} />
+      <AppShellHeader title={pageTitle} action={pageAction} />
 
       {isNew && (
         <OrderForm onSubmitSuccess={handleShowList} onCancel={handleShowList} />
