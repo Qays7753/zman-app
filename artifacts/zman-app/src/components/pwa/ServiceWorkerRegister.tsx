@@ -1,32 +1,95 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-/**
- * يسجّل service worker خفيفاً (public/sw.js) لجعل التطبيق قابلاً للتثبيت (PWA)
- * فيظهر زر التثبيت. الـ SW الجديد لا يعمل precache لملفات ثابتة (كان ذلك سبب
- * أخطاء 404 سابقاً)، بل شبكة أولاً فقط — آمن عند كل نشر جديد.
- */
+const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
 export function ServiceWorkerRegister() {
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [updateReady, setUpdateReady] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
 
-    const register = () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
-        // تجاهل — عدم التسجيل لا يكسر التطبيق (يفقد فقط قابلية التثبيت)
-      });
+    let intervalId: number | undefined;
+    let disposed = false;
+
+    const register = async () => {
+      try {
+        const currentRegistration = await navigator.serviceWorker.register("/sw.js", {
+          updateViaCache: "none",
+        });
+        if (disposed) return;
+
+        setRegistration(currentRegistration);
+
+        const inspectInstallingWorker = () => {
+          const installing = currentRegistration.installing;
+          if (!installing) return;
+
+          installing.addEventListener("statechange", () => {
+            if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              setUpdateReady(true);
+            }
+          });
+        };
+
+        currentRegistration.addEventListener("updatefound", inspectInstallingWorker);
+        inspectInstallingWorker();
+        await currentRegistration.update();
+
+        intervalId = window.setInterval(() => {
+          void currentRegistration.update();
+        }, UPDATE_CHECK_INTERVAL_MS);
+      } catch {
+        // عدم التسجيل لا يكسر التطبيق؛ يفقد فقط ميزات التثبيت والتحديث الموجّه.
+      }
     };
 
-    // سجّل بعد التحميل الكامل لتفادي منافسة موارد الإقلاع
-    if (document.readyState === "complete") {
-      register();
-    } else {
-      window.addEventListener("load", register, { once: true });
-      return () => window.removeEventListener("load", register);
-    }
+    const handleControllerChange = () => {
+      // لا نعيد التحميل تلقائياً. نترك للمستخدم تأكيد التحديث حتى لا تضيع بيانات نموذج مفتوح.
+      setUpdateReady(false);
+    };
+
+    void register();
+    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+
+    return () => {
+      disposed = true;
+      if (intervalId) window.clearInterval(intervalId);
+      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+    };
   }, []);
 
-  return null;
+  const applyUpdate = () => {
+    const waiting = registration?.waiting;
+    if (!waiting) {
+      window.location.reload();
+      return;
+    }
+
+    const handleControllerChange = () => {
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange, {
+      once: true,
+    });
+    waiting.postMessage({ type: "SKIP_WAITING" });
+  };
+
+  return updateReady ? (
+    <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 flex items-center gap-3 rounded-xl border border-info/20 bg-paper px-3 py-2.5 text-sm text-ink shadow-lg">
+      <span className="flex-1 leading-relaxed">تحديث جديد جاهز. حدّث التطبيق لتظهر آخر التحسينات.</span>
+      <button
+        type="button"
+        onClick={applyUpdate}
+        className="min-h-[44px] rounded-lg bg-info px-3 font-bold text-paper active:scale-95 transition-transform"
+      >
+        تحديث الآن
+      </button>
+    </div>
+  ) : null;
 }
