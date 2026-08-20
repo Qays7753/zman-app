@@ -170,7 +170,7 @@ export function AccountsTab() {
             variant="secondary"
             size="sm"
             onClick={() => updateUrl({ newTransfer: "true" })}
-            className="text-xs min-h-[44px] h-11 px-3.5"
+            className="text-xs min-h-12 h-12 px-3.5"
           >
             تحويل بيني
           </Button>
@@ -178,7 +178,7 @@ export function AccountsTab() {
             type="button"
             size="sm"
             onClick={() => updateUrl({ newAccount: "true" })}
-            className="text-xs min-h-[44px] h-11 px-3.5"
+            className="text-xs min-h-12 h-12 px-3.5"
           >
             حساب جديد
           </Button>
@@ -219,7 +219,7 @@ export function AccountsTab() {
                   disabled={archiveMutation.isPending}
                   title={`أرشفة حساب ${acc.name}`}
                   aria-label={`أرشفة حساب ${acc.name}`}
-                  className="min-h-[44px] min-w-[44px] p-2.5 rounded-md border border-hairline-2 text-ink-2 hover:bg-canvas transition-colors disabled:opacity-50 flex items-center justify-center"
+                  className="min-h-12 min-w-12 p-2.5 rounded-md border border-hairline-2 text-ink-2 hover:bg-canvas transition-colors disabled:opacity-50 flex items-center justify-center"
                 >
                   <Archive className="h-4 w-4" />
                 </button>
@@ -230,7 +230,7 @@ export function AccountsTab() {
                   disabled={unarchiveMutation.isPending}
                   title={`إلغاء أرشفة حساب ${acc.name}`}
                   aria-label={`إلغاء أرشفة حساب ${acc.name}`}
-                  className="min-h-[44px] min-w-[44px] p-2.5 rounded-md border border-brand/30 text-brand hover:bg-brand-soft transition-colors disabled:opacity-50 flex items-center justify-center"
+                  className="min-h-12 min-w-12 p-2.5 rounded-md border border-brand/30 text-brand hover:bg-brand-soft transition-colors disabled:opacity-50 flex items-center justify-center"
                 >
                   <ArchiveRestore className="h-4 w-4" />
                 </button>
@@ -241,7 +241,7 @@ export function AccountsTab() {
                 disabled={deleteMutation.isPending}
                 title={`حذف حساب ${acc.name}`}
                 aria-label={`حذف حساب ${acc.name}`}
-                className="min-h-[44px] min-w-[44px] p-2.5 rounded-md border border-alert/30 text-alert hover:bg-alert-soft transition-colors disabled:opacity-50 flex items-center justify-center"
+                className="min-h-12 min-w-12 p-2.5 rounded-md border border-alert/30 text-alert hover:bg-alert-soft transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -287,7 +287,7 @@ export function AccountsTab() {
               required
               value={accName}
               onChange={(e) => setAccName(e.target.value)}
-              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               placeholder="أدخل اسم الحساب..."
             />
           </div>
@@ -297,7 +297,7 @@ export function AccountsTab() {
             <select
               value={accType}
               onChange={(e) => setAccType(e.target.value as any)}
-              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
             >
               <option value="cash">صندوق نقدية (كاش)</option>
               <option value="bank">حساب بنكي</option>
@@ -312,7 +312,7 @@ export function AccountsTab() {
               min="0"
               value={accOpening}
               onChange={(e) => setAccOpening(e.target.value)}
-              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
+              className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
               placeholder="0.000"
             />
           </div>
@@ -349,7 +349,7 @@ export function AccountsTab() {
                 required
                 value={fromAcc}
                 onChange={(e) => setFromAcc(e.target.value)}
-                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+                className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               >
                 <option value="">اختر حساب المرسل...</option>
                 {accounts?.filter((acc) => !acc.isArchived).map((acc) => (
@@ -364,7 +364,7 @@ export function AccountsTab() {
                 required
                 value={toAcc}
                 onChange={(e) => setToAcc(e.target.value)}
-                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+                className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               >
                 <option value="">اختر حساب المستقبل...</option>
                 {accounts?.filter((acc) => !acc.isArchived).map((acc) => (
@@ -384,7 +384,7 @@ export function AccountsTab() {
                 required
                 value={transferAmount}
                 onChange={(e) => setTransferAmount(e.target.value)}
-                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
+                className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
                 placeholder="0.000"
               />
             </div>
@@ -396,7 +396,7 @@ export function AccountsTab() {
                 required
                 value={transferDate}
                 onChange={(e) => setTransferDate(e.target.value)}
-                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+                className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               />
             </div>
           </div>
@@ -407,7 +407,7 @@ export function AccountsTab() {
               type="text"
               value={transferDesc}
               onChange={(e) => setTransferDesc(e.target.value)}
-              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               placeholder="مثال: تغذية الصندوق الفرعي من البنك..."
             />
           </div>

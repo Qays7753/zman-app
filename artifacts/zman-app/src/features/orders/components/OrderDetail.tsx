@@ -11,6 +11,7 @@ import {
   Trash2,
   PackageMinus,
   Wallet,
+  XCircle,
 } from "lucide-react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useRouter } from "next/navigation";
@@ -334,7 +335,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 text-sm text-ink-2 hover:text-ink min-h-[44px] px-3 -ms-3 rounded-md transition-colors"
+          className="flex min-h-12 items-center gap-2 rounded-md px-3 -ms-3 text-sm text-ink-2 transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <ArrowRight className="w-5 h-5" />
           <span>العودة للطلبات</span>
@@ -344,16 +345,18 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           <button
             type="button"
             onClick={onEdit}
-            className="p-2 rounded-md hover:bg-canvas text-ink-2 min-h-[44px] min-w-[44px] flex items-center justify-center border border-hairline transition-colors"
+            className="h-12 w-12 rounded-md border border-hairline text-ink-2 transition-colors hover:bg-canvas focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
             title="تعديل"
+            aria-label="تعديل الطلب"
           >
             <Edit className="w-5 h-5" />
           </button>
           <button
             type="button"
             onClick={() => setIsDeleteOpen(true)}
-            className="p-2 rounded-md hover:bg-alert-soft text-alert min-h-[44px] min-w-[44px] flex items-center justify-center border border-hairline transition-colors"
+            className="h-12 w-12 rounded-md border border-alert/30 text-alert-deep transition-colors hover:bg-alert-soft focus-visible:ring-2 focus-visible:ring-alert-deep focus-visible:ring-offset-2"
             title="حذف"
+            aria-label="حذف الطلب"
           >
             <Trash2 className="w-5 h-5" />
           </button>
@@ -361,7 +364,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       </div>
 
       {/* بطاقة بيانات العميل والطلب */}
-      <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
+      <div className="bg-paper p-4 sm:p-6 rounded-lg border border-hairline shadow-elev-1 space-y-4">
         <div className="flex justify-between items-start gap-4">
           <div>
             <span className="text-xs text-ink-3 block mb-1">العميل</span>
@@ -437,7 +440,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       </div>
 
       {/* بطاقة مكونات الطلب */}
-      <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
+      <div className="bg-paper p-4 sm:p-6 rounded-lg border border-hairline shadow-elev-1 space-y-4">
         <h4 className="text-base font-bold text-ink border-b border-hairline pb-2">
           تكلفة المكونات الفرعية
         </h4>
@@ -482,7 +485,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       {orderData.status === "delivered" && consumedMovements.length > 0 && (
         <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-3">
           <h4 className="text-base font-bold text-ink border-b border-hairline pb-2 flex items-center gap-1.5">
-            <PackageMinus className="w-4 h-4 text-brand" />
+            <PackageMinus className="w-4 h-4 text-brand-deep" />
             المواد المستهلكة من المخزون
           </h4>
           <ul className="divide-y divide-hairline">
@@ -513,7 +516,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       )}
 
       {/* ملخص التسعير والأرباح */}
-      <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-4">
+      <div className="bg-paper p-4 sm:p-6 rounded-lg border border-hairline shadow-elev-1 space-y-4">
         <h4 className="text-base font-bold text-ink border-b border-hairline pb-2">
           التسعير والربح المرجعي
         </h4>
@@ -521,7 +524,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         <div className="space-y-3">
           <div className="flex justify-between items-center text-sm">
             <span className="text-ink-2">السعر النهائي المتفق عليه:</span>
-            <span className="text-lg font-bold text-brand">
+            <span className="text-lg font-bold text-ink">
               <AmountText amount={orderData.totalPriceCents} />
             </span>
           </div>
@@ -530,7 +533,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             <>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-ink-2">العربون المتبقي القابل للرد:</span>
-                <span className="font-semibold text-brand">
+                <span className="font-semibold text-warn-deep">
                   <AmountText amount={orderData.depositCents} />
                   {orderData.depositDate && (
                     <span className="text-xs text-ink-3 font-normal ms-1">
@@ -559,7 +562,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           {(orderData.additionalProfitCents ?? 0) > 0 && (
             <div className="flex justify-between items-center text-sm">
               <span className="text-ink-2">أرباح إضافية:</span>
-              <span className="font-semibold text-brand">
+              <span className="font-semibold text-brand-deep">
                 +<AmountText amount={orderData.additionalProfitCents ?? 0} />
               </span>
             </div>
@@ -570,7 +573,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           <div className="flex justify-between items-center text-base font-bold">
             <span className="text-ink-2">صافي الربح المرجعي (المقدر):</span>
             <span
-              className={cn(estimatedProfit >= 0 ? "text-brand" : "text-alert")}
+              className={cn(estimatedProfit >= 0 ? "text-brand-deep" : "text-alert-deep")}
             >
               <AmountText amount={estimatedProfit} />
             </span>
@@ -590,11 +593,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         </div>
       </div>
 
-      {/* أزرار الحالة السريعة */}
-      {(nextStatuses[orderData.status] ?? []).length > 0 && (
-        <div className="flex gap-2 flex-wrap">
+      {/* Action Dock — قرار واحد واضح حسب حالة الطلب، مع إبقاء كل handlers الحالية كما هي */}
+      <div className="sticky bottom-0 z-actionbar bg-paper border-t border-hairline p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col gap-2 shadow-[0_-4px_14px_rgba(26,46,26,0.06)] lg:static lg:p-0 lg:bg-transparent lg:border-none lg:shadow-none lg:z-auto">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {(nextStatuses[orderData.status] ?? []).map((next) => (
-            <button
+            <Button
               key={next.status}
               type="button"
               onClick={() => {
@@ -605,82 +608,87 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
                 }
               }}
               disabled={isUpdatingStatus}
-              className={`flex-1 min-h-[44px] px-3 rounded-md text-sm font-bold border transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 ${
-                next.status === "cancelled"
-                  ? "border-alert text-alert hover:bg-alert-soft"
-                  : "border-ink/20 text-ink hover:bg-canvas"
-              }`}
+              variant={next.status === "cancelled" ? "destructive" : "primary"}
+              className="w-full"
+              icon={
+                next.status === "cancelled" ? (
+                  <XCircle className="w-5 h-5" />
+                ) : next.status === "delivered" ? (
+                  <ShoppingCart className="w-5 h-5" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5" />
+                )
+              }
             >
-              {next.status !== "cancelled" && <CheckCircle2 className="w-4 h-4" />}
               {next.label}
-            </button>
+            </Button>
           ))}
-        </div>
-      )}
 
-      {/* زر التراسل السريع والاتفاق: شريط سفلي لاصق في الهاتف للإبهام ومرن بالديسكتوب (§9.1) */}
-      <div className="sticky bottom-0 bg-paper border-t border-hairline p-4 flex flex-col gap-3 lg:static lg:p-0 lg:bg-transparent lg:border-none z-sticky lg:z-auto">
-        {/* رقما الهاتف اختياريان — لا زر واتساب بلا رقم */}
-        {hasWhatsAppNumber(orderData) && (
-          <Button
-            onClick={handleWhatsApp}
-            className="w-full py-3"
-            icon={<MessageSquare className="w-5 h-5" />}
-          >
-            <span>إرسال تفاصيل العرض عبر واتساب</span>
-          </Button>
-        )}
-        {orderData.status !== "delivered" &&
-          orderData.status !== "cancelled" && (
-            <Button
-              onClick={() => setShowConvertConfirm(true)}
-              disabled={isConverting}
-              className="w-full py-3"
-              icon={<ShoppingCart className="w-5 h-5" />}
-            >
-              <span>تحويل إلى مبيعات (تسجيل إيراد)</span>
-            </Button>
-          )}
+          {/* المسار المباشر محفوظ للمسودات/المرسلة فقط؛ عند «مؤكد» يصبح زر «توصيل» هو المسار الوحيد لتجنب التكرار. */}
+          {orderData.status !== "delivered" &&
+            orderData.status !== "cancelled" &&
+            orderData.status !== "confirmed" && (
+              <Button
+                onClick={() => setShowConvertConfirm(true)}
+                disabled={isConverting}
+                variant="secondary"
+                className="w-full"
+                icon={<ShoppingCart className="w-5 h-5" />}
+              >
+                تسجيل إيراد مباشرة
+              </Button>
+            )}
 
-        {orderData.status !== "delivered" &&
-          orderData.status !== "cancelled" &&
-          orderData.depositCents > 0 && (
+          {/* رد الأموال يبقى مستقلاً عن تغيير الحالة أو عكس التسليم. */}
+          {orderData.status !== "delivered" &&
+            orderData.status !== "cancelled" &&
+            orderData.depositCents > 0 && (
+              <Button
+                onClick={handleOpenRefund}
+                disabled={refundOrderMutation.isPending}
+                variant="secondary"
+                className="w-full"
+                icon={<Wallet className="w-5 h-5" />}
+              >
+                رد أموال العربون
+              </Button>
+            )}
+
+          {orderData.status === "delivered" && (
             <Button
-              onClick={handleOpenRefund}
-              disabled={refundOrderMutation.isPending}
+              onClick={() => setShowReverseConfirm(true)}
+              disabled={isReversing}
               variant="secondary"
-              className="w-full py-3"
-              icon={<Wallet className="w-5 h-5" />}
+              className="w-full"
+              icon={<ArrowLeft className="w-5 h-5" />}
             >
-              <span>رد أموال العربون</span>
+              عكس التسليم
             </Button>
           )}
 
-        {/* زر عكس التسليم — يظهر فقط للطلبات المُسلَّمة */}
-        {orderData.status === "delivered" && (
-          <Button
-            onClick={() => setShowReverseConfirm(true)}
-            disabled={isReversing}
-            variant="secondary"
-            className="w-full py-3"
-            icon={<ArrowLeft className="w-5 h-5" />}
-          >
-            <span>عكس التسليم (إعادة الطلب للتنفيذ)</span>
-          </Button>
-        )}
+          {orderData.status === "cancelled" && orderData.forfeitureSale && (
+            <Button
+              onClick={() => setShowReverseForfeitureConfirm(true)}
+              disabled={isReversingForfeiture}
+              variant="secondary"
+              className="w-full"
+              icon={<ArrowLeft className="w-5 h-5" />}
+            >
+              عكس احتجاز العربون
+            </Button>
+          )}
 
-        {/* عكس احتجاز العربون — لا يعيد استخدام عكس التسليم */}
-        {orderData.status === "cancelled" && orderData.forfeitureSale && (
-          <Button
-            onClick={() => setShowReverseForfeitureConfirm(true)}
-            disabled={isReversingForfeiture}
-            variant="secondary"
-            className="w-full py-3"
-            icon={<ArrowLeft className="w-5 h-5" />}
-          >
-            <span>عكس احتجاز العربون (إعادة الطلب)</span>
-          </Button>
-        )}
+          {hasWhatsAppNumber(orderData) && (
+            <Button
+              onClick={handleWhatsApp}
+              variant="secondary"
+              className="w-full"
+              icon={<MessageSquare className="w-5 h-5" />}
+            >
+              إرسال تفاصيل العرض عبر واتساب
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* تأكيد تحويل الطلب إلى مبيعات (إيراد) */}
@@ -696,11 +704,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           <p className="text-xs text-ink-3">
             سيتم ترحيل كامل المبلغ المتبقي (<AmountText amount={orderData.totalPriceCents + (orderData.additionalProfitCents || 0) - (orderData.depositCents || 0)} />) إلى الصندوق كإيراد مبيعات (يشمل الأرباح الإضافية)، وتحويل العربون المحصَّل إلى إيراد، وتحديث حالة الطلب إلى تم التسليم.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
               onClick={() => setShowConvertConfirm(false)}
-              className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
+              className="flex-1 min-h-12 rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
             >
               إلغاء
             </button>
@@ -708,7 +716,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               type="button"
               disabled={isConverting}
               onClick={handleConvertToSale}
-              className="flex-1 min-h-[44px] rounded-lg text-paper font-bold bg-emerald hover:bg-emerald/90 transition-colors disabled:opacity-50 flex items-center justify-center"
+              className="flex-1 min-h-12 rounded-lg text-paper font-bold bg-brand-deep hover:bg-brand transition-colors disabled:opacity-50 flex items-center justify-center"
             >
               {isConverting ? "جارٍ التحويل..." : "تأكيد التحويل"}
             </button>
@@ -729,10 +737,10 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <label className="text-sm font-bold text-ink/75">المبلغ المراد رده</label>
+              <label className="text-sm font-bold text-ink-2">المبلغ المراد رده</label>
               <button
                 type="button"
-                className="min-h-[44px] px-2 text-xs font-bold text-brand"
+                className="min-h-12 px-2 text-sm font-bold text-brand-deep"
                 onClick={() => setRefundAmountCents(orderData.depositCents)}
               >
                 رد كامل المبلغ
@@ -750,7 +758,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="refund-date" className="text-sm font-bold text-ink/75">
+            <label htmlFor="refund-date" className="text-sm font-bold text-ink-2">
               تاريخ الرد
             </label>
             <input
@@ -758,19 +766,19 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               type="date"
               value={refundDate}
               onChange={(event) => setRefundDate(event.target.value)}
-              className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              className="flex h-12 w-full rounded-md border border-border-field bg-paper px-3 py-2 text-base text-ink focus:ring-2 focus:ring-brand focus:ring-offset-2"
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="refund-account" className="text-sm font-bold text-ink/75">
+            <label htmlFor="refund-account" className="text-sm font-bold text-ink-2">
               الحساب الذي خرجت منه الأموال
             </label>
             <select
               id="refund-account"
               value={refundAccountId}
               onChange={(event) => setRefundAccountId(event.target.value)}
-              className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              className="flex h-12 w-full rounded-md border border-border-field bg-paper px-3 py-2 text-base text-ink focus:ring-2 focus:ring-brand focus:ring-offset-2"
             >
               <option value="">اختر الحساب الفعلي</option>
               {accounts
@@ -791,11 +799,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             placeholder="سبب الرد أو تفاصيله..."
           />
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <Button
               type="button"
               variant="secondary"
-              className="flex-1 min-h-[44px]"
+              className="min-h-12 w-full flex-1"
               onClick={() => setRefundModalOpen(false)}
               disabled={refundOrderMutation.isPending}
             >
@@ -804,7 +812,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             <Button
               type="button"
               variant="destructive"
-              className="flex-1 min-h-[44px]"
+              className="min-h-12 w-full flex-1"
               onClick={() => void handleRefund()}
               isLoading={refundOrderMutation.isPending}
               disabled={
@@ -834,7 +842,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             المتبقي الذي سيُحتجز: <AmountText amount={orderData.depositCents} />
           </div>
           <div className="space-y-2">
-            <label htmlFor="forfeit-date" className="text-sm font-bold text-ink/75">
+            <label htmlFor="forfeit-date" className="text-sm font-bold text-ink-2">
               تاريخ التسوية
             </label>
             <input
@@ -842,7 +850,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               type="date"
               value={forfeitDate}
               onChange={(event) => setForfeitDate(event.target.value)}
-              className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              className="flex h-12 w-full rounded-md border border-border-field bg-paper px-3 py-2 text-base text-ink focus:ring-2 focus:ring-brand focus:ring-offset-2"
             />
           </div>
           <TextArea
@@ -852,11 +860,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             onChange={(event) => setForfeitNotes(event.target.value)}
             placeholder="سبب الاحتفاظ بالعربون أو تفاصيل الاتفاق..."
           />
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <Button
               type="button"
               variant="secondary"
-              className="flex-1 min-h-[44px]"
+              className="min-h-12 w-full flex-1"
               onClick={() => setForfeitModalOpen(false)}
               disabled={isForfeiting}
             >
@@ -864,8 +872,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             </Button>
             <Button
               type="button"
-              variant="destructive"
-              className="flex-1 min-h-[44px]"
+              variant="destructive-solid"
+              className="min-h-12 w-full flex-1"
               onClick={() => void handleForfeit()}
               isLoading={isForfeiting}
               disabled={isForfeiting || orderData.depositCents <= 0}
@@ -895,11 +903,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           <p className="text-xs text-warn-deep bg-warn-soft p-2 rounded">
             ملاحظة: النقد الفعلي في الصندوق لا يتأثر — العربون كان محفوظاً كنقد منذ بدايته.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
               onClick={() => setShowReverseConfirm(false)}
-              className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
+              className="flex-1 min-h-12 rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
             >
               إلغاء
             </button>
@@ -907,7 +915,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               type="button"
               disabled={isReversing}
               onClick={handleReverseSale}
-              className="flex-1 min-h-[44px] rounded-lg text-paper font-bold bg-warn-deep hover:bg-warn-deep/90 transition-colors disabled:opacity-50 flex items-center justify-center"
+              className="flex-1 min-h-12 rounded-lg text-paper font-bold bg-warn-deep hover:bg-warn-deep/90 transition-colors disabled:opacity-50 flex items-center justify-center"
             >
               {isReversing ? "جارٍ العكس..." : "تأكيد عكس البيع"}
             </button>
@@ -938,7 +946,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             <strong>{orderData.productName}</strong>؟
           </p>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <Button
               type="button"
               onClick={() => setIsDeleteOpen(false)}
@@ -953,8 +961,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
               isLoading={isDeleting}
-              variant="destructive"
-              className="flex-1"
+              variant="destructive-solid"
+              className="min-h-12 flex-1"
             >
               نعم، احذف الطلب
             </Button>
@@ -975,7 +983,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           <Button
             type="button"
             variant="primary"
-            className="w-full min-h-[44px]"
+            className="w-full min-h-12"
             onClick={() => {
               setCancelOptionsOpen(false);
               void handleUpdateStatus("confirmed");
@@ -991,7 +999,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               <Button
                 type="button"
                 variant="secondary"
-                className="w-full min-h-[44px]"
+                className="w-full min-h-12"
                 onClick={() => {
                   setCancelOptionsOpen(false);
                   handleOpenRefund();
@@ -1002,8 +1010,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               </Button>
               <Button
                 type="button"
-                variant="destructive"
-                className="w-full min-h-[44px]"
+                variant="destructive-solid"
+                className="w-full min-h-12"
                 onClick={() => {
                   setCancelOptionsOpen(false);
                   handleOpenForfeit();
@@ -1020,8 +1028,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           {orderData.depositCents <= 0 && (
             <Button
               type="button"
-              variant="destructive"
-              className="w-full min-h-[44px]"
+              variant="destructive-solid"
+              className="w-full min-h-12"
               onClick={() => {
                 setCancelOptionsOpen(false);
                 setCancelConfirmOpen(true);
@@ -1034,7 +1042,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           <Button
             type="button"
             variant="secondary"
-            className="w-full min-h-[44px]"
+            className="w-full min-h-12"
             onClick={() => setCancelOptionsOpen(false)}
           >
             متابعة العمل على الطلب

@@ -155,7 +155,7 @@ export function FinanceCatalogModal({
               type="submit"
               variant="ink"
               disabled={createPurchaseItem.isPending || updatePurchaseItem.isPending || createExpenseCategory.isPending || updateExpenseCategory.isPending}
-              className="h-11 min-h-[44px] shrink-0 px-4"
+              className="h-12 min-h-12 shrink-0 px-4"
             >
               {editingId ? "حفظ" : "إضافة"}
             </Button>
@@ -163,7 +163,7 @@ export function FinanceCatalogModal({
               <Button
                 variant="icon"
                 onClick={handleCancelEdit}
-                className="h-11 w-11 min-h-[44px] min-w-[44px] shrink-0"
+                className="h-12 w-12 min-h-12 min-w-12 shrink-0"
                 title="إلغاء التعديل"
               >
                 <X className="w-4 h-4" />
@@ -180,7 +180,7 @@ export function FinanceCatalogModal({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={searchPlaceholder}
-            className="w-full h-11 ps-9 pe-4 rounded border border-hairline bg-paper text-base focus:outline-none focus:ring-2 focus:ring-ink"
+            className="w-full h-12 ps-9 pe-4 rounded border border-hairline bg-paper text-base focus:outline-none focus:ring-2 focus:ring-ink"
           />
         </div>
 

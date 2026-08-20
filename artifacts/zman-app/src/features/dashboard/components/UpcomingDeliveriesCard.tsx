@@ -36,7 +36,7 @@ function getDeliveryCountdown(deliveryDate: string): DeliveryCountdown {
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays > 0) {
-    return { text: `باقٍ ${diffDays} أيام`, colorClass: "text-emerald-deep font-bold" };
+    return { text: `باقٍ ${diffDays} أيام`, colorClass: "text-brand-deep font-bold" };
   }
   if (diffDays === 0) {
     return { text: "التسليم اليوم", colorClass: "text-warn-deep font-bold" };
@@ -90,7 +90,7 @@ export function UpcomingDeliveriesCard() {
             <li key={o.id}>
               <Link
                 href={`/orders?q=${encodeURIComponent(o.customerName)}`}
-                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas transition-colors min-h-[44px]"
+                className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas transition-colors min-h-12"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-ink truncate">{o.customerName}</p>
@@ -119,7 +119,7 @@ export function UpcomingDeliveriesCard() {
       {/* الرابط السفلي */}
       <Link
         href="/orders?sort=delivery"
-        className="flex items-center justify-between gap-2 px-4 py-2.5 bg-brand-soft/60 border-t border-brand/10 hover:bg-brand-soft transition-colors min-h-[44px]"
+        className="flex items-center justify-between gap-2 px-4 py-2.5 bg-brand-soft/60 border-t border-brand/10 hover:bg-brand-soft transition-colors min-h-12"
       >
         <span className="text-xs font-bold text-brand">عرض كل الطلبات</span>
         <ArrowLeft className="h-3.5 w-3.5 text-brand opacity-70 shrink-0" />

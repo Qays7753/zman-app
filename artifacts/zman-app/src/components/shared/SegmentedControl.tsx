@@ -14,10 +14,12 @@ interface SegmentedControlProps<T = string> {
   value: T;
   onChange: (value: T) => void;
   className?: string;
-  /** compact = الأزرار بعرض محتواها لا تتمدّد (للهيدر المزدحم) */
+  /** compact = الأزرار بعرض محتواها لا تتمدّد */
   compact?: boolean;
-  /** scrollable = يسمح بالتمرير فقط عندما تكون الخيارات أطول من المساحة المتاحة */
+  /** scrollable = يسمح بالتمرير عندما تكون الخيارات أطول من المساحة المتاحة */
   scrollable?: boolean;
+  /** underline = تبويب هادئ دون كتلة خضراء، مناسب للمالية والتقارير */
+  tone?: "filled" | "underline";
 }
 
 export function SegmentedControl<T = string>({
@@ -27,11 +29,16 @@ export function SegmentedControl<T = string>({
   className,
   compact = false,
   scrollable = true,
+  tone = "filled",
 }: SegmentedControlProps<T>) {
+  const isUnderline = tone === "underline";
+
   return (
     <div
       className={cn(
-        "flex items-center rounded-lg border border-hairline bg-canvas p-1 gap-0.5 max-w-full whitespace-nowrap",
+        isUnderline
+          ? "flex items-stretch border-b border-hairline max-w-full whitespace-nowrap"
+          : "flex items-center rounded-lg border border-hairline bg-canvas p-1 gap-0.5 max-w-full whitespace-nowrap",
         scrollable ? "overflow-x-auto no-scrollbar" : "overflow-hidden w-full",
         className,
       )}
@@ -44,23 +51,22 @@ export function SegmentedControl<T = string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex items-center justify-center gap-1.5 text-xs font-bold transition-all duration-[120ms] ease-out active:scale-[0.94]",
-              // SA2 (Round 4 — B-2 system decision): both compact and default
-              // variants now use min-h-[44px] h-11 (was min-h-[36px] h-9 for
-              // compact). All touch-surface buttons MUST be ≥ 44×44 px per
-              // design-baseline.md.
-              compact
-                ? scrollable
-                  ? "min-h-[44px] h-11 px-3.5 rounded-md"
-                  : "min-h-[44px] h-11 px-2 rounded-md flex-1 min-w-0"
-                : "min-h-[44px] h-11 px-3 rounded-md flex-none min-w-[88px]",
+              "flex items-center justify-center gap-1.5 text-sm font-bold transition-colors duration-[120ms] ease-out active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+              isUnderline
+                ? "min-h-12 h-12 px-3 rounded-none border-b-2 border-transparent flex-1 min-w-0"
+                : compact
+                  ? scrollable
+                    ? "min-h-12 h-12 px-3.5 rounded-md"
+                    : "min-h-12 h-12 px-2 rounded-md flex-1 min-w-0"
+                  : "min-h-12 h-12 px-3 rounded-md flex-none min-w-[88px]",
               isActive
-                ? "bg-brand text-paper shadow-sm"
-                : "text-ink-2 hover:text-ink hover:bg-paper/60",
+                ? isUnderline
+                  ? "border-brand-deep text-brand-deep"
+                  : "bg-brand text-paper shadow-sm"
+                : "text-ink-2 hover:text-ink hover:bg-canvas",
             )}
           >
-            {opt.icon && <span className="shrink-0">{opt.icon}</span>}
-            {/* التسمية تبقى ظاهرة على الهاتف؛ يمكن تمرير المجموعة أفقيًا عندما تطول. */}
+            {opt.icon && <span className="shrink-0" aria-hidden="true">{opt.icon}</span>}
             {opt.label && <span>{opt.label}</span>}
           </button>
         );

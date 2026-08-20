@@ -165,7 +165,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
       </aside>
 
       {/* هيدر الموبايل */}
-      <header className="lg:hidden flex-shrink-0 w-full h-[58px] bg-paper/95 backdrop-blur-sm shadow-sm border-b border-hairline flex items-center justify-between gap-2 px-3 z-sticky">
+      <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper border-b border-hairline shadow-none flex items-center justify-between gap-2 px-3 z-sticky">
         {title ? (
           <h1 className="min-w-0 max-w-[38%] shrink-0 text-base font-bold text-ink truncate">{title}</h1>
         ) : null}
@@ -228,14 +228,14 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               </svg>
             </div>
           )}
-          <div className="w-full max-w-6xl mx-auto px-4 lg:px-8 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:py-6 flex flex-col min-h-full min-w-0">
+          <div className="w-full max-w-6xl mx-auto px-4 lg:px-8 pt-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:py-6 flex flex-col min-h-full min-w-0">
             {children}
           </div>
         </div>
       </main>
 
       {/* شريط التبويب السفلي للموبايل */}
-      <nav aria-label="التنقل الرئيسي" className="lg:hidden flex-shrink-0 h-[calc(64px+env(safe-area-inset-bottom))] min-h-[64px] bg-paper border-t border-hairline flex items-start pb-[env(safe-area-inset-bottom)] justify-around z-sticky">
+      <nav aria-label="التنقل الرئيسي" className="lg:hidden flex-shrink-0 h-[calc(56px+env(safe-area-inset-bottom))] min-h-14 bg-paper border-t border-hairline flex items-start pb-[env(safe-area-inset-bottom)] justify-around z-navbar">
         {mainNavItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -251,9 +251,9 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
               }}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 flex-1 h-16 text-[11px] transition-colors border-t-2 border-transparent",
+                "flex flex-col items-center justify-center gap-0.5 flex-1 h-14 min-h-14 text-[11px] transition-colors border-t-2 border-transparent",
                 isActive
-                  ? "text-brand font-bold border-brand bg-brand-soft/40"
+                  ? "text-brand-deep font-bold border-brand-deep"
                   : "text-ink-3 hover:text-ink-2",
               )}
             >
@@ -269,9 +269,9 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
           aria-expanded={isMoreOpen}
           aria-label="فتح المزيد"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 flex-1 h-16 text-[11px] transition-colors border-t-2 border-transparent",
+            "flex flex-col items-center justify-center gap-0.5 flex-1 h-14 min-h-14 text-[11px] transition-colors border-t-2 border-transparent",
                 isMoreActive
-                  ? "text-brand font-bold border-brand bg-brand-soft/40"
+                  ? "text-brand-deep font-bold border-brand-deep"
                   : "text-ink-3 hover:text-ink-2",
           )}
         >
@@ -306,8 +306,7 @@ export function AppShell({ children, title: propTitle, action: propAction }: App
                     onClick={() => setIsMoreOpen(false)}
                     className={cn(
                       "flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg",
-                      isActive
-                        ? "text-brand font-bold bg-brand-soft"
+                      isActive ? "text-brand-deep font-bold bg-brand-soft"
                         : "text-ink-2 hover:bg-canvas hover:text-ink",
                     )}
                   >

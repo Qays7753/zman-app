@@ -86,7 +86,7 @@ export function ServiceWorkerRegister() {
       <button
         type="button"
         onClick={applyUpdate}
-        className="min-h-[44px] rounded-lg bg-brand px-3 font-bold text-paper active:scale-95 transition-transform"
+        className="min-h-12 rounded-lg bg-brand px-3 font-bold text-paper active:scale-95 transition-transform"
       >
         تحديث الآن
       </button>

@@ -170,7 +170,7 @@ export function ComponentsEditor({
                   <button
                     type="button"
                     onClick={() => handleRemove(index)}
-                    className="mt-5 p-2 rounded-md hover:bg-alert-soft text-alert transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center border border-hairline"
+                    className="mt-5 p-2 rounded-md hover:bg-alert-soft text-alert transition-colors min-h-12 min-w-12 flex items-center justify-center border border-hairline"
                     aria-label="حذف المكون"
                   >
                     <Trash2 className="w-5 h-5" />
@@ -223,7 +223,7 @@ export function ComponentsEditor({
         <button
           type="button"
           onClick={() => append({ name: "", costCents: 0, quantity: 1 })}
-          className="min-h-[44px] py-3 rounded-md border border-dashed border-hairline-2 text-ink-2 hover:bg-canvas transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
+          className="min-h-12 py-3 rounded-md border border-dashed border-hairline-2 text-ink-2 hover:bg-canvas transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
         >
           <Plus className="w-4 h-4" />
           <span>إضافة مكوّن حر</span>
@@ -231,7 +231,7 @@ export function ComponentsEditor({
         <button
           type="button"
           onClick={() => setIsPickerOpen(true)}
-          className="min-h-[44px] py-3 rounded-md border border-brand/30 text-brand hover:bg-brand-soft transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
+          className="min-h-12 py-3 rounded-md border border-brand/30 text-brand hover:bg-brand-soft transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
         >
           <Boxes className="w-4 h-4" />
           <span>اختيار من الكتالوج</span>
@@ -254,7 +254,7 @@ export function ComponentsEditor({
               value={catalogSearch}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="ابحث في المكوّنات…"
-              className="w-full h-11 ps-10 pe-4 rounded-md border border-hairline bg-canvas text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-12 ps-10 pe-4 rounded-md border border-hairline bg-canvas text-sm focus:outline-none focus:ring-2 focus:ring-ink"
             />
           </div>
 

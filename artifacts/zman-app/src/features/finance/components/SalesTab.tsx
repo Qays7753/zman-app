@@ -178,7 +178,7 @@ export function SalesTab() {
           onClick={() => setIsSourceFilterOpen(true)}
           aria-expanded={isSourceFilterOpen}
           className={cn(
-            "min-h-[44px] flex-1 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start transition-colors",
+            "min-h-12 flex-1 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start transition-colors",
             source !== "all"
               ? "border-brand/30 bg-brand-soft/50 text-brand-deep"
               : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
@@ -198,7 +198,7 @@ export function SalesTab() {
           <button
             type="button"
             onClick={() => updateUrl({ source: null })}
-            className="min-h-[44px] shrink-0 rounded-lg px-3 text-xs font-bold text-ink-2 hover:bg-canvas"
+            className="min-h-12 shrink-0 rounded-lg px-3 text-xs font-bold text-ink-2 hover:bg-canvas"
           >
             مسح
           </button>
@@ -221,7 +221,7 @@ export function SalesTab() {
                   type="button"
                   onClick={() => handleSourceChipChange(chip.id)}
                   className={cn(
-                    "min-h-[44px] w-full flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start",
+                    "min-h-12 w-full flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start",
                     isActive
                       ? "border-brand bg-brand-soft text-brand-deep"
                       : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
@@ -406,7 +406,7 @@ export function SalesTab() {
             <Button
               type="button"
               variant="secondary"
-              className="w-full min-h-[44px]"
+              className="w-full min-h-12"
               onClick={() => updateUrl({ editSale: null })}
             >
               إغلاق والعودة

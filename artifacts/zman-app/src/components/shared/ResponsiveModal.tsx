@@ -93,7 +93,7 @@ export function ResponsiveModal({
     >
       {/* الخلفية الداكنة */}
       <div
-        className="absolute inset-0 bg-ink/40 animate-fade-in"
+        className="absolute inset-0 z-overlay bg-ink/45 animate-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -103,33 +103,33 @@ export function ResponsiveModal({
         ref={modalRef}
         tabIndex={-1}
         className={cn(
-          "relative w-full bg-paper z-modal flex flex-col focus:outline-none animate-slide-up",
+          "relative z-sheet w-full bg-paper flex flex-col animate-slide-up",
           // موبايل: شيت من الأسفل — يترك مسافة 4rem للنافبار السفلي
-          "rounded-t-2xl max-h-[calc(100dvh-env(safe-area-inset-bottom))]",
+          "rounded-t-2xl max-h-[calc(var(--app-height)-env(safe-area-inset-bottom))]",
           // ديسكتوب: مودال متمركز
-          "lg:rounded-xl lg:max-w-[480px] lg:w-full lg:max-h-[85vh] lg:shadow-xl",
+          "lg:rounded-xl lg:max-w-[480px] lg:w-full lg:max-h-[85vh] lg:shadow-elev-2",
         )}
       >
         {/* مقبض السحب (موبايل فقط) */}
         <div className="flex justify-center pt-2.5 pb-1 lg:hidden flex-shrink-0">
-          <div className="w-10 h-1 bg-ink/20 rounded-full" />
+          <div className="w-9 h-1 bg-hairline rounded-full" />
         </div>
 
         {/* الترويسة */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-hairline flex-shrink-0">
-          <h3 id={titleId} className="text-base font-bold text-ink leading-tight">{title}</h3>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-hairline flex-shrink-0">
+          <h3 id={titleId} className="text-lg font-bold text-ink leading-tight">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 -me-2 rounded-full hover:bg-canvas text-ink-2 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            className="h-12 w-12 -me-2 rounded-full hover:bg-canvas text-ink-2 transition-colors flex items-center justify-center focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
             aria-label="إغلاق"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* المحتوى — المودال يغطي النافبار كلياً (z-modal=40 > z-sticky=10) */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        {/* المحتوى — الشيت فوق الشريط السفلي مع safe-area مستقل. */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
       </div>

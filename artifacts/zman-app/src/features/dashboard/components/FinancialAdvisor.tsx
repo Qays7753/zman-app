@@ -183,7 +183,7 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
         type="button"
         onClick={() => setExpanded((o) => !o)}
         aria-expanded={expanded}
-        className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 border-t border-hairline bg-warm/70 hover:bg-brand-soft/60 transition-colors text-sm font-bold text-brand"
+        className="w-full min-h-12 flex items-center justify-center gap-2 px-4 py-2.5 border-t border-hairline bg-warm/70 hover:bg-brand-soft/60 transition-colors text-sm font-bold text-brand"
       >
         <span>{expanded ? "إخفاء التفاصيل" : "اقرأ المزيد"}</span>
         <ChevronDown

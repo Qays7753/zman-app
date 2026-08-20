@@ -809,7 +809,7 @@ export function SmartFinanceForm({
             <Button
               type="button"
               variant="ink"
-              className="min-h-[44px]"
+              className="min-h-12"
               onClick={handleRestoreDraft}
             >
               استرجاع
@@ -817,7 +817,7 @@ export function SmartFinanceForm({
             <Button
               type="button"
               variant="secondary"
-              className="min-h-[44px]"
+              className="min-h-12"
               onClick={handleDiscardDraft}
             >
               تجاهل
@@ -839,7 +839,7 @@ export function SmartFinanceForm({
             role="tab"
             aria-selected={mode === mId}
             onClick={() => handleModeChange(mId)}
-            className={`flex items-center justify-center gap-2 py-2.5 px-2 rounded-lg text-xs font-bold transition-all min-h-[44px] ${
+            className={`flex items-center justify-center gap-2 py-2.5 px-2 rounded-lg text-xs font-bold transition-all min-h-12 ${
               mode === mId
                 ? "bg-brand-soft text-brand shadow-sm ring-1 ring-brand/30"
                 : "text-ink/60 hover:text-ink/90 hover:bg-paper/50"
@@ -1252,7 +1252,7 @@ export function SmartFinanceForm({
 
           {/* إهلاك شهري */}
           <div className="p-3.5 bg-canvas/30 rounded-lg border border-hairline">
-            <label className="flex items-center gap-3 min-h-[44px] cursor-pointer">
+            <label className="flex items-center gap-3 min-h-12 cursor-pointer">
               <input
                 type="checkbox"
                 {...assetForm.register("wantDepreciation")}
@@ -1273,7 +1273,7 @@ export function SmartFinanceForm({
             type="submit"
             variant="ink"
             isLoading={isExpensePending}
-            className="w-full min-h-[44px]"
+            className="w-full min-h-12"
           >
             {isEditing ? "حفظ التعديلات" : "تسجيل الأصل"}
           </Button>
@@ -1370,7 +1370,7 @@ export function SmartFinanceForm({
             type="submit"
             variant="ink"
             isLoading={createReceivable.isPending}
-            className="w-full min-h-[44px]"
+            className="w-full min-h-12"
           >
             تسجيل الدَّين
           </Button>

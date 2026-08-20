@@ -93,7 +93,7 @@ function DayOrdersPanel({ dateStr, status, q, onClose, onViewDetail, onCreateNew
       />
 
       {/* اللوحة نفسها — تظهر من الأسفل */}
-      <div className="fixed inset-x-0 bottom-0 z-sheet bg-paper rounded-t-2xl shadow-xl border-t border-hairline max-h-[70vh] flex flex-col lg:static lg:rounded-lg lg:border lg:mt-4 lg:max-h-none lg:shadow-sm">
+      <div className="fixed inset-x-0 bottom-0 z-sheet bg-paper rounded-t-2xl shadow-elev-2 border-t border-hairline max-h-[70vh] flex flex-col lg:static lg:rounded-lg lg:border lg:mt-4 lg:max-h-none lg:shadow-elev-1">
         {/* رأس اللوحة */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-hairline shrink-0">
           <h3 className="text-base font-bold text-ink">
@@ -102,7 +102,7 @@ function DayOrdersPanel({ dateStr, status, q, onClose, onViewDetail, onCreateNew
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-canvas text-ink-3 hover:text-ink transition-colors"
+            className="min-h-12 min-w-12 flex items-center justify-center rounded-lg hover:bg-canvas text-ink-3 hover:text-ink transition-colors"
             aria-label="إغلاق"
           >
             <X className="w-5 h-5" />
@@ -126,14 +126,14 @@ function DayOrdersPanel({ dateStr, status, q, onClose, onViewDetail, onCreateNew
                   key={ord.id}
                   type="button"
                   onClick={() => onViewDetail(ord)}
-                  className="w-full text-start px-5 py-4 hover:bg-canvas transition-colors flex items-center justify-between gap-4"
+                  className="w-full min-h-16 text-start px-5 py-4 hover:bg-canvas transition-colors flex items-center justify-between gap-4 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-ink text-sm truncate">{ord.customerName}</p>
                     <p className="text-xs text-ink-3 mt-0.5 truncate">{ord.productName}</p>
                   </div>
                   <div className="shrink-0 text-end">
-                    <p className="text-sm font-bold text-brand">
+                    <p className="text-sm font-bold text-ink">
                       <AmountText amount={ord.totalPriceCents} />
                     </p>
                     <span className="text-xs text-ink-3">
@@ -215,7 +215,7 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
           <button
             type="button"
             onClick={nextMonth}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-hairline text-ink-2 transition-colors"
+            className="min-h-12 min-w-12 flex items-center justify-center rounded-lg hover:bg-hairline text-ink-2 transition-colors"
             aria-label="الشهر التالي"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -228,7 +228,7 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
           <button
             type="button"
             onClick={prevMonth}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-hairline text-ink-2 transition-colors"
+            className="min-h-12 min-w-12 flex items-center justify-center rounded-lg hover:bg-hairline text-ink-2 transition-colors"
             aria-label="الشهر السابق"
           >
             <ChevronRight className="w-5 h-5" />
@@ -267,8 +267,9 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
                 key={dateStr}
                 type="button"
                 onClick={() => handleDayClick(date)}
+                aria-label={`${formatArabicDayFull(dateStr)}${dayCount > 0 ? `، ${dayCount} طلبات` : ""}`}
                 className={cn(
-                  "relative flex flex-col items-center justify-center min-h-[52px] transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-inset",
+                  "relative flex flex-col items-center justify-center min-h-[52px] transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset",
                   isSelected
                     ? "bg-brand"
                     : isToday
@@ -307,7 +308,7 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
                 {hasOrders && (
                   <div className="flex gap-0.5 mt-1 justify-center">
                     {dayStatuses.includes("delivered") && (
-                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/85" : "bg-emerald")} />
+                      <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/85" : "bg-brand-deep")} />
                     )}
                     {dayStatuses.includes("confirmed") && (
                       <div className={cn("w-1.5 h-1.5 rounded-full", isSelected ? "bg-paper/70" : "bg-info")} />
@@ -344,7 +345,7 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
           <span>تحت التنفيذ</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-emerald" />
+          <div className="w-2 h-2 rounded-full bg-brand-deep" />
           <span>تم التسليم</span>
         </div>
         <div className="flex items-center gap-1.5">

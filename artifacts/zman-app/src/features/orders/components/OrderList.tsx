@@ -161,7 +161,7 @@ export function OrderList({
                             onClick={() =>
                               window.open(buildOrderWhatsAppLink(ord), "_blank")
                             }
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-canvas text-whatsapp transition-colors"
+                            className="min-h-12 min-w-12 flex items-center justify-center rounded hover:bg-canvas text-whatsapp transition-colors"
                             title="إرسال تفاصيل واتساب"
                           >
                             <MessageSquare className="w-4 h-4" />
@@ -171,7 +171,7 @@ export function OrderList({
                         <button
                           type="button"
                           onClick={() => onEdit(ord)}
-                          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-canvas text-ink-2 transition-colors"
+                          className="min-h-12 min-w-12 flex items-center justify-center rounded hover:bg-canvas text-ink-2 transition-colors"
                           title="تعديل الطلب"
                         >
                           <Edit className="w-4 h-4" />
@@ -180,7 +180,7 @@ export function OrderList({
                         <button
                           type="button"
                           onClick={() => onDelete(ord)}
-                          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-alert-soft text-alert transition-colors"
+                          className="min-h-12 min-w-12 flex items-center justify-center rounded hover:bg-alert-soft text-alert transition-colors"
                           title="حذف الطلب"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -200,7 +200,7 @@ export function OrderList({
                 type="button"
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="w-full lg:w-auto min-h-[44px] px-8 py-2.5 bg-paper hover:bg-canvas border border-hairline-2 rounded-md text-sm font-semibold text-ink-2 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full lg:w-auto min-h-12 px-8 py-2.5 bg-paper hover:bg-canvas border border-hairline-2 rounded-md text-sm font-semibold text-ink-2 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isFetchingNextPage
                   ? "جاري تحميل المزيد..."

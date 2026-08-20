@@ -91,7 +91,7 @@ export function OrderCard({
 
     if (diffDays > 0) {
       countdownText = `باقٍ ${diffDays} أيام`;
-      countdownColorClass = "text-emerald-deep font-bold";
+      countdownColorClass = "text-brand-deep font-bold";
     } else if (diffDays === 0) {
       countdownText = "التسليم اليوم";
       isToday = true;
@@ -183,7 +183,7 @@ export function OrderCard({
 
   return (
     <>
-      <article className="rounded-xl bg-paper border border-hairline-2 shadow-sm hover:shadow-md hover:border-ink/20 transition-all duration-200 flex flex-col relative">
+      <article className="rounded-xl bg-paper border border-hairline-2 shadow-elev-1 hover:shadow-elev-2 hover:border-ink/20 transition-all duration-200 flex flex-col relative">
         {/* الشريط العلوي: حالة الطلب الحالية — كامل العرض بلون الحالة */}
         <div
           className={cn(
@@ -206,7 +206,7 @@ export function OrderCard({
           <button
             type="button"
             onClick={() => onClick(order)}
-            className="min-w-0 flex-1 min-h-[44px] rounded-lg text-start hover:bg-canvas/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 transition-colors"
+            className="min-w-0 flex-1 min-h-12 rounded-lg text-start hover:bg-canvas/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 transition-colors"
             aria-label={`فتح تفاصيل طلب ${order.customerName}`}
           >
             <span className="block font-bold text-ink truncate text-base leading-tight">
@@ -224,7 +224,7 @@ export function OrderCard({
               e.stopPropagation();
               setIsActionsOpen(true);
             }}
-            className="p-2 -me-2 rounded-full hover:bg-canvas text-ink-2 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+            className="p-2 -me-2 rounded-full hover:bg-canvas text-ink-2 min-h-12 min-w-12 flex items-center justify-center transition-colors"
             aria-label="خيارات الطلب"
           >
             <MoreVertical className="w-5 h-5" />
@@ -252,7 +252,7 @@ export function OrderCard({
               <div className="flex items-center gap-1.5 shrink-0">
                 <Clock className="w-3.5 h-3.5 text-ink-3 shrink-0" />
                 {localStatus === "delivered" ? (
-                  <span className="text-emerald-deep font-bold">تم التسليم</span>
+                  <span className="text-brand-deep font-bold">تم التسليم</span>
                 ) : localStatus === "cancelled" ? (
                   <span className="text-alert">ملغى</span>
                 ) : order.deliveryDate ? (
@@ -298,7 +298,7 @@ export function OrderCard({
 
           {/* السعر النهائي عريض باللون الدلالي الأساسي (§10.1) */}
           <div className="flex flex-col items-end gap-1">
-            <span className="text-lg font-bold text-brand leading-none">
+            <span className="text-lg font-bold text-ink leading-none">
               <AmountText amount={order.totalPriceCents} />
             </span>
           </div>
@@ -312,7 +312,7 @@ export function OrderCard({
           <button
             type="button"
             onClick={handleWhatsApp}
-            className="min-h-[44px] min-w-[44px] rounded-lg border border-whatsapp/40 bg-whatsapp/10 text-whatsapp hover:bg-whatsapp/20 flex items-center justify-center transition-colors shrink-0 active:scale-[0.94]"
+            className="min-h-12 min-w-12 rounded-lg border border-whatsapp/40 bg-whatsapp/10 text-whatsapp hover:bg-whatsapp/20 flex items-center justify-center transition-colors shrink-0 active:scale-[0.94]"
             aria-label="إرسال تفاصيل الطلب عبر واتساب"
             title="إرسال عبر واتساب"
           >
@@ -325,7 +325,7 @@ export function OrderCard({
           {/* الزر الذكي: الفعل التالي في الرحلة */}
           {isCancelled ? (
             // طلب ملغى — لا فعل متاح، اعرض الحالة فقط
-            <div className="flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-alert-soft text-alert border border-alert/20">
+            <div className="flex-1 min-h-12 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-alert-soft text-alert border border-alert/20">
               <XCircle className="w-4 h-4" />
               <span>ملغى</span>
             </div>
@@ -335,9 +335,9 @@ export function OrderCard({
               disabled={isUpdatingStatus}
               onClick={() => setPendingStatus(nextStatus)}
               className={cn(
-                "flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:opacity-50",
+                "flex-1 min-h-12 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:opacity-50",
                 nextStatus === "delivered"
-                  ? "bg-emerald text-paper hover:bg-emerald/90"
+                  ? "bg-brand text-paper hover:bg-brand/90"
                   : "bg-brand text-paper hover:bg-brand-deep",
               )}
             >
@@ -346,7 +346,7 @@ export function OrderCard({
             </button>
           ) : (
             // اكتملت الرحلة (تم التوصيل)
-            <div className="flex-1 min-h-[44px] px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-emerald-soft text-emerald-deep border border-emerald/20">
+            <div className="flex-1 min-h-12 px-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 bg-brand-soft text-brand-deep border border-brand/20">
               <Check className="w-4 h-4" />
               <span>{STATUS_LABELS[localStatus]}</span>
             </div>
@@ -377,11 +377,11 @@ export function OrderCard({
               </span>
               ؟
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setPendingStatus(null)}
-                className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
+                className="flex-1 min-h-12 rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
               >
                 إلغاء
               </button>
@@ -389,9 +389,9 @@ export function OrderCard({
                 type="button"
                 onClick={() => applyStatus(pendingStatus)}
                 className={cn(
-                  "flex-1 min-h-[44px] rounded-lg text-paper font-bold transition-colors",
+                  "flex-1 min-h-12 rounded-lg text-paper font-bold transition-colors",
                   pendingStatus === "delivered"
-                    ? "bg-emerald hover:bg-emerald/90"
+                    ? "bg-brand hover:bg-brand/90"
                     : pendingStatus === "cancelled"
                       ? "bg-alert hover:bg-alert/90"
                       : "bg-brand hover:bg-brand-deep",
@@ -416,7 +416,7 @@ export function OrderCard({
           </p>
           <button
             type="button"
-            className="w-full min-h-[44px] rounded-lg bg-brand text-paper font-bold px-4 py-3"
+            className="w-full min-h-12 rounded-lg bg-brand text-paper font-bold px-4 py-3"
             onClick={() => {
               setCancelOptionsOpen(false);
               void applyStatus("confirmed");
@@ -429,7 +429,7 @@ export function OrderCard({
           </button>
           <button
             type="button"
-            className="w-full min-h-[44px] rounded-lg bg-alert text-paper font-bold px-4 py-3"
+            className="w-full min-h-12 rounded-lg bg-alert text-paper font-bold px-4 py-3"
             onClick={() => {
               setCancelOptionsOpen(false);
               setFinalCancelConfirmOpen(true);
@@ -447,7 +447,7 @@ export function OrderCard({
           )}
           <button
             type="button"
-            className="w-full min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold px-4 py-3"
+            className="w-full min-h-12 rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold px-4 py-3"
             onClick={() => setCancelOptionsOpen(false)}
           >
             متابعة العمل على الطلب
@@ -464,17 +464,17 @@ export function OrderCard({
           <p className="text-sm text-ink-2 leading-relaxed">
             سيُنقل الطلب إلى «ملغى» ويُغلق مسار التنفيذ. لا يسجل هذا الإجراء رد أموال؛ نفّذ رد الأموال بشكل منفصل عند الحاجة قبل الإلغاء النهائي.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold"
+              className="flex-1 min-h-12 rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold"
               onClick={() => setFinalCancelConfirmOpen(false)}
             >
               رجوع
             </button>
             <button
               type="button"
-              className="flex-1 min-h-[44px] rounded-lg bg-alert text-paper font-bold disabled:opacity-50"
+              className="flex-1 min-h-12 rounded-lg bg-alert text-paper font-bold disabled:opacity-50"
               disabled={isUpdatingStatus}
               onClick={() => {
                 setFinalCancelConfirmOpen(false);
@@ -500,11 +500,11 @@ export function OrderCard({
           <p className="text-xs text-ink-3">
             سيتم ترحيل كامل المبلغ المتبقي (<AmountText amount={order.totalPriceCents + (order.additionalProfitCents || 0) - (order.depositCents || 0)} />) إلى الصندوق كإيراد مبيعات (يشمل الأرباح الإضافية)، وتحويل العربون المحصَّل إلى إيراد، وتحديث حالة الطلب إلى تم التسليم.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
               onClick={() => setShowConvertConfirm(false)}
-              className="flex-1 min-h-[44px] rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
+              className="flex-1 min-h-12 rounded-lg border border-hairline-2 bg-paper text-ink-2 font-bold hover:bg-canvas transition-colors"
             >
               إلغاء
             </button>
@@ -512,7 +512,7 @@ export function OrderCard({
               type="button"
               disabled={isConverting}
               onClick={handleConvertToSale}
-              className="flex-1 min-h-[44px] rounded-lg text-paper font-bold bg-emerald hover:bg-emerald/90 transition-colors disabled:opacity-50 flex items-center justify-center"
+              className="flex-1 min-h-12 rounded-lg text-paper font-bold bg-brand hover:bg-brand/90 transition-colors disabled:opacity-50 flex items-center justify-center"
             >
               {isConverting ? "جارٍ التحويل..." : "تأكيد التحويل"}
             </button>
@@ -532,9 +532,9 @@ export function OrderCard({
             <button
               type="button"
               onClick={handleWhatsApp}
-              className="w-full min-h-[44px] px-4 py-3 rounded-md hover:bg-canvas text-ink-2 flex items-center gap-3 transition-colors text-start"
+              className="w-full min-h-12 px-4 py-3 rounded-md hover:bg-canvas text-ink-2 flex items-center gap-3 transition-colors text-start"
             >
-              <MessageSquare className="w-5 h-5 text-brand" />
+              <MessageSquare className="w-5 h-5 text-ink-2" />
               <span>إرسال تفاصيل العرض عبر واتساب</span>
             </button>
           )}
@@ -547,7 +547,7 @@ export function OrderCard({
               setIsActionsOpen(false);
               onEdit(order);
             }}
-            className="w-full min-h-[44px] px-4 py-3 rounded-md hover:bg-canvas text-ink-2 flex items-center gap-3 transition-colors text-start"
+            className="w-full min-h-12 px-4 py-3 rounded-md hover:bg-canvas text-ink-2 flex items-center gap-3 transition-colors text-start"
           >
             <Edit className="w-5 h-5" />
             <span>تعديل بيانات الطلب</span>
@@ -562,7 +562,7 @@ export function OrderCard({
                 setIsActionsOpen(false);
                 setShowConvertConfirm(true);
               }}
-              className="w-full min-h-[44px] px-4 py-3 rounded-md hover:bg-brand-soft text-brand flex items-center gap-3 transition-colors text-start font-semibold disabled:opacity-50"
+              className="w-full min-h-12 px-4 py-3 rounded-md hover:bg-brand-soft text-brand-deep flex items-center gap-3 transition-colors text-start font-semibold disabled:opacity-50"
             >
               <ShoppingCart className="w-5 h-5" />
               <span>تسجيل إيراد</span>
@@ -590,7 +590,7 @@ export function OrderCard({
                     }
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-md text-sm text-start transition-colors",
+                    "w-full flex items-center gap-2 min-h-12 px-4 py-2 rounded-md text-sm text-start transition-colors",
                     active
                       ? "bg-canvas text-ink font-bold cursor-default"
                       : isDisabledForTerminal
@@ -604,7 +604,7 @@ export function OrderCard({
                       val === "draft" && "bg-warn",
                       val === "sent" && "bg-info/70",
                       val === "confirmed" && "bg-brand",
-                      val === "delivered" && "bg-emerald",
+                      val === "delivered" && "bg-brand-deep",
                       val === "cancelled" && "bg-alert",
                     )}
                   />
@@ -625,7 +625,7 @@ export function OrderCard({
               setIsActionsOpen(false);
               onDelete(order);
             }}
-            className="w-full min-h-[44px] px-4 py-3 rounded-md hover:bg-alert-soft text-alert flex items-center gap-3 transition-colors text-start font-semibold"
+            className="w-full min-h-12 px-4 py-3 rounded-md hover:bg-alert-soft text-alert-deep flex items-center gap-3 transition-colors text-start font-semibold"
           >
             <Trash2 className="w-5 h-5" />
             <span>حذف الطلب نهائياً</span>

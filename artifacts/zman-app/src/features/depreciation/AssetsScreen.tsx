@@ -394,7 +394,7 @@ function UndepreciatedAssetCard({
         <button
           type="button"
           onClick={onActivateDepreciation}
-          className="min-h-[44px] px-3 py-1 bg-brand-soft text-brand-deep text-xs font-bold rounded-lg border border-brand/30 hover:bg-brand-soft/80 transition-colors flex items-center justify-center shrink-0"
+          className="min-h-12 px-3 py-1 bg-brand-soft text-brand-deep text-xs font-bold rounded-lg border border-brand/30 hover:bg-brand-soft/80 transition-colors flex items-center justify-center shrink-0"
         >
           تفعيل الإهلاك
         </button>
@@ -445,7 +445,7 @@ function AssetCard({
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold text-ink">{asset.name}</p>
             {fullyDepreciated && (
-              <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-deep bg-emerald-soft px-1.5 py-0.5 rounded-full">
+              <span className="flex items-center gap-1 text-[10px] font-bold text-brand-deep bg-brand-soft px-1.5 py-0.5 rounded-full">
                 <CheckCircle2 className="w-3 h-3" /> مستهلك بالكامل
               </span>
             )}
@@ -464,7 +464,7 @@ function AssetCard({
         <button
           type="button"
           onClick={onOpenActions}
-          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
+          className="min-h-12 min-w-12 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
           aria-label={`إجراءات الأصل ${asset.name}`}
           title={`إجراءات الأصل ${asset.name}`}
         >
@@ -477,7 +477,7 @@ function AssetCard({
         <div
           className={cn(
             "h-full rounded-full transition-all",
-            fullyDepreciated ? "bg-emerald" : "bg-brand",
+            fullyDepreciated ? "bg-brand" : "bg-brand",
           )}
           style={{ width: `${progressPercent}%` }}
         />
