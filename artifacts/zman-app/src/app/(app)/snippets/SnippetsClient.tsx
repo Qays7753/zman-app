@@ -86,7 +86,7 @@ export default function SnippetsClient() {
 
   return (
     <>
-      <AppShellHeader title="الملاحظات" action={pageAction} />
+      <AppShellHeader title="الملاحظات" context={pageAction} />
       <div className="flex-1 flex flex-col gap-4">
 
         {/* المحتوى */}
