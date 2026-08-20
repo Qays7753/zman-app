@@ -1,14 +1,14 @@
 "use client";
 
-import { CalendarDays, LayoutList, MessageSquare, Plus } from "lucide-react";
+import { CalendarDays, LayoutList, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { SkeletonList } from "@/components/shared/SkeletonList";
-import { Button } from "@/components/shared/Button";
 import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
+import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { PageToolbar } from "@/components/shared/PageToolbar";
 import { StatusFilterSheet } from "@/features/orders/components/StatusFilterSheet";
 import { useOrder, useOrderStatusCounts } from "@/features/orders/hooks";
@@ -133,17 +133,6 @@ export default function OrdersClient() {
     if (isInSubView) return null;
     return (
       <PageToolbar
-        trailing={
-          <Button
-            size="icon"
-            variant="primary"
-            className="rounded-lg"
-            aria-label="طلب جديد"
-            onClick={handleShowCreate}
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-          </Button>
-        }
         leading={
           <HeaderIconButton
             label={tab === "calendar" ? "عرض القائمة" : "عرض التقويم"}
@@ -210,7 +199,6 @@ export default function OrdersClient() {
     currentSort,
     searchParams,
     pathname,
-    handleShowCreate,
     router,
   ]);
 
@@ -234,6 +222,14 @@ export default function OrdersClient() {
   return (
     <>
       <AppShellHeader title={pageTitle} action={pageAction} />
+
+      {!isInSubView && (
+        <FloatingActionButton
+          onClick={handleShowCreate}
+          label="طلب جديد"
+          showLabel
+        />
+      )}
 
       {isNew && (
         <OrderForm onSubmitSuccess={handleShowList} onCancel={handleShowList} />
