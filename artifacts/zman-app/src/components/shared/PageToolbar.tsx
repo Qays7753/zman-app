@@ -49,7 +49,7 @@ interface PageToolbarProps {
  * شريط أدوات موحّد لهيدر الصفحات. كل صفحة تمرّر ما يلزمها فقط:
  * بحث متوسّع + قائمة فلاتر منسدلة + قائمة إعدادات + إجراء أساسي.
  * كل صفحة تمرّر ما يلزمها فقط. الأزرار الغائبة لا تترك أثراً (لا حجز مساحة)
- * — ترتيب المنافل ثابت عبر كل الشاشات. يلتزم RTL، أهداف لمس 44px، وإغلاق
+ * — ترتيب المنافل ثابت عبر كل الشاشات. يلتزم RTL، أهداف لمس 48px، وإغلاق
  * عند الضغط خارجاً / Escape.
  */
 export function PageToolbar({
@@ -105,7 +105,7 @@ export function PageToolbar({
               }
             }}
             placeholder={search.placeholder ?? "ابحث..."}
-            className="w-full h-11 min-h-[44px] ps-10 pe-4 rounded-lg border border-hairline-2 bg-paper text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            className="w-full h-12 min-h-12 ps-10 pe-4 rounded-lg border border-border-field bg-paper text-base text-ink focus:ring-2 focus:ring-brand"
           />
         </div>
         <HeaderIconButton
@@ -163,7 +163,7 @@ export function PageToolbar({
                               setFilterOpen(false);
                             }}
                             className={cn(
-                              "flex items-center justify-between gap-2 min-h-[44px] px-2.5 rounded-md text-sm text-start transition-colors",
+                              "flex items-center justify-between gap-2 min-h-12 px-2.5 rounded-md text-sm text-start transition-colors",
                               active
                                 ? "bg-brand-soft text-brand font-bold"
                                 : "text-ink-2 hover:bg-canvas",
@@ -224,7 +224,7 @@ export function PageToolbar({
                       item.onClick();
                       setMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-2.5 min-h-[44px] px-3 rounded-md text-sm text-ink-2 hover:bg-canvas hover:text-ink transition-colors text-start"
+                    className="w-full flex items-center gap-2.5 min-h-12 px-3 rounded-md text-sm text-ink-2 hover:bg-canvas hover:text-ink transition-colors text-start"
                   >
                     {item.icon && <span className="shrink-0">{item.icon}</span>}
                     <span>{item.label}</span>

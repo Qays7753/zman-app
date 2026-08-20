@@ -25,6 +25,7 @@ import { Button } from "@/components/shared/Button";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { STATUS_COLORS } from "@/lib/status-colors";
+import { DESIGN_TOKENS } from "@/lib/design-system-contract";
 import {
   downloadReport,
   getAllReportData,
@@ -33,7 +34,7 @@ import {
 } from "@/features/reports/actions";
 import { IntegrityCheckReportPanel } from "@/features/reports/components/IntegrityCheckReportPanel";
 
-const DONUT_COLORS = ["#2E7D32", "#4CAF50", "#F9A825", "#C0392B"];
+const DONUT_COLORS = DESIGN_TOKENS.chart.series;
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -99,12 +100,12 @@ function StatCard({
         {sign && <span className="font-mono text-base">{sign}</span>}
         <AmountText amount={amount} />
       </span>
-      <span className="text-[10px] text-ink/40 leading-snug">{sub}</span>
+      <span className="text-xs text-ink-3 leading-snug">{sub}</span>
     </>
   );
-  const className = "p-4 bg-paper rounded-lg border border-hairline shadow-sm flex flex-col gap-2";
+  const className = "p-4 bg-paper rounded-lg border border-hairline shadow-elev-1 flex flex-col gap-2";
   return href ? (
-    <Link href={href} className={`${className} hover:border-brand/40 hover:bg-brand-soft/20 focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors`}>
+    <Link href={href} className={`${className} hover:border-brand/40 hover:bg-canvas focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 transition-colors`}>
       {content}
     </Link>
   ) : (
@@ -207,7 +208,7 @@ export default function ReportsPage() {
         title="التقارير"
         action={
           <div className="flex items-center gap-2">
-            {/* زر التحديث */}
+            {/* زر التحديث — يبقى وحده في الرأس حتى لا تتزاحم الأفعال */}
             <Button
               onClick={() => {
                 void refetch();
@@ -221,21 +222,22 @@ export default function ReportsPage() {
             >
               <RefreshCw className="h-4.5 w-4.5" />
             </Button>
-            {/* مبدّل التقارير / الوضع المالي */}
-            <SegmentedControl
-              value={activeSection}
-              onChange={(val) => setActiveSection(val as any)}
-              compact
-              options={[
-                { value: "analytics", label: "التقارير", icon: <BarChart2 className="h-4.5 w-4.5" /> },
-                { value: "balance_sheet", label: "الوضع المالي", icon: <Wallet className="h-4.5 w-4.5" /> },
-              ]}
-            />
           </div>
         }
       />
 
-      <div className="space-y-6">
+      <div className="space-y-5">
+        <SegmentedControl
+          value={activeSection}
+          onChange={(val) => setActiveSection(val as any)}
+          tone="underline"
+          scrollable={false}
+          className="w-full"
+          options={[
+            { value: "analytics", label: "التقارير", icon: <BarChart2 className="h-4 w-4" /> },
+            { value: "balance_sheet", label: "الوضع المالي", icon: <Wallet className="h-4 w-4" /> },
+          ]}
+        />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-hairline">
           <div>
             <p className="text-xs text-ink/50">
@@ -245,7 +247,7 @@ export default function ReportsPage() {
 
           {activeSection === "analytics" ? (
             /* فلتر فترة التقارير */
-            <SegmentedControl
+              <SegmentedControl
               value={dateRange}
               onChange={(val) => setDateRange(val as any)}
               options={[
@@ -253,6 +255,8 @@ export default function ReportsPage() {
                 { value: "month", label: "هذا الشهر" },
                 { value: "30d", label: "آخر 30 يوم" },
               ]}
+              tone="underline"
+              className="w-full sm:w-auto"
             />
           ) : (
             <div className="flex items-center gap-2">
@@ -261,7 +265,7 @@ export default function ReportsPage() {
                 type="date"
                 value={asOfDate}
                 onChange={(e) => setAsOfDate(e.target.value)}
-                className="h-10 px-3 bg-canvas border border-hairline rounded-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand"
+                className="h-12 px-3 bg-canvas border border-border-field rounded-md text-base font-semibold focus:ring-2 focus:ring-brand focus:ring-offset-2"
               />
             </div>
           )}
@@ -296,14 +300,15 @@ export default function ReportsPage() {
                     { value: "orders", label: "الطلبات", icon: <Archive className="h-3.5 w-3.5" /> },
                     { value: "products", label: "المنتجات", icon: <BarChart2 className="h-3.5 w-3.5" /> },
                   ]}
-                  className="w-full bg-canvas/60"
+                  tone="underline"
+                  className="w-full"
                 />
               </div>
 
               {activeReportTab === "pnl" && (
                 /* ===== ١ — ملخص الأرباح والخسائر ===== */
                 <section className="bg-paper rounded-lg border border-hairline shadow-sm p-5 space-y-4">
-                  <div className="p-3 bg-brand-soft border border-brand/10 rounded-lg text-xs font-semibold text-brand flex items-center gap-1.5 w-full">
+                  <div className="p-3 bg-info-soft border border-info/20 rounded-lg text-sm font-semibold text-info flex items-center gap-1.5 w-full">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     <span>أساس نقدي: يتم احتساب الإيرادات والمصاريف بناءً على المقبوضات والمدفوعات النقدية الفعلية فقط.</span>
                   </div>
@@ -312,7 +317,7 @@ export default function ReportsPage() {
                     <SectionTitle>
                       <span className="flex items-center gap-2">
                         {isProfit ? (
-                          <TrendingUp className="h-4 w-4 text-brand" />
+                          <TrendingUp className="h-4 w-4 text-brand-deep" />
                         ) : (
                           <TrendingDown className="h-4 w-4 text-alert" />
                         )}
@@ -323,9 +328,9 @@ export default function ReportsPage() {
                   </div>
 
                   {/* بطاقة صافي الربح */}
-                  <div className={`p-5 rounded-lg border ${isProfit ? "border-brand/30 bg-brand-soft" : "border-alert/30 bg-alert-soft"}`}>
+                  <div className={`p-5 rounded-lg border ${isProfit ? "border-brand/30 bg-paper" : "border-alert/30 bg-alert-soft"}`}>
                     <p className="text-xs font-bold text-ink/60 mb-1.5">صافي الأرباح / الخسائر الإجمالية</p>
-                    <p className={`text-3xl font-bold flex items-baseline gap-1 ${isProfit ? "text-brand" : "text-alert"}`}>
+                    <p className={`text-3xl font-bold flex items-baseline gap-1 ${isProfit ? "text-brand-deep" : "text-alert-deep"}`}>
                       <span className="font-mono text-2xl">{isProfit ? "+" : "−"}</span>
                       <AmountText amount={Math.abs(net)} />
                     </p>
@@ -345,7 +350,7 @@ export default function ReportsPage() {
                       amount={data.pnl.salesCents}
                       sub="مجموع الإيرادات الواردة"
                       icon={ShoppingBag}
-                      colorClass="text-brand"
+                      colorClass="text-brand-deep"
                       sign="+"
                       href="/finance?tab=sales"
                     />
@@ -465,7 +470,7 @@ export default function ReportsPage() {
                   <div className="flex items-center justify-between">
                     <SectionTitle>
                       <span className="flex items-center gap-2">
-                        <BarChart2 className="h-4 w-4 text-brand" />
+                        <BarChart2 className="h-4 w-4 text-brand-deep" />
                         مصادر المبيعات والإيرادات
                       </span>
                     </SectionTitle>
@@ -480,7 +485,7 @@ export default function ReportsPage() {
                         <Link
                           key={src.source}
                           href={`/finance?tab=sales&source=${encodeURIComponent(src.source)}`}
-                          className="block p-4 border border-hairline rounded-lg bg-canvas space-y-2 hover:border-brand/40 hover:bg-brand-soft/20 focus:outline-none focus:ring-2 focus:ring-brand/30 transition-colors"
+                          className="block p-4 border border-hairline rounded-lg bg-canvas space-y-2 hover:border-brand/40 hover:bg-canvas focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 transition-colors"
                         >
                           <p className="text-xs font-bold text-ink/65">{src.label}</p>
                           <p className="text-xl font-bold text-brand">
@@ -490,7 +495,7 @@ export default function ReportsPage() {
                             <span>{src.count} عملية</span>
                             <span>{src.pct.toFixed(1)}% من المبيعات</span>
                           </div>
-                          <ProgressBar pct={src.pct} colorClass="bg-brand" />
+                          <ProgressBar pct={src.pct} colorClass="bg-brand-deep" />
                         </Link>
                       ))}
                     </div>
@@ -620,7 +625,7 @@ export default function ReportsPage() {
             
             {positionLoading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-brand" />
+                <Loader2 className="h-8 w-8 animate-spin text-brand-deep" />
               </div>
             ) : !positionData ? (
               <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">

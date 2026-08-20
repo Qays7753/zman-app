@@ -84,7 +84,7 @@ export function InstallButton() {
         <button
           type="button"
           onClick={handleDismiss}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
+          className="h-12 w-12 min-h-12 min-w-12 flex items-center justify-center rounded-md hover:bg-canvas transition-colors -me-1"
           aria-label="إغلاق"
         >
           <X className="w-4 h-4" />
@@ -101,7 +101,7 @@ export function InstallButton() {
         <button
           type="button"
           onClick={handleDismiss}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
+          className="h-12 w-12 min-h-12 min-w-12 flex items-center justify-center rounded-md hover:bg-canvas transition-colors -me-1"
           aria-label="إغلاق"
         >
           <X className="w-4 h-4" />
@@ -124,17 +124,17 @@ export function InstallButton() {
       <button
         type="button"
         onClick={handleInstall}
-        className="flex-1 text-sm font-bold text-brand-deep hover:text-brand transition-colors text-start min-h-[44px] flex items-center"
+        className="flex-1 text-sm font-bold text-brand-deep hover:text-brand transition-colors text-start min-h-12 flex items-center focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         تثبيت التطبيق
       </button>
       <button
         type="button"
         onClick={handleDismiss}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
+        className="h-12 w-12 min-h-12 min-w-12 flex items-center justify-center rounded-md hover:bg-canvas transition-colors -me-1"
         aria-label="إغلاق"
       >
-        <X className="w-4 h-4 text-brand/60" />
+        <X className="w-4 h-4 text-ink-3" />
       </button>
     </div>
   );

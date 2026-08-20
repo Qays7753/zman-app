@@ -96,11 +96,11 @@ export function InstallFab() {
           onClick={handleInstall}
           aria-label="تثبيت التطبيق على الجهاز"
           title="تثبيت التطبيق"
-          className="w-14 h-14 rounded-full bg-brand text-paper shadow-lg flex items-center justify-center hover:bg-brand-deep active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          className="z-fab h-14 w-14 rounded-full bg-brand text-paper shadow-elev-2 flex items-center justify-center hover:bg-brand-hover active:scale-[0.97] transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <Download className="w-6 h-6" />
         </button>
-        <span className="text-[11px] font-semibold text-brand">تثبيت التطبيق</span>
+        <span className="text-[11px] font-semibold text-brand-deep">تثبيت التطبيق</span>
       </div>
     );
   }
@@ -124,7 +124,7 @@ export function InstallFab() {
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
+        className="h-12 w-12 min-h-12 min-w-12 flex items-center justify-center rounded-md hover:bg-canvas transition-colors -me-1"
         aria-label="إغلاق إرشاد التثبيت"
       >
         <X className="w-4 h-4" />

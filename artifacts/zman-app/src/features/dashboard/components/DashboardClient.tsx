@@ -20,6 +20,8 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   Calendar,
+  TrendingDown,
+  TrendingUp,
   ClipboardList,
   Clock,
   Landmark,
@@ -203,9 +205,9 @@ export function DashboardClient() {
           <button
             type="button"
             onClick={() => setIsSelectorOpen(true)}
-            className="lg:hidden h-10 min-h-[44px] px-3 bg-canvas border border-hairline text-ink rounded-md flex items-center gap-1.5 text-xs font-semibold"
+            className="lg:hidden h-12 min-h-12 px-3 bg-canvas border border-border-field text-ink rounded-md flex items-center gap-1.5 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
-            <Calendar className="h-4 w-4 text-brand flex-shrink-0" />
+            <Calendar className="h-4 w-4 text-brand-deep flex-shrink-0" />
             <span className="max-w-[90px] truncate">
               {customRange ? "فترة مخصصة" : (presets[selectedPresetIdx]?.label ?? "")}
             </span>
@@ -213,7 +215,7 @@ export function DashboardClient() {
         }
       />
 
-      <div className="space-y-5 fab-safe-area lg:pb-0">
+      <div className="space-y-5 lg:pb-0">
         {/* شريط تنبيه عند تعذّر التحديث مع وجود كاش سابق */}
         {isError && hasCachedData && (
           <div
@@ -229,7 +231,7 @@ export function DashboardClient() {
             <button
               type="button"
               onClick={handleRetryAll}
-              className="h-10 min-h-[44px] px-3.5 bg-paper border border-warn/40 text-warn-deep font-bold rounded-md text-xs flex items-center justify-center shrink-0 hover:bg-warn-soft transition-colors active:scale-95"
+              className="h-12 min-h-12 px-3.5 bg-paper border border-warn/40 text-warn-deep font-bold rounded-md text-sm flex items-center justify-center shrink-0 hover:bg-warn-soft transition-colors active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-warn-deep focus-visible:ring-offset-2"
             >
               إعادة المحاولة
             </button>
@@ -296,7 +298,7 @@ export function DashboardClient() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-warn/20 text-xs">
                   <div className="flex items-center gap-1.5 font-medium">
                     {openingBal && openingBal.cashCents > 0 ? (
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-brand-deep font-bold">✓</span>
                     ) : (
                       <span className="text-alert font-bold">✗</span>
                     )}
@@ -305,7 +307,7 @@ export function DashboardClient() {
 
                   <div className="flex items-center gap-1.5 font-medium">
                     {openingBal && openingBal.bankCents > 0 ? (
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-brand-deep font-bold">✓</span>
                     ) : (
                       <span className="text-alert font-bold">✗</span>
                     )}
@@ -314,7 +316,7 @@ export function DashboardClient() {
 
                   <div className="flex items-center gap-1.5 font-medium">
                     {openingBal && openingBal.capitalCents > 0 ? (
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-brand-deep font-bold">✓</span>
                     ) : (
                       <span className="text-alert font-bold">✗</span>
                     )}
@@ -323,7 +325,7 @@ export function DashboardClient() {
 
                   <div className="flex items-center gap-1.5 font-medium">
                     {openingBal?.isLocked ? (
-                      <span className="text-emerald-600 font-bold">✓</span>
+                      <span className="text-brand-deep font-bold">✓</span>
                     ) : (
                       <span className="text-alert font-bold">✗</span>
                     )}
@@ -352,7 +354,7 @@ export function DashboardClient() {
             <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/activities"
-                className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
+                className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
               >
                 <span className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-brand shrink-0" />
@@ -362,7 +364,7 @@ export function DashboardClient() {
               </Link>
               <Link
                 href="/snippets"
-                className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
+                className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
               >
                 <span className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-brand shrink-0" />
@@ -477,7 +479,7 @@ export function DashboardClient() {
                   type="date"
                   required
                   defaultValue={customRange ? format(customRange.start, "yyyy-MM-dd") : ""}
-                  className="flex h-11 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink"
+                  className="flex h-12 w-full rounded-md border border-border-field bg-paper px-3 py-2 text-base text-ink focus:ring-2 focus:ring-brand focus:ring-offset-2"
                 />
               </div>
               <div className="space-y-1">
@@ -490,13 +492,13 @@ export function DashboardClient() {
                   type="date"
                   required
                   defaultValue={customRange ? format(customRange.end, "yyyy-MM-dd") : ""}
-                  className="flex h-11 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink"
+                  className="flex h-12 w-full rounded-md border border-border-field bg-paper px-3 py-2 text-base text-ink focus:ring-2 focus:ring-brand focus:ring-offset-2"
                 />
               </div>
             </div>
             <button
               type="submit"
-              className="w-full h-11 bg-brand text-paper rounded-md text-sm font-bold shadow-sm hover:bg-brand/90 active:scale-95 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2"
+              className="w-full min-h-12 bg-brand text-paper rounded-md text-sm font-bold hover:bg-brand-hover active:scale-[0.97] transition-colors duration-[120ms] focus:ring-2 focus:ring-brand focus:ring-offset-2"
             >
               تطبيق التواريخ المخصصة
             </button>
@@ -571,14 +573,14 @@ function HealthCard({
       <div className="grid grid-cols-2 divide-x divide-x-reverse divide-hairline">
         {/* النقد المتاح */}
         <div className="bg-gradient-to-br from-brand-soft to-brand/5 p-4">
-          <span className="text-[10px] font-bold text-ink/60 flex items-center gap-1 whitespace-nowrap mb-1">
-            <Wallet className="h-3.5 w-3.5 text-brand shrink-0" />
+          <span className="text-xs font-bold text-ink-2 flex items-center gap-1 whitespace-nowrap mb-1">
+            <Wallet className="h-3.5 w-3.5 text-brand-deep shrink-0" />
             النقد المتاح
           </span>
-          <p className="text-xl font-black text-brand leading-tight">
+          <p className="text-xl font-black text-ink leading-tight">
             <AmountText amount={asOfRealCashCents} hideCurrency />
           </p>
-          <p className="text-[10px] text-ink/40 mt-1 leading-tight">
+          <p className="text-xs text-ink-3 mt-1 leading-tight">
             صندوق: <AmountText amount={asOfCashCents} hideCurrency />
             <span className="mx-1">·</span>
             بنك: <AmountText amount={asOfBankCents} hideCurrency />
@@ -589,28 +591,28 @@ function HealthCard({
         <div
           className={`p-4 ${
             isProfit
-              ? "bg-gradient-to-br from-emerald-soft/60 to-emerald/5"
+              ? "bg-paper"
               : "bg-gradient-to-br from-alert-soft/60 to-alert/5"
           }`}
         >
           <span
             className={`text-[10px] font-bold flex items-center gap-1 whitespace-nowrap mb-1 ${
-              isProfit ? "text-emerald-deep/70" : "text-alert/70"
+              isProfit ? "text-brand-deep" : "text-alert/70"
             }`}
           >
-            {isProfit ? "📈" : "📉"}
+            {isProfit ? <TrendingUp className="h-4 w-4" aria-hidden="true" /> : <TrendingDown className="h-4 w-4" aria-hidden="true" />}
             ربح الفترة
           </span>
           <p
             className={`text-xl font-black leading-tight ${
-              isProfit ? "text-emerald-deep" : "text-alert"
+              isProfit ? "text-brand-deep" : "text-alert"
             }`}
           >
             <AmountText amount={netProfit} hideCurrency parenNegative />
           </p>
           <p
             className={`text-[10px] mt-1 font-semibold ${
-              isProfit ? "text-emerald-deep/50" : "text-alert/50"
+              isProfit ? "text-brand-deep" : "text-alert/50"
             }`}
           >
             {isProfit ? "مربح ✓" : "خسارة الفترة"}
@@ -622,13 +624,13 @@ function HealthCard({
       {inventoryValueCents > 0 && (
         <Link
           href="/inventory"
-          className="bg-brand/5 border-t border-brand/10 px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-brand/10 hover:underline transition-colors cursor-pointer"
+          className="bg-paper border-t border-hairline px-4 py-3 flex items-center justify-between gap-2 hover:bg-canvas hover:underline transition-colors cursor-pointer"
         >
           <span className="text-[10px] font-semibold text-ink/55 flex items-center gap-1 whitespace-nowrap">
-            <ShoppingBag className="h-3 w-3 text-brand/70 shrink-0" />
+            <ShoppingBag className="h-3 w-3 text-brand-deep shrink-0" />
             قيمة مخزونك
           </span>
-          <span className="text-xs font-black text-brand/80 font-mono whitespace-nowrap">
+          <span className="text-xs font-black text-ink font-mono whitespace-nowrap">
             <AmountText amount={inventoryValueCents} hideCurrency />
           </span>
         </Link>
@@ -672,7 +674,7 @@ function QuickLink({
     <Link
       href={href}
       onClick={onClick}
-      className="flex flex-col items-center justify-center p-4 bg-canvas rounded-lg border border-hairline hover:border-ink/20 active:scale-95 transition-all gap-2 min-h-[80px]"
+      className="flex flex-col items-center justify-center p-4 bg-canvas rounded-lg border border-hairline hover:border-ink/20 active:scale-95 transition-all gap-2 min-h-20"
     >
       {icon}
       <span className="text-xs font-bold text-ink text-center">{label}</span>

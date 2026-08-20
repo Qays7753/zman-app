@@ -50,7 +50,7 @@ export function InventoryScreen() {
     <>
       <AppShellHeader title="المخزون" />
 
-      <div className="fab-safe-area lg:pb-0">
+      <div className="lg:pb-0">
       {/* تنبيه الرصيد المنخفض */}
       {!isLoading && lowStockItems.length > 0 && (
         <div className="mb-4 flex items-start gap-3 rounded-xl bg-warn-soft border border-warn/20 px-4 py-3">
@@ -90,7 +90,7 @@ export function InventoryScreen() {
           <button
             type="button"
             onClick={() => router.replace("/inventory")}
-            className="min-h-[44px] px-3 rounded-lg border border-warn/30 bg-paper text-xs font-bold text-warn-deep"
+            className="min-h-12 px-3 rounded-lg border border-warn/30 bg-paper text-sm font-bold text-warn-deep focus-visible:ring-2 focus-visible:ring-warn-deep focus-visible:ring-offset-2"
           >
             عرض الكل
           </button>
@@ -108,7 +108,7 @@ export function InventoryScreen() {
                 type="button"
                 onClick={() => setSort(opt.key)}
                 className={cn(
-                  "min-h-[44px] px-3 rounded-full text-xs font-medium transition-colors border",
+                  "min-h-12 px-3 rounded-full text-sm font-medium transition-colors border focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
                   sort === opt.key
                     ? "bg-brand text-paper border-brand"
                     : "bg-paper text-ink-2 border-hairline hover:border-brand/40",
@@ -211,9 +211,9 @@ export function InventoryScreen() {
               setIsFabOpen(false);
               setIsAddItemOpen(true);
             }}
-            className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-[60px] text-start"
+            className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-16 text-start focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
-            <Plus className="w-5 h-5 text-brand shrink-0" />
+            <Plus className="w-5 h-5 text-brand-deep shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-ink">إضافة صنف مُتابَع</p>
               <p className="text-xs text-ink-3">إنشاء صنف جديد في الكتالوج وتفعيل تتبّع المخزون</p>
@@ -225,9 +225,9 @@ export function InventoryScreen() {
               setIsFabOpen(false);
               setIsQuickAdjustOpen(true);
             }}
-            className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-[60px] text-start"
+            className="flex items-center gap-3 p-4 rounded-lg border border-hairline hover:border-ink/20 hover:bg-canvas transition-colors min-h-16 text-start focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
-            <PackageMinus className="w-5 h-5 text-brand shrink-0" />
+            <PackageMinus className="w-5 h-5 text-ink-2 shrink-0" />
             <div className="min-w-0">
               <p className="text-sm font-bold text-ink">تعديل سريع للمخزون</p>
               <p className="text-xs text-ink-3">صرف أو إضافة يدوية لصنف متتبَّع موجود</p>

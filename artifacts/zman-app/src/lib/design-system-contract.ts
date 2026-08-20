@@ -54,6 +54,12 @@ export const DESIGN_TOKENS = {
     primaryText: "#1B5E20",
     secondaryBorder: "#2E7D32",
   },
+  chart: {
+    series: ["#51606F", "#7F9372", "#8A5B00", "#C0392B"],
+    positive: "#2E7D32",
+    negative: "#C0392B",
+    neutral: "#51606F",
+  },
   semantic: {
     successText: "#1B5E20",
     warningText: "#8A5B00",

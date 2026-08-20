@@ -20,24 +20,22 @@ export function EmptyState({
   isFilterResult = false,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center text-center p-6 sm:p-8 border border-dashed border-hairline rounded-2xl bg-paper shadow-sm max-w-md mx-auto my-6">
+    <div className="mx-auto my-6 flex max-w-md flex-col items-center justify-center rounded-2xl border border-dashed border-hairline bg-paper p-6 text-center sm:p-8">
       {isFilterResult ? (
-        <AlertCircle className="w-12 h-12 text-warn-deep mb-3 shrink-0" />
+        <AlertCircle className="mb-3 h-12 w-12 shrink-0 text-info" aria-hidden="true" />
       ) : (
-        <FileQuestion className="w-12 h-12 text-brand mb-3 shrink-0" />
+        <FileQuestion className="mb-3 h-12 w-12 shrink-0 text-ink-3" aria-hidden="true" />
       )}
 
-      <h3 className="text-base sm:text-lg font-bold text-ink mb-1.5 leading-tight">{title}</h3>
-      <p className="text-xs sm:text-sm text-ink-2 mb-4 leading-relaxed max-w-xs">
-        {description}
-      </p>
+      <h3 className="mb-1.5 text-base font-bold leading-tight text-ink sm:text-lg">{title}</h3>
+      <p className="mb-4 max-w-xs text-sm leading-relaxed text-ink-2">{description}</p>
 
       {steps && steps.length > 0 && (
-        <div className="w-full bg-canvas p-3.5 rounded-xl border border-hairline mb-5 text-start space-y-2 text-xs">
+        <div className="mb-5 w-full space-y-2 rounded-xl border border-hairline bg-canvas p-3.5 text-start text-sm">
           <p className="font-bold text-ink">خطوات سريعة للبدء:</p>
           {steps.map((step, idx) => (
-            <div key={idx} className="text-ink-2 font-medium flex items-start gap-2">
-              <span className="w-4 h-4 rounded-full bg-brand-soft text-brand font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+            <div key={idx} className="flex items-start gap-2 font-medium text-ink-2">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand-deep">
                 {idx + 1}
               </span>
               <span>{step}</span>
@@ -50,7 +48,7 @@ export function EmptyState({
         <button
           type="button"
           onClick={onAction}
-          className="min-h-[44px] px-6 py-2.5 rounded-xl bg-brand text-paper font-bold hover:bg-brand-deep active:scale-95 transition-all text-xs sm:text-sm shadow-sm"
+          className="min-h-12 rounded-xl bg-brand px-6 py-3 text-sm font-bold text-paper transition-colors hover:bg-brand-hover active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           {actionLabel}
         </button>

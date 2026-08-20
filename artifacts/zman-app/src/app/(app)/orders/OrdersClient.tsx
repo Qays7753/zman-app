@@ -10,7 +10,6 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import { Button } from "@/components/shared/Button";
 import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 import { PageToolbar } from "@/components/shared/PageToolbar";
-import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { StatusFilterSheet } from "@/features/orders/components/StatusFilterSheet";
 import { useOrder, useOrderStatusCounts } from "@/features/orders/hooks";
 import type { Order } from "@/features/orders/types";
@@ -134,6 +133,16 @@ export default function OrdersClient() {
     if (isInSubView) return null;
     return (
       <PageToolbar
+        trailing={
+          <Button
+            size="icon"
+            variant="primary"
+            aria-label="طلب جديد"
+            onClick={handleShowCreate}
+          >
+            <Plus className="h-5 w-5" aria-hidden="true" />
+          </Button>
+        }
         leading={
           <HeaderIconButton
             label={tab === "calendar" ? "عرض القائمة" : "عرض التقويم"}
@@ -170,7 +179,7 @@ export default function OrdersClient() {
           {
             key: "upcoming",
             label: "طلبات قرب تسليمها (7 أيام)",
-            icon: <CalendarDays className="w-5 h-5 text-brand" />,
+            icon: <CalendarDays className="w-5 h-5 text-brand-deep" />,
             onClick: () => {
               const params = new URLSearchParams(searchParams.toString());
               params.set("sort", "delivery");
@@ -182,7 +191,7 @@ export default function OrdersClient() {
           {
             key: "template",
             label: "قالب رسالة واتساب",
-            icon: <MessageSquare className="w-5 h-5 text-brand" />,
+            icon: <MessageSquare className="w-5 h-5 text-ink-2" />,
             onClick: () => setIsTemplateOpen(true),
           },
         ]}
@@ -200,6 +209,7 @@ export default function OrdersClient() {
     currentSort,
     searchParams,
     pathname,
+    handleShowCreate,
     router,
   ]);
 
@@ -239,7 +249,7 @@ export default function OrdersClient() {
       )}
 
       {!isInSubView && (
-        <div className="fab-safe-area lg:pb-0">
+        <div className="lg:pb-0">
           {tab === "calendar" && (
             <OrderCalendar
               onViewDetail={handleShowDetail}
@@ -266,12 +276,6 @@ export default function OrdersClient() {
         <WhatsAppTemplateEditor onClose={() => setIsTemplateOpen(false)} />
       </ResponsiveModal>
 
-      {!isInSubView && (
-        <FloatingActionButton
-          onClick={handleShowCreate}
-          label="طلب جديد"
-        />
-      )}
     </>
   );
 }

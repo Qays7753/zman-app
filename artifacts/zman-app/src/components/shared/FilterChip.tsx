@@ -24,12 +24,11 @@ export function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 px-4 transition-all duration-150 select-none whitespace-nowrap active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 text-xs font-semibold border",
+        "inline-flex items-center justify-center gap-1.5 px-4 transition-colors duration-[120ms] select-none whitespace-nowrap active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 text-sm font-semibold border",
         variant === "pill"
-          ? "rounded-full h-9 min-h-[44px]"
-          : "rounded-md h-11",
-        isActive
-          ? "bg-brand text-paper border-brand shadow-sm"
+          ? "rounded-full h-12 min-h-12"
+          : "rounded-md h-12 min-h-12",
+        isActive ? "bg-brand text-paper border-brand"
           : "bg-paper text-ink-2 border-hairline hover:bg-canvas hover:text-ink",
         className
       )}
