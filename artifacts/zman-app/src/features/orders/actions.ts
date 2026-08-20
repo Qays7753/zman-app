@@ -248,7 +248,10 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
     additionalProfitCents,
   } = parsed.data;
 
-  if (depositCents > totalPriceCents + (additionalProfitCents ?? 0)) {
+  if (
+    depositCents !== undefined &&
+    depositCents > totalPriceCents + (additionalProfitCents ?? 0)
+  ) {
     return {
       status: "error",
       message: "العربون لا يمكن أن يتجاوز السعر الإجمالي + الأرباح الإضافية",
@@ -267,6 +270,18 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       if (!existing) {
         return { status: "error", message: "الطلب غير موجود" };
       }
+
+      const hasDepositInput = depositCents !== undefined;
+      const nextDepositCents =
+        existing.status === "cancelled"
+          ? 0
+          : (depositCents ?? existing.depositCents);
+      const nextDepositDate =
+        existing.status === "cancelled"
+          ? null
+          : (depositDate !== undefined
+            ? (depositDate || null)
+            : existing.depositDate);
 
       // 4. التحقق من التزامن المتفائل (§5.6)
       const clientDate = new Date(updatedAt).getTime();
@@ -293,13 +308,17 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
           ),
         );
       const refundedDepositCents = Number(refundsRow?.total) || 0;
-      if (refundedDepositCents > 0 && depositCents !== existing.depositCents) {
+      if (
+        refundedDepositCents > 0 &&
+        hasDepositInput &&
+        depositCents !== existing.depositCents
+      ) {
         return {
           status: "error",
           message: "لا يمكن تعديل العربون بعد تسجيل رد أموال؛ نفّذ حركة مالية مستقلة بدلاً من تغيير التاريخ.",
         };
       }
-      if (depositCents < refundedDepositCents) {
+      if (nextDepositCents < refundedDepositCents) {
         return {
           status: "error",
           message: `لا يمكن خفض العربون تحت المبلغ المردود سابقاً (${(refundedDepositCents / 1000).toFixed(3)} د.أ)`,
@@ -320,7 +339,8 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       // db.transaction في Drizzle يلتزم عند العودة الطبيعية (لا يُلغى إلا بـ throw).
       if (
         existing.status === "delivered" &&
-        (depositCents ?? 0) !== existing.depositCents
+        hasDepositInput &&
+        nextDepositCents !== existing.depositCents
       ) {
         return {
           status: "error",
@@ -395,9 +415,9 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
           receivedDate: receivedDate || getAmmanDate(),
           deliveryPaidCents: deliveryPaidCents ?? 0,
           additionalProfitCents: additionalProfitCents ?? 0,
-          // للطلبات الملغاة: لا نحتفظ بعربون في صف الطلب (لا حركة نقدية مطابقة)
-          depositCents: existing.status === "cancelled" ? 0 : (depositCents ?? 0),
-          depositDate: existing.status === "cancelled" ? null : (depositDate || null),
+          // غياب depositCents يعني عدم تغييره؛ لا نحول patch ناقصاً إلى صفر.
+          depositCents: nextDepositCents,
+          depositDate: nextDepositDate,
           updatedAt: new Date(),
         })
         .where(eq(order.id, id))
@@ -417,7 +437,11 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       //     فلا توجد حركة deposit نشطة. لو أنشأنا واحدة جديدة، ستُعلَّق كمخالفة
       //     IC-3 (عربون قديم على طلب مُسلَّم). تعديل العربون على طلب مُسلَّم
       //     ممنوع — يجب عكس البيع أولاً.
-      if (existing.status !== "cancelled" && existing.status !== "delivered") {
+      if (
+        hasDepositInput &&
+        existing.status !== "cancelled" &&
+        existing.status !== "delivered"
+      ) {
         const [existingDepositMov] = await tx
           .select()
           .from(cashMovement)
@@ -475,7 +499,13 @@ export async function updateOrder(rawInput: unknown): Promise<ActionResponse> {
       const [linkedSale] = await tx
         .select({ id: sale.id })
         .from(sale)
-        .where(and(eq(sale.orderId, id), isNull(sale.deletedAt)));
+        .where(
+          and(
+            eq(sale.orderId, id),
+            eq(sale.source, "order"),
+            isNull(sale.deletedAt),
+          ),
+        );
 
       if (linkedSale) {
         const realizedSaleCents =

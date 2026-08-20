@@ -3,6 +3,7 @@
 import { and, asc, desc, eq, ilike, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { order, orderComponent } from "./db";
+import { sale } from "../finance/db";
 
 export interface GetOrdersFilters {
   status?: string;
@@ -185,7 +186,7 @@ export async function getOrderDatesForMonth(
  * جلب تفاصيل طلب واحد مع مكوناته الفرعية (§1.2)
  */
 export async function getOrder(id: string) {
-  const [[row], components] = await Promise.all([
+  const [[row], components, [forfeitureSale]] = await Promise.all([
     db
       .select()
       .from(order)
@@ -195,6 +196,17 @@ export async function getOrder(id: string) {
       .select()
       .from(orderComponent)
       .where(eq(orderComponent.orderId, id)),
+    db
+      .select({ id: sale.id, amountCents: sale.amountCents })
+      .from(sale)
+      .where(
+        and(
+          eq(sale.orderId, id),
+          eq(sale.source, "manual"),
+          isNull(sale.deletedAt),
+        ),
+      )
+      .limit(1),
   ]);
 
   if (!row) return null;
@@ -202,6 +214,7 @@ export async function getOrder(id: string) {
   return {
     ...row,
     components,
+    forfeitureSale: forfeitureSale ?? null,
   };
 }
 

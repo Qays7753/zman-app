@@ -54,6 +54,8 @@ import {
   receivableInputSchema,
   receivablePaymentInputSchema,
   refundOrderInputSchema,
+  forfeitDepositInputSchema,
+  reverseDepositForfeitureInputSchema,
 } from "./schema";
 // Issue #16 — logAction (defensive audit logger). Runs OUTSIDE the caller's
 // db.transaction, swallows ALL errors. Imported here so every create/update/
@@ -1214,6 +1216,34 @@ export async function updateSale(
         };
       }
 
+      // المصدر والربط جزء من هوية المبيعة التاريخية، ولا يجوز تغييرهما عبر
+      // مسار التعديل العام. تغييرهما قد يحوّل مبيعة احتجاز إلى مبيعة تسليم
+      // ويدخلها في فحوص الإيراد الكامل، أو يفصل الحركة النقدية عن صاحبها.
+      const incomingOrderId = parsed.data.orderId ?? null;
+      const existingOrderId = existing.orderId ?? null;
+      if (
+        parsed.data.source !== existing.source ||
+        incomingOrderId !== existingOrderId
+      ) {
+        return {
+          status: "error",
+          message: "لا يمكن تغيير مصدر المبيعة أو ربطها بطلب بعد تسجيلها",
+        };
+      }
+
+      // مبيعة الاحتجاز صافي إيراد تاريخي مرتبط بتسوية طلب ملغى؛ تغيير مبلغها
+      // من هنا يفسد التسوية. تصحيحها يمر عبر مسار تسوية العربون فقط.
+      if (
+        existing.source === "manual" &&
+        existingOrderId !== null &&
+        parsed.data.amountCents !== existing.amountCents
+      ) {
+        return {
+          status: "error",
+          message: "لا يمكن تعديل مبلغ عربون محتجز من مسار المبيعات العام",
+        };
+      }
+
       const [updatedSale] = await tx
         .update(sale)
         .set({
@@ -1977,7 +2007,434 @@ export async function refundOrder(
 }
 
 // -------------------------------------------------------------
-// 5. أصناف المشتريات (Purchase Item Catalog Actions)
+// 5. تسوية عربون الطلب الملغى (Deposit Settlement Actions)
+// -------------------------------------------------------------
+
+/**
+ * احتجاز العربون المتبقي عند إلغاء طلب.
+ *
+ * النموذج الصافي: المبيعة تسجل المتبقي المحتجز فقط، بينما حركة التحصيل
+ * الأصلية تُعاد تصنيفها من deposit/in إلى sale/in بلا حركة نقدية جديدة.
+ * القفل وidempotency يمنعان الاحتجاز المكرر أو احتساب العربون مرتين.
+ */
+export async function forfeitDeposit(
+  rawInput: unknown,
+  requestId?: string,
+): Promise<ActionResponse<{ orderId: string; forfeitedCents: number; saleId: string }>> {
+  const { success } = await checkRateLimit();
+  if (!success) {
+    return {
+      status: "error",
+      message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة",
+    };
+  }
+
+  const parsed = forfeitDepositInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "بيانات احتجاز العربون غير صالحة",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result: ActionResponse<{
+      orderId: string;
+      forfeitedCents: number;
+      saleId: string;
+    }> = await db.transaction(async (tx) => {
+      if (requestId) {
+        const [existingKey] = await tx
+          .select()
+          .from(idempotencyKey)
+          .where(eq(idempotencyKey.requestId, requestId));
+
+        if (existingKey) {
+          if (existingKey.action !== "forfeit_deposit") {
+            return { status: "error", message: "معرف الطلب مستخدم لعملية أخرى" };
+          }
+          const [existingSale] = await tx
+            .select({ id: sale.id, orderId: sale.orderId, amountCents: sale.amountCents })
+            .from(sale)
+            .where(eq(sale.id, existingKey.targetId));
+          if (!existingSale || existingSale.orderId !== parsed.data.orderId) {
+            return { status: "error", message: "معرف الاحتجاز لا يطابق الطلب" };
+          }
+          return {
+            status: "ok",
+            data: {
+              orderId: parsed.data.orderId,
+              forfeitedCents: existingSale.amountCents,
+              saleId: existingSale.id,
+            },
+          };
+        }
+      }
+
+      const [orderRow] = await tx
+        .select()
+        .from(order)
+        .where(and(eq(order.id, parsed.data.orderId), isNull(order.deletedAt)))
+        .for("update");
+
+      if (!orderRow) {
+        return { status: "error", message: "الطلب غير موجود أو محذوف" };
+      }
+      if (orderRow.status === "delivered") {
+        return {
+          status: "error",
+          message: "اعكس التسليم أولاً؛ لا يمكن احتجاز عربون طلب مُسلَّم",
+        };
+      }
+      if (orderRow.status === "cancelled") {
+        return { status: "error", message: "تمت تسوية إلغاء هذا الطلب مسبقاً" };
+      }
+      if (orderRow.depositCents <= 0) {
+        return { status: "error", message: "لا يوجد عربون متبقٍ قابل للاحتجاز" };
+      }
+
+      const depositMovements = await tx
+        .select()
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, orderRow.id),
+            eq(cashMovement.direction, "in"),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+
+      if (depositMovements.length !== 1) {
+        return {
+          status: "error",
+          message: "لا توجد حركة تحصيل عربون وحيدة يمكن تسويتها بأمان؛ راجع فحص السلامة أولاً",
+        };
+      }
+      const [depositMovement] = depositMovements;
+
+      const [previousRefundsRow] = await tx
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, orderRow.id),
+            eq(cashMovement.direction, "out"),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+      const previousRefundedCents = Number(previousRefundsRow?.total) || 0;
+      const forfeitedCents = depositMovement.amountCents - previousRefundedCents;
+
+      if (forfeitedCents <= 0 || orderRow.depositCents !== forfeitedCents) {
+        return {
+          status: "error",
+          message: "لا يتطابق العربون المتبقي مع حركة التحصيل والردود السابقة؛ راجع فحص السلامة أولاً",
+        };
+      }
+
+      const [existingLinkedSale] = await tx
+        .select({ id: sale.id })
+        .from(sale)
+        .where(and(eq(sale.orderId, orderRow.id), isNull(sale.deletedAt)))
+        .limit(1);
+      if (existingLinkedSale) {
+        return {
+          status: "error",
+          message: "يوجد سجل مبيعات نشط مرتبط بهذا الطلب؛ راجع عكس التسليم أو فحص السلامة أولاً",
+        };
+      }
+
+      const [forfeitureSale] = await tx
+        .insert(sale)
+        .values({
+          date: parsed.data.date,
+          source: "manual",
+          orderId: orderRow.id,
+          amountCents: forfeitedCents,
+          description:
+            parsed.data.notes?.trim() ||
+            `احتجاز عربون الطلب #${orderRow.id.slice(0, 8)}`,
+        })
+        .returning();
+
+      if (!forfeitureSale) {
+        throw new Error("فشل تسجيل مبيعة احتجاز العربون");
+      }
+
+      await tx
+        .update(cashMovement)
+        .set({
+          sourceType: "sale",
+          sourceId: forfeitureSale.id,
+          description: `احتجاز عربون الطلب #${orderRow.id.slice(0, 8)}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashMovement.id, depositMovement.id));
+
+      const [updatedOrder] = await tx
+        .update(order)
+        .set({
+          status: "cancelled",
+          depositCents: 0,
+          depositDate: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(order.id, orderRow.id))
+        .returning({ id: order.id });
+
+      if (!updatedOrder) {
+        throw new Error("فشل إغلاق الطلب بعد تسوية العربون");
+      }
+
+      if (requestId) {
+        await tx.insert(idempotencyKey).values({
+          requestId,
+          action: "forfeit_deposit",
+          targetId: forfeitureSale.id,
+        });
+      }
+
+      revalidatePath("/orders");
+      revalidatePath(`/orders/${orderRow.id}`);
+      revalidatePath("/finance");
+      revalidatePath("/reports");
+      return {
+        status: "ok",
+        data: {
+          orderId: orderRow.id,
+          forfeitedCents,
+          saleId: forfeitureSale.id,
+        },
+      };
+    });
+
+    if (result.status === "ok") {
+      await logAction({
+        action: "forfeit_deposit",
+        entityType: "order",
+        entityId: result.data.orderId,
+        changesSnapshot: {
+          forfeitedCents: result.data.forfeitedCents,
+          saleId: result.data.saleId,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return {
+      status: "error",
+      message: mapDbError(error),
+    };
+  }
+}
+
+/**
+ * عكس احتجاز العربون. لا يعيد استخدام reverseSale لأنه لا يخص التسليم.
+ * يعيد الالتزام المتبقي بعد الردود السابقة ويعيد الطلب إلى confirmed.
+ */
+export async function reverseDepositForfeiture(
+  rawInput: unknown,
+  requestId?: string,
+): Promise<ActionResponse<{ orderId: string; restoredCents: number; saleId: string }>> {
+  const { success } = await checkRateLimit();
+  if (!success) {
+    return {
+      status: "error",
+      message: "تجاوزت الحد المسموح للعمليات — حاول بعد دقيقة",
+    };
+  }
+
+  const parsed = reverseDepositForfeitureInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "بيانات عكس احتجاز العربون غير صالحة",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const result: ActionResponse<{
+      orderId: string;
+      restoredCents: number;
+      saleId: string;
+    }> = await db.transaction(async (tx) => {
+      if (requestId) {
+        const [existingKey] = await tx
+          .select()
+          .from(idempotencyKey)
+          .where(eq(idempotencyKey.requestId, requestId));
+
+        if (existingKey) {
+          if (existingKey.action !== "reverse_forfeit_deposit") {
+            return { status: "error", message: "معرف الطلب مستخدم لعملية أخرى" };
+          }
+          const [existingSale] = await tx
+            .select({ id: sale.id, orderId: sale.orderId, amountCents: sale.amountCents })
+            .from(sale)
+            .where(eq(sale.id, existingKey.targetId));
+          if (!existingSale || existingSale.orderId !== parsed.data.orderId) {
+            return { status: "error", message: "معرف العكس لا يطابق الطلب" };
+          }
+          return {
+            status: "ok",
+            data: {
+              orderId: parsed.data.orderId,
+              restoredCents: existingSale.amountCents,
+              saleId: existingSale.id,
+            },
+          };
+        }
+      }
+
+      const [orderRow] = await tx
+        .select()
+        .from(order)
+        .where(and(eq(order.id, parsed.data.orderId), isNull(order.deletedAt)))
+        .for("update");
+
+      if (!orderRow) {
+        return { status: "error", message: "الطلب غير موجود أو محذوف" };
+      }
+      if (orderRow.status !== "cancelled") {
+        return { status: "error", message: "لا يمكن عكس احتجاز طلب غير ملغى" };
+      }
+      if (orderRow.depositCents !== 0) {
+        return { status: "error", message: "العربون ليس مصفراً؛ راجع تسوية الطلب أولاً" };
+      }
+
+      const [forfeitureSale] = await tx
+        .select()
+        .from(sale)
+        .where(
+          and(
+            eq(sale.orderId, orderRow.id),
+            eq(sale.source, "manual"),
+            isNull(sale.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (!forfeitureSale) {
+        return { status: "error", message: "لا توجد مبيعة احتجاز نشطة لعكسها" };
+      }
+
+      const saleMovements = await tx
+        .select()
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "sale"),
+            eq(cashMovement.sourceId, forfeitureSale.id),
+            eq(cashMovement.direction, "in"),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+      if (saleMovements.length !== 1) {
+        return {
+          status: "error",
+          message: "لا توجد حركة احتجاز واحدة يمكن عكسها بأمان؛ راجع فحص السلامة أولاً",
+        };
+      }
+      const [forfeitedMovement] = saleMovements;
+
+      const [previousRefundsRow] = await tx
+        .select({ total: sum(cashMovement.amountCents) })
+        .from(cashMovement)
+        .where(
+          and(
+            eq(cashMovement.sourceType, "deposit"),
+            eq(cashMovement.sourceId, orderRow.id),
+            eq(cashMovement.direction, "out"),
+            isNull(cashMovement.deletedAt),
+          ),
+        );
+      const previousRefundedCents = Number(previousRefundsRow?.total) || 0;
+      const restoredCents = forfeitedMovement.amountCents - previousRefundedCents;
+      if (restoredCents <= 0 || forfeitureSale.amountCents !== restoredCents) {
+        return {
+          status: "error",
+          message: "مبلغ مبيعة الاحتجاز لا يطابق حركة الصندوق والردود السابقة؛ راجع فحص السلامة أولاً",
+        };
+      }
+      const remainingDepositCents = restoredCents;
+
+      await tx
+        .update(cashMovement)
+        .set({
+          sourceType: "deposit",
+          sourceId: orderRow.id,
+          description: `عربون طلب - منتج: ${orderRow.productName}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(cashMovement.id, forfeitedMovement.id));
+
+      await tx
+        .update(sale)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(sale.id, forfeitureSale.id));
+
+      const [updatedOrder] = await tx
+        .update(order)
+        .set({
+          status: "confirmed",
+          depositCents: remainingDepositCents,
+          depositDate: remainingDepositCents > 0 ? forfeitedMovement.date : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(order.id, orderRow.id))
+        .returning({ id: order.id });
+
+      if (!updatedOrder) {
+        throw new Error("فشل إعادة فتح الطلب بعد عكس الاحتجاز");
+      }
+
+      if (requestId) {
+        await tx.insert(idempotencyKey).values({
+          requestId,
+          action: "reverse_forfeit_deposit",
+          targetId: forfeitureSale.id,
+        });
+      }
+
+      revalidatePath("/orders");
+      revalidatePath(`/orders/${orderRow.id}`);
+      revalidatePath("/finance");
+      revalidatePath("/reports");
+      return {
+        status: "ok",
+        data: {
+          orderId: orderRow.id,
+          restoredCents,
+          saleId: forfeitureSale.id,
+        },
+      };
+    });
+
+    if (result.status === "ok") {
+      await logAction({
+        action: "reverse_forfeit_deposit",
+        entityType: "order",
+        entityId: result.data.orderId,
+        changesSnapshot: {
+          restoredCents: result.data.restoredCents,
+          saleId: result.data.saleId,
+        },
+      });
+    }
+    return result;
+  } catch (error) {
+    return {
+      status: "error",
+      message: mapDbError(error),
+    };
+  }
+}
+
+// -------------------------------------------------------------
+// 6. أصناف المشتريات (Purchase Item Catalog Actions)
 // -------------------------------------------------------------
 
 export async function getPurchaseItemCatalog() {

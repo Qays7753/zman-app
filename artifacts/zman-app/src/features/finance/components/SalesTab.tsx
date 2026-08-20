@@ -65,6 +65,8 @@ export function SalesTab() {
   const updateMutation = useUpdateSale();
   const deleteMutation = useDeleteSale();
   const reverseMutation = useReverseSale();
+  const isForfeitureSale =
+    activeSale?.source === "manual" && Boolean(activeSale?.orderId);
   const isOrderSale =
     activeSale?.source === "order" || Boolean(activeSale?.orderId);
 
@@ -342,6 +344,10 @@ export function SalesTab() {
                       <span className="px-2 py-0.5 bg-brand-soft text-brand rounded text-[10px] font-bold">
                         طلب محوّل
                       </span>
+                    ) : (item as { orderId?: string | null }).orderId ? (
+                      <span className="px-2 py-0.5 bg-warn-soft text-warn-deep rounded text-[10px] font-bold">
+                        عربون محتجز
+                      </span>
                     ) : (
                       <span className="px-2 py-0.5 bg-canvas text-ink-2 rounded text-[10px] font-bold">
                         بيع مباشر
@@ -389,6 +395,23 @@ export function SalesTab() {
           <div className="p-4 text-center text-sm text-ink-3">
             جاري التحميل...
           </div>
+        ) : isForfeitureSale ? (
+          <div className="space-y-4 p-4">
+            <div className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-sm text-warn-deep leading-relaxed">
+              هذه مبيعة تسوية لعربون محتجز، وليست مبيعة تسليم أو بيعاً مباشراً. لا يمكن تعديلها أو حذفها من مسار المبيعات العام.
+            </div>
+            <div className="rounded-lg border border-hairline bg-canvas p-3 text-sm font-bold text-ink">
+              المبلغ المحتجز: <AmountText amount={activeSale?.amountCents ?? 0} />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full min-h-[44px]"
+              onClick={() => updateUrl({ editSale: null })}
+            >
+              إغلاق والعودة
+            </Button>
+          </div>
         ) : (
           <SaleForm
             initialData={activeSale}
@@ -397,7 +420,9 @@ export function SalesTab() {
               isOrderSale ? undefined : () => setDeleteConfirmOpen(true)
             }
             onReverse={
-              isOrderSale ? () => setReverseConfirmOpen(true) : undefined
+              isOrderSale && !isForfeitureSale
+                ? () => setReverseConfirmOpen(true)
+                : undefined
             }
             isSubmitting={updateMutation.isPending || reverseMutation.isPending}
           />

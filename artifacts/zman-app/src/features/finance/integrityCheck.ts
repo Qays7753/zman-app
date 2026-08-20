@@ -70,7 +70,7 @@ export async function runFinancialIntegrityCheck(
   // 21 ساعة في اليوم لكنه يخالف getMonthlyProfit لمدة 3 ساعات عند منتصف الشهر.
   const effectiveDate = asOfDate ?? getAmmanDate();
 
-  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14, ic15] =
+  const [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14, ic15, ic16] =
     await Promise.all([
       checkIC1EquityDrift(effectiveDate),
       checkIC2OrphanMovements(),
@@ -91,9 +91,11 @@ export async function runFinancialIntegrityCheck(
       checkIC14CapitalAssetValuation(effectiveDate),
       // Phase 5 — IC-15: تطابق حركات الذمم المدينة وسدادها مع دفتر الصندوق.
       checkIC15ReceivablesLedgerReconciliation(effectiveDate),
+      // Deposit settlement — IC-16: احتجاز العربون أو الرد الكامل دون ازدواج.
+      checkIC16DepositSettlement(),
     ]);
 
-  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14, ic15];
+  const results = [ic1, ic2, ic3, ic4, ic5, ic6, ic7, ic8, ic9, ic10, ic11, ic12, ic13, ic14, ic15, ic16];
 
   const overallStatus: IntegrityCheckStatus = results.some(
     (r) => r.status === "FAIL",
@@ -474,8 +476,14 @@ async function checkIC3DepositLiabilityConsistency(): Promise<IntegrityCheckResu
     .groupBy(cashMovement.sourceId)
     .having(sql`count(*) > 1`);
 
-  const staleDepositMovements = await db
-    .select({ movementId: cashMovement.id })
+  const staleDepositCandidates = await db
+    .select({
+      movementId: cashMovement.id,
+      orderId: order.id,
+      orderStatus: order.status,
+      orderDepositCents: order.depositCents,
+      movementAmountCents: cashMovement.amountCents,
+    })
     .from(cashMovement)
     .innerJoin(order, eq(cashMovement.sourceId, order.id))
     .where(
@@ -486,6 +494,33 @@ async function checkIC3DepositLiabilityConsistency(): Promise<IntegrityCheckResu
         sql`${order.status} in ('delivered', 'cancelled')`,
       ),
     );
+
+  // الطلب الملغى الذي رُدّ عربونه بالكامل يحتفظ بحركة التحصيل الداخلة
+  // كسجل تاريخي؛ لا ينبغي اعتباره التزاماً قديماً. أما المتبقي أو غير
+  // المتطابق مع الردود فيبقى مخالفة حتى تُنفّذ تسوية واضحة.
+  const staleDepositMovements = (
+    await Promise.all(
+      staleDepositCandidates.map(async (candidate) => {
+        if (candidate.orderStatus === "delivered") return candidate;
+
+        const [refundsRow] = await db
+          .select({ total: sum(cashMovement.amountCents) })
+          .from(cashMovement)
+          .where(
+            and(
+              eq(cashMovement.sourceType, "deposit"),
+              eq(cashMovement.sourceId, candidate.orderId),
+              eq(cashMovement.direction, "out"),
+              isNull(cashMovement.deletedAt),
+            ),
+          );
+        const refundedCents = Number(refundsRow?.total) || 0;
+        return candidate.orderDepositCents > 0 || refundedCents < candidate.movementAmountCents
+          ? candidate
+          : null;
+      }),
+    )
+  ).filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
 
   const allBad = [
     ...missingDepositMovements.map((r) => `مفقود:${r.orderId}`),
@@ -499,12 +534,12 @@ async function checkIC3DepositLiabilityConsistency(): Promise<IntegrityCheckResu
     status: allBad.length === 0 ? "PASS" : "FAIL",
     titleAr: "اتساق عربونات الطلبات مع السجل",
     descriptionAr:
-      "كل طلب غير مُسلَّم بعربون متبقٍ > 0 يجب أن يكون له حركة عربون داخلة واحدة نشطة. حركات الرد الخارجة تاريخية ولا تُعدّ التزاماً أو ازدواجاً.",
+      "كل طلب غير مُسلَّم بعربون متبقٍ > 0 يجب أن يكون له حركة عربون داخلة واحدة نشطة. تحصيل الطلب الملغى الذي رُدّ بالكامل تاريخي مسوّى ولا يُعدّ التزاماً.",
     offendingIds: allBad.slice(0, 50),
     count: allBad.length,
     suggestedFixAr:
       allBad.length !== 0
-        ? `يوجد ${allBad.length} مخالفة. «مفقود» = عربون لم يُسجَّل في السجل. «مكرر» = حركة عربون داخلة مسجَّلة مرتين. «قديم» = حركة عربون داخلة نشطة لطلب مُسلَّم أو ملغى.`
+        ? `يوجد ${allBad.length} مخالفة. «مفقود» = عربون لم يُسجَّل في السجل. «مكرر» = حركة عربون داخلة مسجَّلة مرتين. «قديم» = حركة نشطة لطلب مُسلَّم أو لعربون ملغى لم تُستكمل تسويته.`
         : undefined,
   };
 }
@@ -1464,3 +1499,110 @@ async function checkIC15ReceivablesLedgerReconciliation(
   };
 }
 
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// IC-16 — تسوية احتجاز العربون (Deposit Settlement)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function checkIC16DepositSettlement(): Promise<IntegrityCheckResult> {
+  const candidates = await db
+    .select({
+      orderId: order.id,
+      orderDepositCents: order.depositCents,
+      orderStatus: order.status,
+      saleId: sale.id,
+      saleAmountCents: sale.amountCents,
+      movementId: cashMovement.id,
+      movementAmountCents: cashMovement.amountCents,
+    })
+    .from(order)
+    .leftJoin(
+      sale,
+      and(
+        eq(sale.orderId, order.id),
+        eq(sale.source, "manual"),
+        isNull(sale.deletedAt),
+      ),
+    )
+    .leftJoin(
+      cashMovement,
+      and(
+        eq(cashMovement.sourceType, "sale"),
+        eq(cashMovement.sourceId, sale.id),
+        eq(cashMovement.direction, "in"),
+        isNull(cashMovement.deletedAt),
+      ),
+    )
+    .where(and(isNull(order.deletedAt), eq(order.status, "cancelled")));
+
+  const byOrder = new Map<string, typeof candidates>();
+  for (const candidate of candidates) {
+    const rows = byOrder.get(candidate.orderId) ?? [];
+    rows.push(candidate);
+    byOrder.set(candidate.orderId, rows);
+  }
+
+  const offenders: string[] = [];
+  for (const [orderId, rows] of byOrder) {
+    const activeSales = rows.filter((row) => row.saleId !== null);
+    if (activeSales.length === 0) {
+      // لا توجد مبيعة احتجاز عندما رُدّ العربون بالكامل؛ نتحقق من أن الالتزام
+      // مصفّر، بينما الطلبات القديمة بلا أي تسوية تبقى مخالفة.
+      if (rows[0]?.orderDepositCents > 0) {
+        offenders.push(`إلغاء-بلا-تسوية:${orderId}`);
+      }
+      continue;
+    }
+
+    if (activeSales.length !== 1) {
+      offenders.push(`مبيعة-احتجاز-مكررة:${orderId}`);
+      continue;
+    }
+
+    const settlement = activeSales[0];
+    const saleAmountCents = settlement.saleAmountCents;
+    const movementAmountCents = settlement.movementAmountCents;
+    const [refundsRow] = await db
+      .select({ total: sum(cashMovement.amountCents) })
+      .from(cashMovement)
+      .where(
+        and(
+          eq(cashMovement.sourceType, "deposit"),
+          eq(cashMovement.sourceId, orderId),
+          eq(cashMovement.direction, "out"),
+          isNull(cashMovement.deletedAt),
+        ),
+      );
+    const refundedCents = Number(refundsRow?.total) || 0;
+    const expectedForfeitedCents =
+      movementAmountCents === null ? null : movementAmountCents - refundedCents;
+    if (
+      settlement.orderStatus !== "cancelled" ||
+      settlement.orderDepositCents !== 0 ||
+      settlement.movementId === null ||
+      saleAmountCents === null ||
+      movementAmountCents === null ||
+      expectedForfeitedCents === null ||
+      expectedForfeitedCents <= 0 ||
+      saleAmountCents !== expectedForfeitedCents
+    ) {
+      offenders.push(`احتجاز-غير-متطابق:${orderId}`);
+    }
+  }
+
+  return {
+    id: "IC-16",
+    invariantId: "INV-9-deposit-settlement",
+    status: offenders.length === 0 ? "PASS" : "FAIL",
+    titleAr: "تطابق تسوية احتجاز العربون",
+    descriptionAr:
+      "كل إلغاء باحتجاز يجب أن يملك مبيعة manual مرتبطة بقيمة التحصيل ناقص الردود السابقة وحركة sale واحدة بالمبلغ نفسه، مع تصفير العربون. الرد الكامل لا ينشئ مبيعة احتجاز.",
+    offendingIds: offenders.slice(0, 50),
+    count: offenders.length,
+    suggestedFixAr:
+      offenders.length !== 0
+        ? `يوجد ${offenders.length} طلب ملغى بتسوية احتجاز ناقصة أو مكررة. راجع مبيعة الاحتجاز وحركة الصندوق قبل أي تعديل يدوي.`
+        : undefined,
+  };
+}

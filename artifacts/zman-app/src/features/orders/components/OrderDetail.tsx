@@ -29,6 +29,8 @@ import {
   useAccounts,
   useConvertOrderToSale,
   useRefundOrder,
+  useForfeitDeposit,
+  useReverseDepositForfeiture,
   useReverseSale,
 } from "../../finance/hooks";
 import { useDeleteOrder, useOrder, useUpdateOrderStatus, useMessageTemplate } from "../hooks";
@@ -58,6 +60,8 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
   const convertOrderToSaleMutation = useConvertOrderToSale();
   const reverseSaleMutation = useReverseSale();
   const refundOrderMutation = useRefundOrder();
+  const forfeitDepositMutation = useForfeitDeposit();
+  const reverseDepositForfeitureMutation = useReverseDepositForfeiture();
   const { data: accounts = [] } = useAccounts();
 
   // Phase 3 — حركات المخزون المُستهلكة (card 3.M). تُجلب دائماً، لكن تُعرض فقط
@@ -72,11 +76,17 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
 
   const [isConverting, setIsConverting] = useState(false);
   const [isReversing, setIsReversing] = useState(false);
+  const [isReversingForfeiture, setIsReversingForfeiture] = useState(false);
+  const [isForfeiting, setIsForfeiting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [cancelOptionsOpen, setCancelOptionsOpen] = useState(false);
   const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const [showReverseConfirm, setShowReverseConfirm] = useState(false);
+  const [showReverseForfeitureConfirm, setShowReverseForfeitureConfirm] = useState(false);
+  const [forfeitModalOpen, setForfeitModalOpen] = useState(false);
+  const [forfeitNotes, setForfeitNotes] = useState("");
+  const [forfeitDate, setForfeitDate] = useState(new Date().toLocaleDateString("en-CA"));
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundAmountCents, setRefundAmountCents] = useState(0);
   const [refundAccountId, setRefundAccountId] = useState("");
@@ -144,6 +154,63 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       await refetch();
     } else {
       toast.error(response.message);
+    }
+  };
+
+  const handleOpenForfeit = () => {
+    setForfeitDate(new Date().toLocaleDateString("en-CA"));
+    setForfeitNotes("");
+    setForfeitModalOpen(true);
+  };
+
+  const handleForfeit = async () => {
+    if (!orderData || orderData.depositCents <= 0) {
+      toast.error("لا يوجد عربون متبقٍ قابل للاحتجاز");
+      return;
+    }
+    setIsForfeiting(true);
+    try {
+      const response = await forfeitDepositMutation.mutateAsync({
+        values: {
+          orderId: orderData.id,
+          date: forfeitDate,
+          notes: forfeitNotes,
+        },
+        requestId: crypto.randomUUID(),
+      });
+      if (response.status === "ok") {
+        toast.success("تم احتجاز العربون وإلغاء الطلب");
+        setForfeitModalOpen(false);
+        onBack();
+      } else {
+        toast.error(response.message || "فشل احتجاز العربون");
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsForfeiting(false);
+    }
+  };
+
+  const handleReverseForfeiture = async () => {
+    if (!orderData?.forfeitureSale) return;
+    setIsReversingForfeiture(true);
+    setShowReverseForfeitureConfirm(false);
+    try {
+      const response = await reverseDepositForfeitureMutation.mutateAsync({
+        values: { orderId: orderData.id },
+        requestId: crypto.randomUUID(),
+      });
+      if (response.status === "ok") {
+        toast.success("تم عكس احتجاز العربون وإعادة الطلب إلى «مؤكد»");
+        onBack();
+      } else {
+        toast.error(response.message || "فشل عكس احتجاز العربون");
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsReversingForfeiture(false);
     }
   };
 
@@ -598,7 +665,20 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             className="w-full py-3"
             icon={<ArrowLeft className="w-5 h-5" />}
           >
-              <span>عكس التسليم (إعادة الطلب للتنفيذ)</span>
+            <span>عكس التسليم (إعادة الطلب للتنفيذ)</span>
+          </Button>
+        )}
+
+        {/* عكس احتجاز العربون — لا يعيد استخدام عكس التسليم */}
+        {orderData.status === "cancelled" && orderData.forfeitureSale && (
+          <Button
+            onClick={() => setShowReverseForfeitureConfirm(true)}
+            disabled={isReversingForfeiture}
+            variant="secondary"
+            className="w-full py-3"
+            icon={<ArrowLeft className="w-5 h-5" />}
+          >
+            <span>عكس احتجاز العربون (إعادة الطلب)</span>
           </Button>
         )}
       </div>
@@ -740,6 +820,62 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         </div>
       </ResponsiveModal>
 
+      {/* حوار مصير العربون — الاحتفاظ بالمتبقي وإلغاء الطلب */}
+      <ResponsiveModal
+        isOpen={forfeitModalOpen}
+        onClose={() => setForfeitModalOpen(false)}
+        title="احتفاظ بالعربون وإلغاء الطلب"
+      >
+        <div className="space-y-4 p-4">
+          <div className="rounded-lg border border-alert/30 bg-alert-soft p-3 text-sm text-alert-deep leading-relaxed">
+            سيتم احتجاز المتبقي كإيراد تسوية، وتسجيل القرار على الطلب، ثم نقله إلى «ملغى». لا تُنشأ حركة نقدية جديدة لأن المال دخل الصندوق سابقاً.
+          </div>
+          <div className="rounded-lg border border-hairline bg-canvas p-3 text-sm font-bold text-ink">
+            المتبقي الذي سيُحتجز: <AmountText amount={orderData.depositCents} />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="forfeit-date" className="text-sm font-bold text-ink/75">
+              تاريخ التسوية
+            </label>
+            <input
+              id="forfeit-date"
+              type="date"
+              value={forfeitDate}
+              onChange={(event) => setForfeitDate(event.target.value)}
+              className="flex h-12 w-full rounded-md border border-hairline bg-paper px-3 py-2 text-base text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+          <TextArea
+            label="ملاحظات الاحتجاز (اختياري)"
+            id="forfeit-notes"
+            value={forfeitNotes}
+            onChange={(event) => setForfeitNotes(event.target.value)}
+            placeholder="سبب الاحتفاظ بالعربون أو تفاصيل الاتفاق..."
+          />
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1 min-h-[44px]"
+              onClick={() => setForfeitModalOpen(false)}
+              disabled={isForfeiting}
+            >
+              تراجع
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1 min-h-[44px]"
+              onClick={() => void handleForfeit()}
+              isLoading={isForfeiting}
+              disabled={isForfeiting || orderData.depositCents <= 0}
+            >
+              تأكيد الاحتفاظ والإلغاء
+            </Button>
+          </div>
+        </div>
+      </ResponsiveModal>
+
       {/* تأكيد عكس التسليم — إعادة الطلب من "delivered" إلى "confirmed" */}
       <ResponsiveModal
         isOpen={showReverseConfirm}
@@ -850,24 +986,50 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
               ? "الطلب مؤكد بالفعل"
               : "إلغاء مؤقت — إبقاء الطلب «مؤكداً»"}
           </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            className="w-full min-h-[44px]"
-            onClick={() => {
-              setCancelOptionsOpen(false);
-              setCancelConfirmOpen(true);
-            }}
-            disabled={isUpdatingStatus || orderData.depositCents > 0}
-          >
-            {orderData.depositCents > 0
-              ? "الإلغاء النهائي بعد تسوية العربون"
-              : "إلغاء نهائي — نقل الطلب إلى «ملغى»"}
-          </Button>
           {orderData.depositCents > 0 && (
-            <p className="px-1 text-xs text-warn-deep leading-relaxed">
-              يوجد عربون مسجّل. نفّذ رد الأموال أو سوِّ العربون أولاً، ثم يمكنك إغلاق الطلب نهائياً.
-            </p>
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full min-h-[44px]"
+                onClick={() => {
+                  setCancelOptionsOpen(false);
+                  handleOpenRefund();
+                }}
+                disabled={refundOrderMutation.isPending}
+              >
+                رد كامل أو جزئي للعربون
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full min-h-[44px]"
+                onClick={() => {
+                  setCancelOptionsOpen(false);
+                  handleOpenForfeit();
+                }}
+                disabled={isForfeiting}
+              >
+                احتفاظ بالعربون وإلغاء الطلب
+              </Button>
+              <p className="px-1 text-xs text-warn-deep leading-relaxed">
+                اختر الرد إذا كان المال سيعود للعميل، أو الاحتفاظ إذا كان القرار نهائياً. بعد الرد الجزئي يمكنك احتجاز المتبقي.
+              </p>
+            </>
+          )}
+          {orderData.depositCents <= 0 && (
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full min-h-[44px]"
+              onClick={() => {
+                setCancelOptionsOpen(false);
+                setCancelConfirmOpen(true);
+              }}
+              disabled={isUpdatingStatus}
+            >
+              إلغاء نهائي — نقل الطلب إلى «ملغى»
+            </Button>
           )}
           <Button
             type="button"
@@ -891,6 +1053,16 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         }}
         onCancel={() => setCancelConfirmOpen(false)}
         isLoading={isUpdatingStatus}
+      />
+
+      <ConfirmDialog
+        isOpen={showReverseForfeitureConfirm}
+        title="تأكيد عكس احتجاز العربون"
+        message="سيُعاد تصنيف حركة العربون إلى التزام، ويُحذف سجل مبيعة الاحتجاز ناعماً، ويُعاد الطلب إلى «مؤكد». لا تُنشأ حركة نقدية جديدة، وتبقى ردود الأموال السابقة كما هي."
+        confirmLabel="نعم، عكس الاحتجاز"
+        onConfirm={() => void handleReverseForfeiture()}
+        onCancel={() => setShowReverseForfeitureConfirm(false)}
+        isLoading={isReversingForfeiture}
       />
     </div>
   );

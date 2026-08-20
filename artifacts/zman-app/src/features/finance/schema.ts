@@ -117,7 +117,25 @@ export const refundOrderInputSchema = z.object({
     .default(""),
 });
 
-// 5. مخطط التحقق للحسابات
+// 5. تسوية احتجاز عربون طلب ملغى — لا تنشئ حركة نقدية جديدة.
+export const forfeitDepositInputSchema = z.object({
+  orderId: z.string().uuid({ message: "معرف الطلب غير صالح" }),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, {
+    message: "تاريخ التسوية يجب أن يكون بتنسيق YYYY-MM-DD",
+  }),
+  notes: z
+    .string()
+    .max(1000, { message: "ملاحظات التسوية لا تتعدى 1000 حرف" })
+    .optional()
+    .default(""),
+});
+
+// 6. عكس احتجاز العربون — يعيد الالتزام المتبقي دون حركة نقدية جديدة.
+export const reverseDepositForfeitureInputSchema = z.object({
+  orderId: z.string().uuid({ message: "معرف الطلب غير صالح" }),
+});
+
+// 7. مخطط التحقق للحسابات
 export const accountInputSchema = z.object({
   name: z
     .string()
