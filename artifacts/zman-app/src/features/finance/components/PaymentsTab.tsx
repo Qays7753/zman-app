@@ -102,6 +102,7 @@ export function PaymentsTab() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
     refetch,
   } = useInfinitePayments({
     search,
@@ -359,7 +360,7 @@ export function PaymentsTab() {
 
       {isLoading ? (
         <SkeletonList count={4} />
-      ) : isError ? (
+      ) : isError && !data ? (
         <ErrorState onRetry={refetch} />
       ) : visiblePayments.length === 0 ? (
         <EmptyState
@@ -665,14 +666,33 @@ export function PaymentsTab() {
           </div>
 
           {hasNextPage && (
-            <Button
-              onClick={() => void fetchNextPage()}
-              disabled={isFetchingNextPage}
-              variant="secondary"
-              className="w-full"
-            >
-              {isFetchingNextPage ? "جاري التحميل..." : "تحميل المزيد"}
-            </Button>
+            isFetchNextPageError ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-alert/30 bg-alert-soft px-4 py-3 text-center"
+              >
+                <p className="text-sm font-semibold text-alert-deep">
+                  تعذر تحميل الحركات التالية دون فقدان الحركات الحالية.
+                </p>
+                <Button
+                  onClick={() => void fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  variant="destructive"
+                  className="mt-3 w-full"
+                >
+                  إعادة محاولة التحميل
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => void fetchNextPage()}
+                disabled={isFetchingNextPage}
+                variant="secondary"
+                className="w-full"
+              >
+                {isFetchingNextPage ? "جاري التحميل..." : "تحميل المزيد"}
+              </Button>
+            )
           )}
         </div>
       )}
