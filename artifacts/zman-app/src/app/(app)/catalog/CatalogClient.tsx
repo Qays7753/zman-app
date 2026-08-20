@@ -138,7 +138,7 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
 
   return (
     <>
-      {!hideHeader && <AppShellHeader title="الكتالوج" action={pageAction} />}
+      {!hideHeader && <AppShellHeader title="الكتالوج" context={pageAction} />}
       <div className="flex-1 flex flex-col gap-4">
         {/* شريط البحث والإضافة */}
         {hideHeader && (

@@ -44,7 +44,6 @@ import { InfoTooltip } from "@/components/shared/InfoTooltip";
 import { FilterChip } from "@/components/shared/FilterChip";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
-import { SegmentedControl } from "@/components/shared/SegmentedControl";
 
 import { useDashboardBundle } from "../hooks";
 
@@ -173,6 +172,11 @@ export function DashboardClient() {
   const pendingOrdersCount =
     (stats?.ordersByStatus["sent"] ?? 0) +
     (stats?.ordersByStatus["confirmed"] ?? 0);
+  const hasAttentionItems =
+    lowStockCount > 0 ||
+    pendingOrdersCount > 0 ||
+    asOfRealCashCents < 50000 ||
+    !openingBal?.isLocked;
 
   // صافي القيمة الدفترية للأصول الرأسمالية as-of endDate
   const capitalAssetsNetValueCents =
@@ -201,17 +205,20 @@ export function DashboardClient() {
     <>
       <AppShellHeader
         title="لوحة القيادة"
-        action={
-          <button
-            type="button"
-            onClick={() => setIsSelectorOpen(true)}
-            className="lg:hidden h-12 min-h-12 px-3 bg-canvas border border-border-field text-ink rounded-md flex items-center gap-1.5 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-          >
-            <Calendar className="h-4 w-4 text-brand-deep flex-shrink-0" />
-            <span className="max-w-[90px] truncate">
-              {customRange ? "فترة مخصصة" : (presets[selectedPresetIdx]?.label ?? "")}
-            </span>
-          </button>
+        context={
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold text-ink-2">الفترة المحاسبية</span>
+            <button
+              type="button"
+              onClick={() => setIsSelectorOpen(true)}
+              className="h-12 min-h-12 px-3 bg-paper border border-border-field text-ink rounded-lg flex items-center gap-1.5 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            >
+              <Calendar className="h-4 w-4 text-brand-deep flex-shrink-0" />
+              <span className="max-w-[140px] truncate">
+                {customRange ? "فترة مخصصة" : (presets[selectedPresetIdx]?.label ?? "")}
+              </span>
+            </button>
+          </div>
         }
       />
 
@@ -238,27 +245,6 @@ export function DashboardClient() {
           </div>
         )}
 
-        {/* فلتر الديسكتوب */}
-        <div className="hidden lg:block self-start">
-          <SegmentedControl
-            value={customRange ? "custom" : String(selectedPresetIdx)}
-            onChange={(val) => {
-              if (val === "custom") setIsSelectorOpen(true);
-              else handlePresetSelect(Number(val));
-            }}
-            options={[
-              ...presets.map((p, i) => ({ value: String(i), label: p.label })),
-              {
-                value: "custom",
-                label: customRange
-                  ? `${format(customRange.start, "MM/dd")} - ${format(customRange.end, "MM/dd")}`
-                  : "تخصيص",
-                icon: <Calendar className="h-3.5 w-3.5" />,
-              },
-            ]}
-          />
-        </div>
-
         {/* هيكل التحميل */}
         {isLoading && !hasCachedData ? (
           <div className="space-y-4">
@@ -268,15 +254,19 @@ export function DashboardClient() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* يحتاج انتباهك — يظهر قبل أدوات التحليل */}
+            {hasAttentionItems && (
+              <h2 className="text-sm font-black text-ink" id="dashboard-attention-title">
+                يحتاج انتباهك
+              </h2>
+            )}
             <SmartAlertsBar
               lowStockCount={lowStockCount}
               pendingOrdersCount={pendingOrdersCount}
               isLowCash={asOfRealCashCents < 50000}
             />
 
-            {/* البحث الشامل */}
-            <GlobalSearch />
+            {/* طلبات تحتاج تسليم قريباً — إجراء يومي واضح عند وجودها */}
+            <UpcomingDeliveriesCard />
 
             {/* إعداد أولي — البنود الأربعة */}
             {(!openingBal || !openingBal.isLocked) && (
@@ -297,61 +287,41 @@ export function DashboardClient() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-warn/20 text-xs">
                   <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal && openingBal.cashCents > 0 ? (
-                      <span className="text-brand-deep font-bold">✓</span>
-                    ) : (
-                      <span className="text-alert font-bold">✗</span>
-                    )}
+                    {openingBal && openingBal.cashCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
                     <span className="text-ink-2">رصيد الصندوق</span>
                   </div>
-
                   <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal && openingBal.bankCents > 0 ? (
-                      <span className="text-brand-deep font-bold">✓</span>
-                    ) : (
-                      <span className="text-alert font-bold">✗</span>
-                    )}
+                    {openingBal && openingBal.bankCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
                     <span className="text-ink-2">رصيد البنك</span>
                   </div>
-
                   <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal && openingBal.capitalCents > 0 ? (
-                      <span className="text-brand-deep font-bold">✓</span>
-                    ) : (
-                      <span className="text-alert font-bold">✗</span>
-                    )}
+                    {openingBal && openingBal.capitalCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
                     <span className="text-ink-2">رأس المال</span>
                   </div>
-
                   <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal?.isLocked ? (
-                      <span className="text-brand-deep font-bold">✓</span>
-                    ) : (
-                      <span className="text-alert font-bold">✗</span>
-                    )}
+                    {openingBal?.isLocked ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
                     <span className="text-ink-2">تأكيد القفل</span>
                   </div>
                 </div>
               </Link>
             )}
 
-            {/* ═══ Layer 1: الطبقة الأولى — دائماً ظاهرة ═══ */}
+            <section aria-labelledby="dashboard-summary-title" className="space-y-2">
+              <h2 className="text-sm font-black text-ink" id="dashboard-summary-title">ملخصك الآن</h2>
+              <HealthCard
+                asOfRealCashCents={asOfRealCashCents}
+                asOfCashCents={asOfCashCents}
+                asOfBankCents={asOfBankCents}
+                asOfDepositsHeldCents={asOfDepositsHeldCents}
+                netProfit={summary?.netProfit ?? 0}
+                inventoryValueCents={summary?.inventoryValueCents ?? 0}
+              />
+            </section>
 
-            {/* بطاقة الصحة الكبيرة */}
-            <HealthCard
-              asOfRealCashCents={asOfRealCashCents}
-              asOfCashCents={asOfCashCents}
-              asOfBankCents={asOfBankCents}
-              asOfDepositsHeldCents={asOfDepositsHeldCents}
-              netProfit={summary?.netProfit ?? 0}
-              inventoryValueCents={summary?.inventoryValueCents ?? 0}
-            />
-
-            {/* طلبات تحتاج تسليم قريباً (Issue #9) */}
-            <UpcomingDeliveriesCard />
-
-            {/* وصول سريع — كل الحركات + الملاحظات (بعد الأولويات اليومية) */}
-            <div className="grid grid-cols-2 gap-2">
+            <section aria-labelledby="dashboard-actions-title" className="space-y-2">
+              <h2 className="text-sm font-black text-ink" id="dashboard-actions-title">الوصول السريع</h2>
+              <GlobalSearch />
+              <div className="grid grid-cols-2 gap-2">
               <Link
                 href="/activities"
                 className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
@@ -372,10 +342,14 @@ export function DashboardClient() {
                 </span>
                 <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
               </Link>
-            </div>
+              </div>
+            </section>
 
-            {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
-            {summary && (
+            <section aria-labelledby="dashboard-analysis-title" className="space-y-2">
+              <h2 className="text-sm font-black text-ink" id="dashboard-analysis-title">التحليل المالي</h2>
+
+              {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
+              {summary && (
               <FinanceComparePanel
                 actualSales={summary.actualSales ?? 0}
                 cogsCents={summary.cogsCents ?? 0}
@@ -404,9 +378,10 @@ export function DashboardClient() {
             )}
 
             {/* ربح كل شهر */}
-            {monthlyProfit && monthlyProfit.length > 0 && (
-              <MonthlyProfitPanel data={monthlyProfit} />
-            )}
+              {monthlyProfit && monthlyProfit.length > 0 && (
+                <MonthlyProfitPanel data={monthlyProfit} />
+              )}
+            </section>
 
             {/* ═══ Layer 2: التفاصيل المالية (قابلة للطي) ═══ */}
             <DetailsLayer

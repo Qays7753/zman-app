@@ -232,7 +232,7 @@ export default function OrdersClient() {
 
   return (
     <>
-      <AppShellHeader title={pageTitle} action={pageAction} />
+      <AppShellHeader title={pageTitle} context={pageAction} />
 
       {isNew && (
         <OrderForm onSubmitSuccess={handleShowList} onCancel={handleShowList} />
