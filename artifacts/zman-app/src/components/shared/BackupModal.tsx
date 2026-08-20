@@ -108,7 +108,7 @@ export function BackupModal({ isOpen, onClose }: BackupModalProps) {
         </div>
 
         {done && (
-          <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-200">
+          <div className="flex items-center gap-2 p-3 bg-brand-soft text-brand-deep rounded-lg text-xs font-bold border border-brand/20">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>تم تصدير البيانات المرجعية بنجاح!</span>
           </div>

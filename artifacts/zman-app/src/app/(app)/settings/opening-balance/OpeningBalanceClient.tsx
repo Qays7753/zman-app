@@ -19,7 +19,7 @@ export default function OpeningBalanceClient() {
           <SkeletonList count={3} />
         ) : opBal?.isLocked ? (
           <div className="bg-paper border border-hairline rounded-lg p-6 space-y-6 shadow-sm">
-            <div className="flex items-center gap-3 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 p-4 rounded-md border border-emerald-200 dark:border-emerald-900/50">
+            <div className="flex items-center gap-3 text-brand-deep bg-brand-soft p-4 rounded-md border border-brand/20">
               <ShieldCheck className="w-6 h-6 shrink-0" />
               <div>
                 <h3 className="font-bold text-sm">الأرصدة الافتتاحية مثبتة نهائياً</h3>
@@ -47,7 +47,7 @@ export default function OpeningBalanceClient() {
 
               <div className="flex items-center justify-between pt-3">
                 <span className="text-sm font-bold text-ink">رأس المال الافتتاحي</span>
-                <AmountText amount={opBal.capitalCents} className="text-sm font-bold text-brand" />
+                <AmountText amount={opBal.capitalCents} className="text-sm font-bold text-brand-deep" />
               </div>
             </div>
 

@@ -236,7 +236,7 @@ export function PaymentsTab() {
           onClick={() => setIsFilterOpen(true)}
           aria-expanded={isFilterOpen}
           className={cn(
-            "min-h-[44px] flex-1 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start transition-colors",
+            "min-h-12 flex-1 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start transition-colors",
             hasActiveFilter
               ? "border-brand/30 bg-brand-soft/50 text-brand-deep"
               : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
@@ -260,7 +260,7 @@ export function PaymentsTab() {
             onClick={() =>
               updateUrl({ filter: null, category: null, nature: null })
             }
-            className="min-h-[44px] shrink-0 rounded-lg px-3 text-xs font-bold text-ink-2 hover:bg-canvas"
+            className="min-h-12 shrink-0 rounded-lg px-3 text-xs font-bold text-ink-2 hover:bg-canvas"
           >
             مسح
           </button>
@@ -284,7 +284,7 @@ export function PaymentsTab() {
                     type="button"
                     onClick={() => handleChipChange(chip.id)}
                     className={cn(
-                      "min-h-[44px] flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start",
+                      "min-h-12 flex items-center justify-between gap-2 rounded-lg border px-3 text-sm font-bold text-start",
                       isActive
                         ? "border-brand bg-brand-soft text-brand-deep"
                         : "border-hairline bg-paper text-ink-2 hover:bg-canvas",
@@ -319,7 +319,7 @@ export function PaymentsTab() {
                         : e.target.value,
                   })
                 }
-                className="w-full h-11 min-h-[44px] rounded-lg border border-hairline bg-paper px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand font-medium"
+                className="w-full h-12 min-h-12 rounded-lg border border-hairline bg-paper px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand font-medium"
               >
                 <option value="all">كل الفئات</option>
                 {filterCategories.map((cat) => (
@@ -337,7 +337,7 @@ export function PaymentsTab() {
                   updateUrl({ manageCatalog: "expenses" });
                 }}
                 icon={<Boxes className="w-4 h-4" />}
-                className="w-full min-h-[44px] h-11 text-sm"
+                className="w-full min-h-12 h-12 text-sm"
               >
                 إدارة فئات المصروفات
               </Button>
@@ -350,7 +350,7 @@ export function PaymentsTab() {
               updateUrl({ filter: null, category: null, nature: null });
               setIsFilterOpen(false);
             }}
-            className="w-full min-h-[44px] rounded-lg border border-hairline px-3 text-sm font-bold text-ink-2 hover:bg-canvas"
+            className="w-full min-h-12 rounded-lg border border-hairline px-3 text-sm font-bold text-ink-2 hover:bg-canvas"
           >
             عرض كل المدفوعات
           </button>
@@ -535,7 +535,7 @@ export function PaymentsTab() {
                               item.activeCapitalAssetId!,
                             );
                           }}
-                          className="min-h-[44px] min-w-[44px] inline-flex items-center px-3 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors shrink-0"
+                          className="min-h-12 min-w-12 inline-flex items-center px-3 py-1 bg-warn-soft text-warn-deep text-[11px] rounded-full font-bold border border-warn/30 hover:bg-warn-soft/70 transition-colors shrink-0"
                           title="إيقاف الإهلاك — لن يُخصَم من الربح التشغيلي مستقبلاً"
                         >
                           إيقاف الإهلاك
@@ -559,7 +559,7 @@ export function PaymentsTab() {
                       <button
                         type="button"
                         onClick={() => setActionSheetItem(item)}
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
+                        className="min-h-12 min-w-12 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
                         aria-label="إجراءات"
                       >
                         <MoreVertical className="w-5 h-5" />
@@ -584,7 +584,7 @@ export function PaymentsTab() {
                                 "font-mono font-bold",
                                 (item.remainingCents ?? item.amountCents) > 0
                                   ? "text-alert"
-                                  : "text-emerald-deep",
+                                  : "text-brand-deep",
                               )}
                             >
                               <AmountText
@@ -614,7 +614,7 @@ export function PaymentsTab() {
                             item.debtStatus === "paid" ? "secondary" : "ink"
                           }
                           onClick={() => setReceivablePaymentModalItem(item)}
-                          className="text-xs min-h-[44px] py-2 px-3 shrink-0"
+                          className="text-xs min-h-12 py-2 px-3 shrink-0"
                         >
                           {item.debtStatus === "paid"
                             ? "سجل السداد"

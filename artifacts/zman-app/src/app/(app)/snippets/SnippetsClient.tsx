@@ -206,7 +206,7 @@ function SnippetCard({
           <button
             type="button"
             onClick={onCopy}
-            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-2 rounded border border-hairline text-xs font-semibold text-ink/60 hover:text-ink hover:border-ink/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 transition-colors"
+            className="min-h-12 min-w-12 inline-flex items-center justify-center px-2 rounded border border-hairline text-xs font-semibold text-ink/60 hover:text-ink hover:border-ink/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 transition-colors"
           >
             {copied ? "✓ نُسخ" : "نسخ"}
           </button>
@@ -215,7 +215,7 @@ function SnippetCard({
             onClick={onEdit}
             aria-label={`تحرير ${snippet.title}`}
             title="تحرير الملاحظة"
-            className="min-h-[44px] min-w-[44px]"
+            className="min-h-12 min-w-12"
           >
             <Edit3 className="w-3.5 h-3.5" />
           </Button>

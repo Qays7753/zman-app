@@ -137,7 +137,7 @@ export function OwnerTab() {
               type="button"
               onClick={() => handleTypeChipChange(chip.id)}
               className={cn(
-                "min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
+                "min-h-12 px-3.5 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center justify-center border",
                 isActive
                   ? "bg-paper text-brand border-brand/20 shadow-sm"
                   : "bg-transparent text-ink-2 border-transparent hover:bg-canvas hover:text-ink"
@@ -203,7 +203,7 @@ export function OwnerTab() {
                         type="button"
                         onClick={() => setDeleteTarget({ id: tx.id, updatedAt: tx.updatedAt.toISOString() })}
                         disabled={deleteTxMutation.isPending}
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-alert hover:bg-alert/10 rounded transition disabled:opacity-50"
+                        className="min-h-12 min-w-12 inline-flex items-center justify-center text-alert hover:bg-alert/10 rounded transition disabled:opacity-50"
                         title="حذف السجل والتراجع عنه"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -250,7 +250,7 @@ export function OwnerTab() {
               <button
                 type="button"
                 onClick={() => setTxType("draw")}
-                className={`h-11 min-h-[44px] rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`h-12 min-h-12 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
                   txType === "draw"
                     ? "bg-alert/10 border-alert text-alert"
                     : "bg-canvas border-hairline hover:bg-canvas/80 text-ink/70"
@@ -262,7 +262,7 @@ export function OwnerTab() {
               <button
                 type="button"
                 onClick={() => setTxType("inject")}
-                className={`h-11 min-h-[44px] rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`h-12 min-h-12 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition ${
                   txType === "inject"
                     ? "bg-brand/10 border-brand text-brand"
                     : "bg-canvas border-hairline hover:bg-canvas/80 text-ink/70"
@@ -284,7 +284,7 @@ export function OwnerTab() {
                 required
                 value={txAmount}
                 onChange={(e) => setTxAmount(e.target.value)}
-                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
+                className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink font-mono"
                 placeholder="0.000"
               />
             </div>
@@ -296,7 +296,7 @@ export function OwnerTab() {
                 required
                 value={txDate}
                 onChange={(e) => setTxDate(e.target.value)}
-                className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+                className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               />
             </div>
           </div>
@@ -307,7 +307,7 @@ export function OwnerTab() {
               required
               value={txAccountId}
               onChange={(e) => setTxAccountId(e.target.value)}
-              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
             >
               <option value="">اختر الحساب...</option>
               {accounts?.filter((acc) => !acc.isArchived).map((acc) => (
@@ -324,7 +324,7 @@ export function OwnerTab() {
               type="text"
               value={txReason}
               onChange={(e) => setTxReason(e.target.value)}
-              className="w-full h-11 min-h-[44px] px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
+              className="w-full h-12 min-h-12 px-3 bg-canvas border border-hairline rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ink"
               placeholder="مثال: سحب نقدي لمصاريف عائلية..."
             />
           </div>

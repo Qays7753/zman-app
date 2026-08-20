@@ -37,7 +37,7 @@ export function SmartAlertsBar({
       {overdueOrdersCount > 0 && (
         <Link
           href="/orders?status=pending&sort=delivery"
-          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-alert/15 border border-alert/40 text-xs font-bold text-alert hover:bg-alert/25 active:scale-95 transition-all min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-alert/15 border border-alert/40 text-xs font-bold text-alert hover:bg-alert/25 active:scale-95 transition-all min-h-12"
         >
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-alert" />
           <span>
@@ -51,7 +51,7 @@ export function SmartAlertsBar({
       {isLowCash && (
         <Link
           href="/finance/accounts"
-          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-warn-soft border border-warn/40 text-xs font-bold text-warn-deep hover:bg-warn/20 active:scale-95 transition-all min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-warn-soft border border-warn/40 text-xs font-bold text-warn-deep hover:bg-warn/20 active:scale-95 transition-all min-h-12"
         >
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn-deep" />
           <span>رصيد الصندوق منخفض (أقل من 50 د.أ)</span>
@@ -62,7 +62,7 @@ export function SmartAlertsBar({
       {lowStockCount > 0 && (
         <Link
           href="/inventory?filter=low-stock"
-          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-alert-soft border border-alert/30 text-xs font-bold text-alert hover:bg-alert/15 active:scale-95 transition-all min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-alert-soft border border-alert/30 text-xs font-bold text-alert hover:bg-alert/15 active:scale-95 transition-all min-h-12"
         >
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span>
@@ -76,7 +76,7 @@ export function SmartAlertsBar({
       {pendingOrdersCount > 0 && (
         <Link
           href="/orders?status=pending&sort=delivery"
-          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-canvas border border-hairline text-xs font-bold text-ink-2 hover:bg-paper active:scale-95 transition-all min-h-[44px]"
+          className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-canvas border border-hairline text-xs font-bold text-ink-2 hover:bg-paper active:scale-95 transition-all min-h-12"
         >
           <Clock className="h-3.5 w-3.5 shrink-0" />
           <span>

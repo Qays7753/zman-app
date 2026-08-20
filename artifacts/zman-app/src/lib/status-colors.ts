@@ -2,7 +2,7 @@ export const STATUS_COLORS: Record<string, string> = {
   draft: "bg-warn-soft text-warn-deep border-warn/20",
   sent: "bg-info-soft text-info border-info/20",
   confirmed: "bg-info text-paper border-info",
-  delivered: "bg-emerald-soft text-emerald-deep border-emerald/20",
+  delivered: "bg-brand-soft text-brand-deep border-brand/20",
   cancelled: "bg-alert-soft text-alert border-alert/20",
 };
 
@@ -19,7 +19,7 @@ export const STATUS_STRIP: Record<string, string> = {
   draft: "bg-warn-soft text-warn-deep",
   sent: "bg-info-soft text-info",
   confirmed: "bg-info text-paper",
-  delivered: "bg-emerald text-paper",
+  delivered: "bg-brand text-paper",
   cancelled: "bg-alert-soft text-alert",
 };
 

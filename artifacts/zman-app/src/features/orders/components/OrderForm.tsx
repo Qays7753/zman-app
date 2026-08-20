@@ -324,7 +324,7 @@ export function OrderForm({
             <Button
               type="button"
               variant="ink"
-              className="min-h-[44px]"
+              className="min-h-12"
               onClick={handleRestoreDraft}
             >
               استرجاع
@@ -332,7 +332,7 @@ export function OrderForm({
             <Button
               type="button"
               variant="secondary"
-              className="min-h-[44px]"
+              className="min-h-12"
               onClick={handleDiscardDraft}
             >
               تجاهل
@@ -715,7 +715,7 @@ export function OrderForm({
             <Button
               type="button"
               variant="secondary"
-              className="flex-1 min-h-[44px]"
+              className="flex-1 min-h-12"
               onClick={handleCancelStockWarning}
             >
               مراجعة المكوّنات
@@ -723,7 +723,7 @@ export function OrderForm({
             <Button
               type="button"
               variant="destructive"
-              className="flex-1 min-h-[44px]"
+              className="flex-1 min-h-12"
               onClick={() => void handleConfirmStockWarning()}
               isLoading={isSubmitting}
             >

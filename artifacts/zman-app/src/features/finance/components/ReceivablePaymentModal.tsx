@@ -166,7 +166,7 @@ export function ReceivablePaymentModal({
             <div className="flex items-center justify-between">
               <span className="text-xs text-ink/60 font-medium">حالة الدَّين</span>
               {isFullyPaid ? (
-                <span className="px-2.5 py-1 bg-emerald-soft text-emerald-deep text-xs rounded-full font-bold flex items-center gap-1">
+                <span className="px-2.5 py-1 bg-brand-soft text-brand-deep text-xs rounded-full font-bold flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   مسدَّد بالكامل
                 </span>
@@ -187,7 +187,7 @@ export function ReceivablePaymentModal({
               </div>
               <div>
                 <span className="text-[10px] text-ink/50 block">المسدَّد</span>
-                <span className="font-mono font-bold text-sm text-emerald-deep">
+                <span className="font-mono font-bold text-sm text-brand-deep">
                   <AmountText amount={paidAmountCents} />
                 </span>
               </div>
@@ -218,7 +218,7 @@ export function ReceivablePaymentModal({
                     setShowAddForm(true);
                   }}
                   icon={<Plus className="w-4 h-4" />}
-                  className="w-full min-h-[44px]"
+                  className="w-full min-h-12"
                 >
                   تسجيل دفعة سداد جديدة
                 </Button>
@@ -232,7 +232,7 @@ export function ReceivablePaymentModal({
                     <button
                       type="button"
                       onClick={() => setShowAddForm(false)}
-                      className="text-xs text-ink/50 hover:text-ink min-h-[44px] px-2"
+                      className="text-xs text-ink/50 hover:text-ink min-h-12 px-2"
                     >
                       إلغاء
                     </button>
@@ -244,7 +244,7 @@ export function ReceivablePaymentModal({
                     <input
                       type="date"
                       {...paymentForm.register("date")}
-                      className={`flex h-11 w-full rounded-md border bg-canvas px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
+                      className={`flex h-12 w-full rounded-md border bg-canvas px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink ${
                         paymentForm.formState.errors.date ? "border-alert" : "border-hairline"
                       }`}
                     />
@@ -311,7 +311,7 @@ export function ReceivablePaymentModal({
                       type="submit"
                       variant="ink"
                       isLoading={createPaymentMutation.isPending}
-                      className="flex-1 min-h-[44px]"
+                      className="flex-1 min-h-12"
                     >
                       حفظ دفعة السداد
                     </Button>
@@ -319,7 +319,7 @@ export function ReceivablePaymentModal({
                       type="button"
                       variant="secondary"
                       onClick={() => setShowAddForm(false)}
-                      className="min-h-[44px]"
+                      className="min-h-12"
                     >
                       إلغاء
                     </Button>
@@ -351,7 +351,7 @@ export function ReceivablePaymentModal({
                   >
                     <div className="space-y-0.5 min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-emerald-deep text-sm">
+                        <span className="font-mono font-bold text-brand-deep text-sm">
                           +<AmountText amount={pmt.amountCents} />
                         </span>
                         <span className="text-[10px] text-ink/50">

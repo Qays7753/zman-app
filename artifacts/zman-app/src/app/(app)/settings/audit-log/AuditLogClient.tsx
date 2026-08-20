@@ -227,7 +227,7 @@ export default function AuditLogClient() {
                   type="button"
                   onClick={() => fetchNextPage()}
                   disabled={isFetchingNextPage}
-                  className="min-h-[44px] px-6 py-2.5 rounded-xl bg-paper border border-hairline text-ink font-bold hover:bg-canvas active:scale-95 transition-all text-xs sm:text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  className="min-h-12 px-6 py-2.5 rounded-xl bg-paper border border-hairline text-ink font-bold hover:bg-canvas active:scale-95 transition-all text-xs sm:text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
                   {isFetchingNextPage ? (
                     <>

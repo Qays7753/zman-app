@@ -122,7 +122,7 @@ export function QuickAdjustStockForm({ items, onDone }: QuickAdjustStockFormProp
           <button
             type="button"
             onClick={() => setDirection("out")}
-            className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`min-h-12 py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
               direction === "out"
                 ? "border-alert text-alert bg-alert-soft"
                 : "border-hairline text-ink-2 bg-paper hover:bg-canvas"
@@ -134,7 +134,7 @@ export function QuickAdjustStockForm({ items, onDone }: QuickAdjustStockFormProp
           <button
             type="button"
             onClick={() => setDirection("in")}
-            className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`min-h-12 py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
               direction === "in"
                 ? "border-brand text-brand bg-brand-soft"
                 : "border-hairline text-ink-2 bg-paper hover:bg-canvas"

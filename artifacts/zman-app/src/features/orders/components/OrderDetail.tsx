@@ -11,6 +11,7 @@ import {
   Trash2,
   PackageMinus,
   Wallet,
+  XCircle,
 } from "lucide-react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useRouter } from "next/navigation";
@@ -592,11 +593,11 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         </div>
       </div>
 
-      {/* أزرار الحالة السريعة */}
-      {(nextStatuses[orderData.status] ?? []).length > 0 && (
-        <div className="flex flex-col gap-3 sm:flex-row">
+      {/* Action Dock — قرار واحد واضح حسب حالة الطلب، مع إبقاء كل handlers الحالية كما هي */}
+      <div className="sticky bottom-0 z-actionbar bg-paper border-t border-hairline p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col gap-2 shadow-[0_-4px_14px_rgba(26,46,26,0.06)] lg:static lg:p-0 lg:bg-transparent lg:border-none lg:shadow-none lg:z-auto">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {(nextStatuses[orderData.status] ?? []).map((next) => (
-            <button
+            <Button
               key={next.status}
               type="button"
               onClick={() => {
@@ -607,82 +608,87 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
                 }
               }}
               disabled={isUpdatingStatus}
-              className={`flex-1 min-h-12 px-3 rounded-md text-sm font-bold border transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 ${
-                next.status === "cancelled"
-                  ? "border-alert text-alert hover:bg-alert-soft"
-                  : "border-ink/20 text-ink hover:bg-canvas"
-              }`}
+              variant={next.status === "cancelled" ? "destructive" : "primary"}
+              className="w-full"
+              icon={
+                next.status === "cancelled" ? (
+                  <XCircle className="w-5 h-5" />
+                ) : next.status === "delivered" ? (
+                  <ShoppingCart className="w-5 h-5" />
+                ) : (
+                  <CheckCircle2 className="w-5 h-5" />
+                )
+              }
             >
-              {next.status !== "cancelled" && <CheckCircle2 className="w-4 h-4" />}
               {next.label}
-            </button>
+            </Button>
           ))}
-        </div>
-      )}
 
-      {/* زر التراسل السريع والاتفاق: شريط سفلي لاصق في الهاتف للإبهام ومرن بالديسكتوب (§9.1) */}
-      <div className="sticky bottom-0 z-actionbar bg-paper border-t border-hairline p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col gap-3 shadow-[0_-4px_14px_rgba(26,46,26,0.06)] lg:static lg:p-0 lg:bg-transparent lg:border-none lg:shadow-none lg:z-auto">
-        {/* رقما الهاتف اختياريان — لا زر واتساب بلا رقم */}
-        {hasWhatsAppNumber(orderData) && (
-          <Button
-            onClick={handleWhatsApp}
-            className="w-full min-h-12"
-            icon={<MessageSquare className="w-5 h-5" />}
-          >
-            <span>إرسال تفاصيل العرض عبر واتساب</span>
-          </Button>
-        )}
-        {orderData.status !== "delivered" &&
-          orderData.status !== "cancelled" && (
-            <Button
-              onClick={() => setShowConvertConfirm(true)}
-              disabled={isConverting}
-              className="w-full min-h-12"
-              icon={<ShoppingCart className="w-5 h-5" />}
-            >
-              <span>تحويل إلى مبيعات (تسجيل إيراد)</span>
-            </Button>
-          )}
+          {/* المسار المباشر محفوظ للمسودات/المرسلة فقط؛ عند «مؤكد» يصبح زر «توصيل» هو المسار الوحيد لتجنب التكرار. */}
+          {orderData.status !== "delivered" &&
+            orderData.status !== "cancelled" &&
+            orderData.status !== "confirmed" && (
+              <Button
+                onClick={() => setShowConvertConfirm(true)}
+                disabled={isConverting}
+                variant="secondary"
+                className="w-full"
+                icon={<ShoppingCart className="w-5 h-5" />}
+              >
+                تسجيل إيراد مباشرة
+              </Button>
+            )}
 
-        {orderData.status !== "delivered" &&
-          orderData.status !== "cancelled" &&
-          orderData.depositCents > 0 && (
+          {/* رد الأموال يبقى مستقلاً عن تغيير الحالة أو عكس التسليم. */}
+          {orderData.status !== "delivered" &&
+            orderData.status !== "cancelled" &&
+            orderData.depositCents > 0 && (
+              <Button
+                onClick={handleOpenRefund}
+                disabled={refundOrderMutation.isPending}
+                variant="secondary"
+                className="w-full"
+                icon={<Wallet className="w-5 h-5" />}
+              >
+                رد أموال العربون
+              </Button>
+            )}
+
+          {orderData.status === "delivered" && (
             <Button
-              onClick={handleOpenRefund}
-              disabled={refundOrderMutation.isPending}
+              onClick={() => setShowReverseConfirm(true)}
+              disabled={isReversing}
               variant="secondary"
-              className="w-full min-h-12"
-              icon={<Wallet className="w-5 h-5" />}
+              className="w-full"
+              icon={<ArrowLeft className="w-5 h-5" />}
             >
-              <span>رد أموال العربون</span>
+              عكس التسليم
             </Button>
           )}
 
-        {/* زر عكس التسليم — يظهر فقط للطلبات المُسلَّمة */}
-        {orderData.status === "delivered" && (
-          <Button
-            onClick={() => setShowReverseConfirm(true)}
-            disabled={isReversing}
-            variant="secondary"
-            className="w-full min-h-12"
-            icon={<ArrowLeft className="w-5 h-5" />}
-          >
-            <span>عكس التسليم (إعادة الطلب للتنفيذ)</span>
-          </Button>
-        )}
+          {orderData.status === "cancelled" && orderData.forfeitureSale && (
+            <Button
+              onClick={() => setShowReverseForfeitureConfirm(true)}
+              disabled={isReversingForfeiture}
+              variant="secondary"
+              className="w-full"
+              icon={<ArrowLeft className="w-5 h-5" />}
+            >
+              عكس احتجاز العربون
+            </Button>
+          )}
 
-        {/* عكس احتجاز العربون — لا يعيد استخدام عكس التسليم */}
-        {orderData.status === "cancelled" && orderData.forfeitureSale && (
-          <Button
-            onClick={() => setShowReverseForfeitureConfirm(true)}
-            disabled={isReversingForfeiture}
-            variant="secondary"
-            className="w-full min-h-12"
-            icon={<ArrowLeft className="w-5 h-5" />}
-          >
-            <span>عكس احتجاز العربون (إعادة الطلب)</span>
-          </Button>
-        )}
+          {hasWhatsAppNumber(orderData) && (
+            <Button
+              onClick={handleWhatsApp}
+              variant="secondary"
+              className="w-full"
+              icon={<MessageSquare className="w-5 h-5" />}
+            >
+              إرسال تفاصيل العرض عبر واتساب
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* تأكيد تحويل الطلب إلى مبيعات (إيراد) */}

@@ -14,7 +14,7 @@ const STATUS_DOT: Record<string, string> = {
   draft: "bg-warn",
   sent: "bg-info/70",
   confirmed: "bg-info",
-  delivered: "bg-emerald",
+  delivered: "bg-brand",
   cancelled: "bg-alert",
 };
 
@@ -25,7 +25,7 @@ const STATUS_ACTIVE_BG: Record<string, string> = {
   draft: "bg-warn-soft border-warn/30",
   sent: "bg-info-soft border-info/30",
   confirmed: "bg-info-soft border-info/40",
-  delivered: "bg-emerald-soft border-emerald/30",
+  delivered: "bg-brand-soft border-brand/30",
   cancelled: "bg-alert-soft border-alert/30",
 };
 
@@ -207,7 +207,7 @@ export function StatusFilterSheet({
                             setOpen(false);
                           }}
                           className={cn(
-                            "flex items-center justify-between gap-2 min-h-[44px] px-3 rounded-xl border text-[13px] text-start transition-all duration-150 active:scale-[0.98]",
+                            "flex items-center justify-between gap-2 min-h-12 px-3 rounded-xl border text-[13px] text-start transition-all duration-150 active:scale-[0.98]",
                             active
                               ? "bg-info-soft text-info border-info/30 font-bold shadow-sm"
                               : "bg-paper border-hairline hover:bg-canvas text-ink-2 font-semibold",

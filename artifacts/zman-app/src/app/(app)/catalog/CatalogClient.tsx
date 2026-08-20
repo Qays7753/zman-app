@@ -386,7 +386,7 @@ function CatalogCard({
             {/* Round 5 — مفتاح تبديل التتبّع على البطاقة مباشرةً (بدل فتح المودال).
                 يظهر دائماً حتى يمكن تفعيل التتبّع من البطاقة، ويتغيّر اللون عبر
                 has-[:checked] حسب حالة الإدخال. */}
-            <label className="flex items-center gap-1.5 min-h-[44px] cursor-pointer text-[10px] px-1.5 py-0.5 rounded-full border border-brand/30 has-[:checked]:bg-brand-soft has-[:checked]:text-brand text-ink-3">
+            <label className="flex items-center gap-1.5 min-h-12 cursor-pointer text-[10px] px-1.5 py-0.5 rounded-full border border-brand/30 has-[:checked]:bg-brand-soft has-[:checked]:text-brand text-ink-3">
               <PackageCheck className="w-3 h-3" />
               <span>{item.tracked ? "متتبَّع" : "تفعيل التتبع"}</span>
               <input
@@ -408,7 +408,7 @@ function CatalogCard({
         <button
           type="button"
           onClick={onOpenActions}
-          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
+          className="min-h-12 min-w-12 inline-flex items-center justify-center rounded-lg text-ink-2 hover:bg-canvas transition-colors flex-shrink-0"
           aria-label={`إجراءات ${item.name}`}
           title={`إجراءات ${item.name}`}
         >
@@ -429,7 +429,7 @@ function CatalogCard({
             <button
               type="button"
               onClick={onAdjustStock}
-              className="text-xs px-2.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[44px]"
+              className="text-xs px-2.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-12"
               title="تسوية يدوية — صرف أو إضافة (لا تدخل P&L)"
             >
               <PackageMinus className="w-3.5 h-3.5" />
@@ -438,7 +438,7 @@ function CatalogCard({
             <button
               type="button"
               onClick={onShowMovements}
-              className="text-xs px-2.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-[44px]"
+              className="text-xs px-2.5 rounded-md border border-hairline text-ink-2 hover:bg-canvas transition-colors flex items-center gap-1 min-h-12"
               title="عرض آخر 20 حركة"
             >
               <History className="w-3.5 h-3.5" />
@@ -576,7 +576,7 @@ function CatalogForm({
           render={({ field: { value, onChange } }) => (
             <label
               htmlFor="catalog-tracked"
-              className="flex items-center gap-3 min-h-[44px] cursor-pointer"
+              className="flex items-center gap-3 min-h-12 cursor-pointer"
             >
               <input
                 type="checkbox"
@@ -829,7 +829,7 @@ function AdjustStockForm({
           <button
             type="button"
             onClick={() => setDirection("out")}
-            className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`min-h-12 py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
               direction === "out"
                 ? "border-alert text-alert bg-alert-soft"
                 : "border-hairline text-ink-2 bg-paper hover:bg-canvas"
@@ -841,7 +841,7 @@ function AdjustStockForm({
           <button
             type="button"
             onClick={() => setDirection("in")}
-            className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`min-h-12 py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
               direction === "in"
                 ? "border-brand text-brand bg-brand-soft"
                 : "border-hairline text-ink-2 bg-paper hover:bg-canvas"

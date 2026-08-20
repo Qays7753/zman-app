@@ -162,7 +162,7 @@ export function SaleForm({
             <Button
               type="button"
               variant="ink"
-              className="min-h-[44px]"
+              className="min-h-12"
               onClick={handleRestoreDraft}
             >
               استرجاع
@@ -170,7 +170,7 @@ export function SaleForm({
             <Button
               type="button"
               variant="secondary"
-              className="min-h-[44px]"
+              className="min-h-12"
               onClick={handleDiscardDraft}
             >
               تجاهل
@@ -281,7 +281,7 @@ export function SaleForm({
             variant="secondary"
             onClick={onReverse}
             disabled={isSubmitting}
-            className="min-h-[44px] flex-1 gap-2 border-brand/30 text-brand hover:bg-brand-soft"
+            className="min-h-12 flex-1 gap-2 border-brand/30 text-brand hover:bg-brand-soft"
           >
             <Undo2 className="h-5 w-5" aria-hidden="true" />
             عكس التسليم
@@ -292,7 +292,7 @@ export function SaleForm({
             variant="icon"
             onClick={onDelete}
             disabled={isSubmitting}
-            className="min-h-[44px] min-w-[44px] text-alert border-alert hover:bg-alert/5"
+            className="min-h-12 min-w-12 text-alert border-alert hover:bg-alert/5"
             title="حذف المبيعات"
             aria-label="حذف المبيعات"
           >
