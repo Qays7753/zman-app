@@ -23,6 +23,8 @@ export const BRAND_TOKENS = {
     info: "#1565C0",
     infoSoft: "#E8F0F8",
   },
+  // لون خدمة خارجية — يستخدم فقط لأزرار WhatsApp
+  whatsapp: "#25D366",
 } as const;
 
 export const BRAND_ASSETS = {

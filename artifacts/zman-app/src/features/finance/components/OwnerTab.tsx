@@ -114,7 +114,7 @@ export function OwnerTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-info" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
       </div>
     );
   }

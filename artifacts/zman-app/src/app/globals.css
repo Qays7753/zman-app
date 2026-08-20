@@ -44,6 +44,9 @@
   --color-info: #1565C0;
   --color-info-soft: #E8F0F8;
 
+  /* External service — WhatsApp button only */
+  --color-whatsapp: #25D366;
+
   /* Emerald (Brand-aligned success) */
   --color-emerald: #2E7D32;
   --color-emerald-soft: #E8F5E9;
@@ -82,6 +85,7 @@
   --color-warn-deep: var(--color-warn-deep);
   --color-info: var(--color-info);
   --color-info-soft: var(--color-info-soft);
+  --color-whatsapp: var(--color-whatsapp);
   --color-emerald: var(--color-emerald);
   --color-emerald-soft: var(--color-emerald-soft);
   --color-emerald-deep: var(--color-emerald-deep);
@@ -199,53 +203,4 @@ textarea {
   background-size: 200% 100%;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   تمييز هيدر قسم "طلبات للتسليم" — لون ثابت عشوائي كل فتحة + توهّج إنذاري نابض.
-   كل كلاس = لون خلفية ثابت + box-shadow ينبض بنفس اللون (كإنذار يلفت النظر).
-   عند كل فتح للصفحة يُختار واحد عشوائياً (glowIndex) ويبقى ثابتاً خلال الجلسة.
-   ══════════════════════════════════════════════════════════════════ */
-
-/* 1 — أخضر emerald */
-@keyframes delivery-glow-1 { 0%,100% { box-shadow: 0 0 0 0 rgba(15,157,88,.35); } 50% { box-shadow: 0 0 18px 5px rgba(15,157,88,.75); } }
-@utility animate-delivery-glow-1 { background-color: #0f9d58; animation: delivery-glow-1 1.8s ease-in-out infinite; }
-
-/* 2 — أزرق */
-@keyframes delivery-glow-2 { 0%,100% { box-shadow: 0 0 0 0 rgba(21,101,192,.35); } 50% { box-shadow: 0 0 20px 6px rgba(21,101,192,.75); } }
-@utility animate-delivery-glow-2 { background-color: #1565c0; animation: delivery-glow-2 2s ease-in-out infinite; }
-
-/* 3 — فيروزي teal */
-@keyframes delivery-glow-3 { 0%,100% { box-shadow: 0 0 0 0 rgba(0,137,123,.35); } 50% { box-shadow: 0 0 16px 5px rgba(0,137,123,.75); } }
-@utility animate-delivery-glow-3 { background-color: #00897b; animation: delivery-glow-3 1.7s ease-in-out infinite; }
-
-/* 4 — كهرماني amber (نص داكن للتباين) */
-@keyframes delivery-glow-4 { 0%,100% { box-shadow: 0 0 0 0 rgba(249,168,37,.4); } 50% { box-shadow: 0 0 20px 6px rgba(249,168,37,.8); } }
-@utility animate-delivery-glow-4 { background-color: #f9a825; animation: delivery-glow-4 1.9s ease-in-out infinite; }
-
-/* 5 — برتقالي orange */
-@keyframes delivery-glow-5 { 0%,100% { box-shadow: 0 0 0 0 rgba(230,74,25,.35); } 50% { box-shadow: 0 0 18px 5px rgba(230,74,25,.75); } }
-@utility animate-delivery-glow-5 { background-color: #e64a19; animation: delivery-glow-5 1.6s ease-in-out infinite; }
-
-/* 6 — وردي pink */
-@keyframes delivery-glow-6 { 0%,100% { box-shadow: 0 0 0 0 rgba(194,24,91,.35); } 50% { box-shadow: 0 0 22px 7px rgba(194,24,91,.75); } }
-@utility animate-delivery-glow-6 { background-color: #c2185b; animation: delivery-glow-6 2.1s ease-in-out infinite; }
-
-/* 7 — بنفسجي purple */
-@keyframes delivery-glow-7 { 0%,100% { box-shadow: 0 0 0 0 rgba(123,31,162,.35); } 50% { box-shadow: 0 0 18px 5px rgba(123,31,162,.75); } }
-@utility animate-delivery-glow-7 { background-color: #7b1fa2; animation: delivery-glow-7 1.9s ease-in-out infinite; }
-
-/* 8 — سماوي cyan */
-@keyframes delivery-glow-8 { 0%,100% { box-shadow: 0 0 0 0 rgba(0,151,167,.35); } 50% { box-shadow: 0 0 18px 5px rgba(0,151,167,.75); } }
-@utility animate-delivery-glow-8 { background-color: #0097a7; animation: delivery-glow-8 1.8s ease-in-out infinite; }
-
-/* 9 — نيلي indigo */
-@keyframes delivery-glow-9 { 0%,100% { box-shadow: 0 0 0 0 rgba(57,73,171,.35); } 50% { box-shadow: 0 0 20px 6px rgba(57,73,171,.75); } }
-@utility animate-delivery-glow-9 { background-color: #3949ab; animation: delivery-glow-9 2s ease-in-out infinite; }
-
-/* 10 — أحمر إنذاري alert */
-@keyframes delivery-glow-10 { 0%,100% { box-shadow: 0 0 0 0 rgba(211,47,47,.4); } 50% { box-shadow: 0 0 22px 7px rgba(211,47,47,.8); } }
-@utility animate-delivery-glow-10 { background-color: #d32f2f; animation: delivery-glow-10 1.5s ease-in-out infinite; }
-
-/* إمكانية الوصول: احترام تفضيل تقليل الحركة (يوقف النبض، يبقى اللون) */
-@media (prefers-reduced-motion: reduce) {
-  [class*="animate-delivery-glow"] { animation: none !important; }
-}
+/* لا توجد توهجات عشوائية متعددة الألوان. التنبيهات تستخدم tokens دلالية ثابتة داخل المكونات. */

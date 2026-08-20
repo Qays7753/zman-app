@@ -841,11 +841,11 @@ export function SmartFinanceForm({
             onClick={() => handleModeChange(mId)}
             className={`flex items-center justify-center gap-2 py-2.5 px-2 rounded-lg text-xs font-bold transition-all min-h-[44px] ${
               mode === mId
-                ? "bg-paper text-ink shadow-sm ring-1 ring-hairline"
+                ? "bg-brand-soft text-brand shadow-sm ring-1 ring-brand/30"
                 : "text-ink/60 hover:text-ink/90 hover:bg-paper/50"
             }`}
           >
-            <span className={mode === mId ? "text-info" : ""}>{icon}</span>
+            <span className={mode === mId ? "text-brand" : ""}>{icon}</span>
             <span className="leading-tight text-center">{label}</span>
           </button>
         ))}
@@ -853,7 +853,7 @@ export function SmartFinanceForm({
 
       {/* سطر توضيحي لأثر الوضع المختار على الربح */}
       <div className="mb-5 px-3.5 py-2.5 rounded-lg bg-canvas/70 border border-hairline text-xs text-ink/75 flex items-center gap-2.5">
-        <span className="shrink-0 w-2 h-2 rounded-full bg-info" aria-hidden="true" />
+        <span className="shrink-0 w-2 h-2 rounded-full bg-brand" aria-hidden="true" />
         <p className="leading-relaxed font-medium">
           {mode === "expense" && "يُخصم من ربح هذا الشهر كاملاً."}
           {mode === "purchase" && "مادة تدخل منتجاتك. إن ربطتها بصنف متتبَّع، تُخصم تكلفتها عند البيع لا عند الشراء."}
@@ -891,7 +891,7 @@ export function SmartFinanceForm({
                     setIsCustomCategory(false);
                     expenseForm.setValue("category", "");
                   }}
-                  className="text-xs text-info font-bold hover:underline"
+                  className="text-xs text-brand font-bold hover:underline"
                 >
                   اختر من القائمة
                 </button>
@@ -1059,7 +1059,7 @@ export function SmartFinanceForm({
                       purchaseForm.setValue("itemName", "");
                       purchaseForm.setValue("catalogId", null);
                     }}
-                    className="text-xs text-info hover:underline"
+                    className="text-xs text-brand hover:underline"
                   >
                     ← اختر من الكتالوج
                   </button>
@@ -1079,17 +1079,17 @@ export function SmartFinanceForm({
 
             {/* معاينة تأثير الربط على المخزون والأثر المحاسبي */}
             {selectedItem ? (
-              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 space-y-1.5 text-xs text-emerald-900">
+              <div className="p-3 rounded-lg bg-brand-soft border border-brand/30 space-y-1.5 text-xs text-brand-deep">
                 <div className="flex items-center justify-between gap-2 font-bold">
                   <span className="flex items-center gap-1.5">
                     <span aria-hidden="true">📦</span>
                     سيُضاف {purchaseForm.watch("quantity") || 0} {selectedItem.unit} إلى المخزون
                   </span>
-                  <span className="text-emerald-700 text-[11px] font-normal">
+                  <span className="text-brand text-[11px] font-normal">
                     الرصيد الحالي: <strong>{currentStock ?? 0}</strong>
                   </span>
                 </div>
-                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                <p className="text-[11px] text-brand-deep leading-relaxed">
                   ✓ <strong>لن تُخصم التكلفة من ربح هذا الشهر</strong> — تُضاف لقيمة أصول المخزون وتُخصم كتكلفة بضاعة مباعة (COGS) عند بيع وتسليم المنتجات.
                 </p>
               </div>
@@ -1164,7 +1164,7 @@ export function SmartFinanceForm({
             return qty > 0 && total > 0 ? (
               <div className="p-3 bg-canvas/40 rounded-lg border border-hairline flex items-center justify-between text-sm">
                 <span className="text-ink/60">سعر الوحدة:</span>
-                <strong className="text-info" dir="ltr">
+                <strong className="text-brand" dir="ltr">
                   {formatFilsToJod(Math.round(total / qty))}
                 </strong>
               </div>
@@ -1256,7 +1256,7 @@ export function SmartFinanceForm({
               <input
                 type="checkbox"
                 {...assetForm.register("wantDepreciation")}
-                className="h-5 w-5 rounded border-hairline text-info focus:ring-info shrink-0"
+                className="h-5 w-5 rounded border-hairline text-brand focus:ring-brand shrink-0"
               />
               <span className="text-sm font-bold text-ink/75">
                 توزيع الإهلاك شهرياً

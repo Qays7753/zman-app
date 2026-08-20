@@ -25,12 +25,12 @@ function fmt(amount: number): string {
 /** واصف الحالة المالية — وصفي بحت، لا نصيحة. */
 function getHealthState(d: AdvisorData): { label: string; color: string; icon: typeof TrendingUp } {
   if (d.netProfit > 0) {
-    return { label: "🟢 مربح", color: "text-info", icon: TrendingUp };
+    return { label: "مربح", color: "text-brand", icon: TrendingUp };
   }
   if (d.netProfit < 0) {
-    return { label: "🟠 خسارة الفترة", color: "text-amber-600", icon: TrendingDown };
+    return { label: "خسارة الفترة", color: "text-alert", icon: TrendingDown };
   }
-  return { label: "🟡 متعادل", color: "text-amber-600", icon: Minus };
+  return { label: "متعادل", color: "text-warn-deep", icon: Minus };
 }
 
 /**
@@ -159,7 +159,7 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
   const secondaryLine = advice.sections[0]?.body[0];
 
   return (
-    <div className="rounded-xl border border-info/20 bg-gradient-to-l from-info/10 to-info/5 overflow-hidden">
+    <div className="rounded-xl border border-hairline bg-paper overflow-hidden">
       {/* الرأس: أيقونة الحالة + الملخّص + شارة الحالة */}
       <div className="p-4">
         <div className="flex items-start gap-2.5">
@@ -183,7 +183,7 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
         type="button"
         onClick={() => setExpanded((o) => !o)}
         aria-expanded={expanded}
-        className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 border-t border-info/15 bg-info/5 hover:bg-info/10 transition-colors text-sm font-bold text-info"
+        className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 border-t border-hairline bg-warm/70 hover:bg-brand-soft/60 transition-colors text-sm font-bold text-brand"
       >
         <span>{expanded ? "إخفاء التفاصيل" : "اقرأ المزيد"}</span>
         <ChevronDown
@@ -193,10 +193,10 @@ export function FinancialAdvisor({ data }: { data: AdvisorData }) {
 
       {/* الأقسام التفصيلية — تظهر عند التوسيع */}
       {expanded && (
-        <div className="space-y-4 p-4 border-t border-info/15 bg-paper">
+        <div className="space-y-4 p-4 border-t border-hairline bg-paper">
           {advice.sections.map((section, i) => (
             <div key={i} className="space-y-2">
-              <h3 className="text-sm font-bold text-info border-b border-info/15 pb-1">
+              <h3 className="text-sm font-bold text-brand border-b border-brand/20 pb-1">
                 {section.title}
               </h3>
               <div className="space-y-1.5">

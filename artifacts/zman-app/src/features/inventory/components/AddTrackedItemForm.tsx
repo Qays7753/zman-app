@@ -100,7 +100,7 @@ export function AddTrackedItemForm({ onDone }: AddTrackedItemFormProps) {
 
       <div className="p-3.5 bg-canvas/30 rounded-lg border border-hairline space-y-3">
         <div className="flex items-center gap-2 text-sm font-bold text-ink/75">
-          <PackageCheck className="w-4 h-4 text-info" />
+          <PackageCheck className="w-4 h-4 text-brand" />
           تتبَّع المخزون مُفعَّل افتراضياً
         </div>
 

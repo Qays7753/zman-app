@@ -257,7 +257,7 @@ export function ReceivablePaymentModal({
                       <button
                         type="button"
                         onClick={handleFillFullRemaining}
-                        className="text-[11px] text-info font-bold hover:underline"
+                        className="text-[11px] text-brand font-bold hover:underline"
                       >
                         سداد كامل المتبقي ({formatFilsToJod(remainingCents)})
                       </button>

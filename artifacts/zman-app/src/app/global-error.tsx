@@ -24,8 +24,8 @@ export default function GlobalError({
         <style>{`
           body {
             font-family: 'Cairo', sans-serif;
-            background-color: #f6f4f0;
-            color: #1c1917;
+            background-color: #FAFAF5;
+            color: #1A2E1A;
           }
         `}</style>
       </head>
@@ -40,7 +40,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={() => reset()}
-            className="min-h-[44px] px-6 py-2 bg-info hover:bg-info/90 text-paper rounded-md font-bold text-sm transition-colors"
+            className="min-h-[44px] px-6 py-2 bg-brand hover:bg-brand-deep text-paper rounded-md font-bold text-sm transition-colors"
           >
             إعادة المحاولة
           </button>

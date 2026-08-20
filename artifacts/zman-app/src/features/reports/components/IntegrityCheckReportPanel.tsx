@@ -13,7 +13,7 @@ import type {
 } from "@/features/finance/integrityCheck";
 
 function StatusIcon({ status }: { status: IntegrityCheckResult["status"] }) {
-  if (status === "PASS") return <CheckCircle2 className="h-5 w-5 text-info" />;
+  if (status === "PASS") return <CheckCircle2 className="h-5 w-5 text-brand" />;
   if (status === "WARN")
     return <AlertTriangle className="h-5 w-5 text-warn-deep" />;
   return <XCircle className="h-5 w-5 text-alert" />;
@@ -26,7 +26,7 @@ const statusLabelAr: Record<IntegrityCheckResult["status"], string> = {
 };
 
 const statusColorClass: Record<IntegrityCheckResult["status"], string> = {
-  PASS: "border-info/30 bg-info-soft text-info",
+  PASS: "border-brand/30 bg-brand-soft text-brand",
   WARN: "border-warn/30 bg-warn-soft text-warn-deep",
   FAIL: "border-alert/30 bg-alert-soft text-alert",
 };
@@ -63,7 +63,7 @@ export function IntegrityCheckReportPanel() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline pb-3">
         <div>
           <h3 className="text-base font-bold text-ink flex items-center gap-1.5">
-            <ShieldCheck className="h-5 w-5 text-info" />
+            <ShieldCheck className="h-5 w-5 text-brand" />
             الفحص المالي الدوري
             {/* SA3 (Round 4 — B-5): InfoTooltip يشرح معنى الحالات الثلاث (PASS/WARN/FAIL)
                 وما الذي يجب على المالك فعله لكل حالة. */}

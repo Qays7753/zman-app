@@ -72,7 +72,7 @@ export function LiquidityFlowPanel({
     <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
-          <Wallet className="h-4.5 w-4.5 text-info" />
+          <Wallet className="h-4.5 w-4.5 text-brand" />
           حركة الكاش
           <InfoTooltip text="كل ما دخل وخرج من الصندوق خلال الفترة المختارة. يشمل المبيعات والعربونات والمشتريات والمصاريف وحركة المالك. هذا ليس ربحاً — العربون نقد لكنه التزام حتى التسليم، وسحب المالك ليس مصروفاً." />
         </h3>
@@ -84,57 +84,57 @@ export function LiquidityFlowPanel({
         <FlowRow
           label="مبيعات مكتملة"
           value={actualSales}
-          barClass="bg-info"
-          textClass="text-info"
+          barClass="bg-brand"
+          textClass="text-brand"
           maxValue={maxValue}
         />
         <FlowRow
           label="عربونات مستلمة (الفترة)"
           value={deposits}
-          barClass="bg-info/70"
-          textClass="text-info"
+          barClass="bg-brand-succulent"
+          textClass="text-brand"
           maxValue={maxValue}
         />
         <FlowRow
           label="إضافات المالك"
           value={ownerInject}
-          barClass="bg-info/50"
-          textClass="text-info"
+          barClass="bg-brand-leaf"
+          textClass="text-brand-deep"
           maxValue={maxValue}
         />
         <FlowRow
           label="مشتريات مخزون"
           value={purchases}
-          barClass="bg-info/50"
-          textClass="text-info/80"
+          barClass="bg-hairline-2"
+          textClass="text-ink-2"
           maxValue={maxValue}
           subtracted
         />
         <FlowRow
           label="مصاريف"
           value={expenses}
-          barClass="bg-orange-400"
-          textClass="text-amber-600"
+          barClass="bg-hairline-2"
+          textClass="text-ink-2"
           maxValue={maxValue}
           subtracted
         />
         <FlowRow
           label="سحوبات المالك"
           value={ownerDraw}
-          barClass="bg-amber-300"
-          textClass="text-amber-600"
+          barClass="bg-warn"
+          textClass="text-warn-deep"
           maxValue={maxValue}
           subtracted
         />
       </div>
 
       {/* = صافي حركة الصندوق — الداخل ناقص الخارج */}
-      <div className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${isPositive ? "border-info/30" : "border-alert/30"}`}>
+      <div className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${isPositive ? "border-brand/30" : "border-alert/30"}`}>
         <span className="text-sm font-black text-ink flex items-center gap-1.5">
-          <Wallet className="h-4.5 w-4.5 text-info" />
+          <Wallet className="h-4.5 w-4.5 text-brand" />
           صافي حركة الصندوق
         </span>
-        <span className={`text-xl font-black font-mono whitespace-nowrap ${isPositive ? "text-info" : "text-alert"}`}>
+        <span className={`text-xl font-black font-mono whitespace-nowrap ${isPositive ? "text-brand" : "text-alert"}`}>
           <AmountText amount={netFlow} hideCurrency parenNegative />
         </span>
       </div>

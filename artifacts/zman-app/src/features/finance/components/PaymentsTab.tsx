@@ -406,7 +406,7 @@ export function PaymentsTab() {
                 </span>
               </span>
               <span className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 bg-info-soft text-info rounded-full font-bold">
+                <span className="px-1.5 py-0.5 bg-brand-soft text-brand-deep rounded-full font-bold">
                   ثابتة
                 </span>
               </span>
@@ -467,13 +467,13 @@ export function PaymentsTab() {
                         className={cn(
                           "px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 border",
                           isWriteoff
-                            ? "bg-emerald-soft text-emerald-deep border-emerald/20"
+                            ? "bg-brand-soft text-brand-deep border-brand/20"
                             : item.isCapitalAsset
                               ? "bg-warn-soft text-warn-deep border-warn/30"
                               : item.kind === "purchase"
                                 ? "bg-brand-soft text-brand-deep border-brand/20"
                                 : item.kind === "receivable"
-                                  ? "bg-info-soft text-info border-info/20"
+                                  ? "bg-warm text-warn-deep border-warn/20"
                                   : "bg-canvas text-ink-2 border-hairline",
                         )}
                         title={
@@ -492,7 +492,7 @@ export function PaymentsTab() {
                             دَين
                           </span>
                           {item.debtStatus === "paid" ? (
-                            <span className="px-2 py-0.5 bg-emerald-soft text-emerald-deep text-[10px] rounded-full font-bold shrink-0">
+                            <span className="px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] rounded-full font-bold shrink-0">
                               مسدَّد
                             </span>
                           ) : (
@@ -506,7 +506,7 @@ export function PaymentsTab() {
                           رأس مال
                         </span>
                       ) : item.costNature === "fixed" ? (
-                        <span className="px-2 py-0.5 bg-info-soft text-info text-[10px] rounded-full font-bold shrink-0">
+                        <span className="px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] rounded-full font-bold shrink-0">
                           ثابتة
                         </span>
                       ) : !isWriteoff ? (
@@ -518,7 +518,7 @@ export function PaymentsTab() {
                       {/* شارة تلقائي لهدر المخزون */}
                       {isWriteoff && (
                         <span
-                          className="px-2 py-0.5 bg-emerald-soft text-emerald-deep text-[10px] rounded-full font-bold shrink-0"
+                          className="px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] rounded-full font-bold shrink-0"
                           title="خسارة غير نقدية ناتجة تلقائياً عن تسوية مخزون — لا تُحرَّر من هنا"
                         >
                           تلقائي

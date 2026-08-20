@@ -162,9 +162,9 @@ export function DetailsLayer({
           )}
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-info shrink-0" />
+          <ChevronUp className="h-4 w-4 text-brand shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-info shrink-0" />
+          <ChevronDown className="h-4 w-4 text-brand shrink-0" />
         )}
       </button>
 
@@ -180,12 +180,12 @@ export function DetailsLayer({
                 const afterDraw = netProfit - ownerDraw;
                 const isPos = afterDraw >= 0;
                 return (
-                  <div className={`px-4 py-2.5 flex items-center justify-between gap-2 ${isPos ? "bg-emerald/5" : "bg-alert/5"}`}>
+                  <div className={`px-4 py-2.5 flex items-center justify-between gap-2 ${isPos ? "bg-brand-soft" : "bg-alert/5"}`}>
                     <span className="text-[11px] font-semibold text-ink/60 flex items-center gap-1 whitespace-nowrap">
                       <ArrowDownRight className="h-3.5 w-3.5 text-ink/40 shrink-0" />
                       صافي ربح الفترة بعد السحوبات
                     </span>
-                    <span className={`text-sm font-black font-mono whitespace-nowrap ${isPos ? "text-emerald-deep" : "text-alert"}`}>
+                    <span className={`text-sm font-black font-mono whitespace-nowrap ${isPos ? "text-brand-deep" : "text-alert"}`}>
                       <AmountText amount={afterDraw} hideCurrency parenNegative />
                     </span>
                   </div>
@@ -193,26 +193,26 @@ export function DetailsLayer({
               })()}
               {/* صافي قيمة المشروع السائل */}
               {(position?.equity.totalCents ?? 0) !== 0 && (
-                <div className="bg-indigo-50 px-4 py-2.5 flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-indigo-700/70 flex items-center gap-1 whitespace-nowrap">
-                    <Landmark className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                <div className="bg-brand-soft px-4 py-2.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-brand-deep/80 flex items-center gap-1 whitespace-nowrap">
+                    <Landmark className="h-3.5 w-3.5 text-brand shrink-0" />
                     صافي قيمة المشروع (السائل)
                     <InfoTooltip text="النقد + المخزون − العربون = حقوق ملكيتك السائلة. محسوبة على الأساس النقدي البحت (لا يُطرح منها الإهلاك). الفرق بينها وبين الربح التراكمي = إجمالي الإهلاك المتراكم." />
                   </span>
-                  <span className="text-sm font-black text-indigo-700 font-mono whitespace-nowrap">
+                  <span className="text-sm font-black text-brand-deep font-mono whitespace-nowrap">
                     <AmountText amount={position!.equity.totalCents} hideCurrency parenNegative />
                   </span>
                 </div>
               )}
               {/* صافي قيمة الأصول الرأسمالية */}
               {capitalAssetsNetValueCents > 0 && (
-                <div className="bg-amber-50 px-4 py-2.5 flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-amber-700/70 flex items-center gap-1 whitespace-nowrap">
-                    <Wrench className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <div className="bg-warm px-4 py-2.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-ink-2 flex items-center gap-1 whitespace-nowrap">
+                    <Wrench className="h-3.5 w-3.5 text-ink-2 shrink-0" />
                     صافي قيمة الأصول الرأسمالية
                     <InfoTooltip text="القيمة الدفترية الصافية لآلاتك وأثاثك بعد خصم الإهلاك المتراكم حتى نهاية الفترة." />
                   </span>
-                  <span className="text-sm font-black text-amber-700 font-mono whitespace-nowrap">
+                  <span className="text-sm font-black text-ink-2 font-mono whitespace-nowrap">
                     <AmountText amount={capitalAssetsNetValueCents} hideCurrency />
                   </span>
                 </div>
@@ -221,10 +221,10 @@ export function DetailsLayer({
           )}
 
           {/* ── 1. قيمة المخزون ──────────────────────────────────────── */}
-          <div className="bg-emerald-soft/60 rounded-lg border border-emerald/30 shadow-sm p-4">
+          <div className="bg-brand-soft rounded-lg border border-brand/30 shadow-sm p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
-                <Package className="h-5 w-5 text-emerald-deep shrink-0" />
+                <Package className="h-5 w-5 text-brand-deep shrink-0" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-xs font-bold text-ink">قيمة المخزون</h3>
@@ -239,7 +239,7 @@ export function DetailsLayer({
               </div>
               <span
                 className={`text-base font-black font-mono whitespace-nowrap ${
-                  inventoryValue === 0 ? "text-ink/40" : "text-emerald-deep"
+                  inventoryValue === 0 ? "text-ink/40" : "text-brand-deep"
                 }`}
               >
                 <AmountText amount={inventoryValue} hideCurrency />
@@ -247,7 +247,7 @@ export function DetailsLayer({
             </div>
             <Link
               href="/inventory"
-              className="mt-3 flex items-center gap-1 text-xs font-bold text-emerald-deep hover:underline"
+              className="mt-3 flex items-center gap-1 text-xs font-bold text-brand-deep hover:underline"
             >
               إدارة المخزون
               <span className="text-[10px] opacity-60">←</span>
@@ -280,7 +280,7 @@ export function DetailsLayer({
               {depreciation > 0 && (
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 min-w-0">
-                    <TrendingDown className="h-4 w-4 text-info shrink-0" />
+                    <TrendingDown className="h-4 w-4 text-brand shrink-0" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-xs font-bold text-ink">إهلاك الفترة (غير نقدي)</h3>
@@ -289,7 +289,7 @@ export function DetailsLayer({
                       <p className="text-[10px] text-ink/50 mt-0.5">الفرق بين الربح التشغيلي والنقدي</p>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-info font-mono whitespace-nowrap">
+                  <span className="text-sm font-black text-brand font-mono whitespace-nowrap">
                     <AmountText amount={depreciation} hideCurrency />
                   </span>
                 </div>
@@ -308,7 +308,7 @@ export function DetailsLayer({
           {stats && stats.topExpenses && stats.topExpenses.length > 0 && (
             <div className="bg-paper p-4 rounded-lg border border-hairline shadow-sm space-y-3">
               <h3 className="text-xs font-bold text-ink/65 flex items-center gap-1.5">
-                <ArrowDownRight className="h-4 w-4 text-amber-600" />
+                <ArrowDownRight className="h-4 w-4 text-ink-2" />
                 أبرز المصاريف
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
@@ -336,7 +336,7 @@ export function DetailsLayer({
           {positionData && (
             <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 space-y-2">
               <div className="flex items-center gap-1.5">
-                <Wallet className="h-4 w-4 text-info" />
+                <Wallet className="h-4 w-4 text-brand" />
                 <h3 className="text-xs font-bold text-ink">الربح مقابل السيولة</h3>
                 <InfoTooltip text="النقد الموجود في صندوقك ليس كله ربحاً. إنه مزيج من: رأس المال الابتدائي، وصافي ما أضفته أو سحبته كمالك، وعربونات لم تُسلَّم بعد، وأخيراً ربحك المحتجز من العمل. راجع ACCOUNTING_RULES.md." />
               </div>
@@ -350,7 +350,7 @@ export function DetailsLayer({
                   label="السحوبات الشخصية"
                   amount={positionData.ownerNet}
                   colorClass={
-                    positionData.ownerNet >= 0 ? "text-info" : "text-amber-600"
+                    positionData.ownerNet >= 0 ? "text-brand" : "text-warn-deep"
                   }
                 />
                 <Row
@@ -367,7 +367,7 @@ export function DetailsLayer({
                   }
                   amount={positionData.profit}
                   colorClass={
-                    positionData.profit >= 0 ? "text-info" : "text-alert"
+                    positionData.profit >= 0 ? "text-brand" : "text-alert"
                   }
                 />
                 {positionData.capitalAdditions > 0 && (
@@ -391,10 +391,10 @@ export function DetailsLayer({
                 )}
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-hairline">
-                <span className="text-sm font-black text-info whitespace-nowrap">
+                <span className="text-sm font-black text-brand whitespace-nowrap">
                   إجمالي الأصول المتاحة
                 </span>
-                <span className="text-lg font-black text-info font-mono whitespace-nowrap">
+                <span className="text-lg font-black text-brand font-mono whitespace-nowrap">
                   <AmountText
                     amount={positionData.realCash}
                     hideCurrency
@@ -404,13 +404,13 @@ export function DetailsLayer({
               </div>
 
               {/* صافي قيمة المشروع — المجموع النهائي البارز */}
-              <div className="flex items-center justify-between mt-1 pt-2 border-t-2 border-indigo-200 bg-indigo-50 -mx-4 px-4 py-3 rounded-b-lg">
-                <span className="text-sm font-black text-indigo-800 flex items-center gap-1.5">
-                  <Scale className="h-4 w-4 text-indigo-500 shrink-0" />
+              <div className="flex items-center justify-between mt-1 pt-2 border-t-2 border-brand/30 bg-brand-soft -mx-4 px-4 py-3 rounded-b-lg">
+                <span className="text-sm font-black text-brand-deep flex items-center gap-1.5">
+                  <Scale className="h-4 w-4 text-brand shrink-0" />
                   صافي قيمة المشروع (السائل)
                   <InfoTooltip text="إجمالي الأصول − الالتزامات (العربون) = حقوق الملكية. هذا ما تملكه فعلاً من المشروع بعد خصم كل الالتزامات. راجع ACCOUNTING_RULES.md." />
                 </span>
-                <span className="text-xl font-black text-indigo-700 font-mono whitespace-nowrap">
+                <span className="text-xl font-black text-brand-deep font-mono whitespace-nowrap">
                   <AmountText
                     amount={positionData.realCash - positionData.depositsHeld}
                     hideCurrency
@@ -424,7 +424,7 @@ export function DetailsLayer({
                     ضمنها قيمة المخزون
                     <InfoTooltip text="الإجمالي يشمل النقد + قيمة المخزون المتتبَّع. راجع ACCOUNTING_RULES.md §9." />
                   </span>
-                  <span className="font-mono whitespace-nowrap text-emerald-deep">
+                  <span className="font-mono whitespace-nowrap text-brand-deep">
                     <AmountText
                       amount={positionData.inventoryValue}
                       hideCurrency
@@ -441,13 +441,13 @@ export function DetailsLayer({
             <div className="bg-paper p-4 rounded-lg border border-hairline shadow-sm space-y-3">
               <div className="flex items-center justify-between border-b border-hairline pb-2.5">
                 <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
-                  <ClipboardList className="h-4 w-4 text-info" />
+                  <ClipboardList className="h-4 w-4 text-brand" />
                   حالة الطلبات التشغيلية
                 </h3>
                 {pendingCount > 0 && (
                   <Link
                     href="/orders"
-                    className="text-xs font-bold text-info hover:underline"
+                    className="text-xs font-bold text-brand hover:underline"
                   >
                     {pendingCount} معلّق ←
                   </Link>

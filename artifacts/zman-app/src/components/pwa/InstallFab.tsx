@@ -96,11 +96,11 @@ export function InstallFab() {
           onClick={handleInstall}
           aria-label="تثبيت التطبيق على الجهاز"
           title="تثبيت التطبيق"
-          className="w-14 h-14 rounded-full bg-info text-paper shadow-lg flex items-center justify-center hover:bg-info/90 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+          className="w-14 h-14 rounded-full bg-brand text-paper shadow-lg flex items-center justify-center hover:bg-brand-deep active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <Download className="w-6 h-6" />
         </button>
-        <span className="text-[11px] font-semibold text-info">تثبيت التطبيق</span>
+        <span className="text-[11px] font-semibold text-brand">تثبيت التطبيق</span>
       </div>
     );
   }
@@ -117,14 +117,14 @@ export function InstallFab() {
   return (
     <div
       role="status"
-      className="flex items-center gap-2 max-w-xs rounded-xl bg-info-soft border border-info/20 px-3 py-2 text-xs text-info"
+      className="flex items-center gap-2 max-w-xs rounded-xl bg-brand-soft border border-brand/20 px-3 py-2 text-xs text-brand-deep"
     >
       <Download className="w-4 h-4 shrink-0" aria-hidden="true" />
       <span className="flex-1 leading-relaxed">{instruction}</span>
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-info/10 transition-colors -me-1"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-brand/10 transition-colors -me-1"
         aria-label="إغلاق إرشاد التثبيت"
       >
         <X className="w-4 h-4" />

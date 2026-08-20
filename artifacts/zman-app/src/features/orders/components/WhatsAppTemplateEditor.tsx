@@ -57,12 +57,12 @@ export function WhatsAppTemplateEditor({ onClose }: WhatsAppTemplateEditorProps)
       <div className="bg-canvas/50 p-3 rounded text-xs text-ink-3 leading-relaxed space-y-1">
         <p className="font-bold text-ink-2">المتغيرات المدعومة (سيتم استبدالها تلقائياً):</p>
         <ul className="list-disc list-inside space-y-0.5">
-          <li><code className="bg-paper px-1 py-0.5 rounded text-info font-mono">{`{customerName}`}</code> : اسم العميل</li>
-          <li><code className="bg-paper px-1 py-0.5 rounded text-info font-mono">{`{productName}`}</code> : اسم المنتج المطلوب</li>
-          <li><code className="bg-paper px-1 py-0.5 rounded text-info font-mono">{`{quantity}`}</code> : كمية المنتج</li>
-          <li><code className="bg-paper px-1 py-0.5 rounded text-info font-mono">{`{totalPrice}`}</code> : السعر المتفق عليه</li>
-          <li><code className="bg-paper px-1 py-0.5 rounded text-info font-mono">{`{deliveryDate}`}</code> : تاريخ التسليم المتوقع</li>
-          <li><code className="bg-paper px-1 py-0.5 rounded text-info font-mono">{`{notes}`}</code> : ملاحظات إضافية</li>
+          <li><code className="bg-paper px-1 py-0.5 rounded text-brand font-mono">{`{customerName}`}</code> : اسم العميل</li>
+          <li><code className="bg-paper px-1 py-0.5 rounded text-brand font-mono">{`{productName}`}</code> : اسم المنتج المطلوب</li>
+          <li><code className="bg-paper px-1 py-0.5 rounded text-brand font-mono">{`{quantity}`}</code> : كمية المنتج</li>
+          <li><code className="bg-paper px-1 py-0.5 rounded text-brand font-mono">{`{totalPrice}`}</code> : السعر المتفق عليه</li>
+          <li><code className="bg-paper px-1 py-0.5 rounded text-brand font-mono">{`{deliveryDate}`}</code> : تاريخ التسليم المتوقع</li>
+          <li><code className="bg-paper px-1 py-0.5 rounded text-brand font-mono">{`{notes}`}</code> : ملاحظات إضافية</li>
         </ul>
       </div>
 
