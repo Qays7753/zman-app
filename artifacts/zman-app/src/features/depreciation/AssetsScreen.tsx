@@ -293,7 +293,7 @@ export function AssetsScreen() {
                 value={
                   <span
                     className={
-                      confirmStop.netBookValueCents > 0 ? "text-info font-semibold" : "text-ink-3"
+                      confirmStop.netBookValueCents > 0 ? "text-brand font-semibold" : "text-ink-3"
                     }
                   >
                     <AmountText amount={confirmStop.netBookValueCents} />

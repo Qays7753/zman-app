@@ -312,7 +312,7 @@ export function OrderCard({
           <button
             type="button"
             onClick={handleWhatsApp}
-            className="min-h-[44px] min-w-[44px] rounded-lg border border-[#25D366]/40 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 flex items-center justify-center transition-colors shrink-0 active:scale-[0.94]"
+            className="min-h-[44px] min-w-[44px] rounded-lg border border-whatsapp/40 bg-whatsapp/10 text-whatsapp hover:bg-whatsapp/20 flex items-center justify-center transition-colors shrink-0 active:scale-[0.94]"
             aria-label="إرسال تفاصيل الطلب عبر واتساب"
             title="إرسال عبر واتساب"
           >

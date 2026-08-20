@@ -10,10 +10,10 @@ import Link from "next/link";
 import { format } from "date-fns";
 
 const TYPE_META: Record<string, { label: string; icon: typeof Clock; color: string }> = {
-  order: { label: "طلب", icon: ShoppingBag, color: "text-info" },
-  sale: { label: "مبيعة", icon: TrendingUp, color: "text-info" },
-  expense: { label: "مصروف", icon: ArrowDownRight, color: "text-amber-600" },
-  purchase: { label: "شراء", icon: ShoppingCart, color: "text-amber-600" },
+  order: { label: "طلب", icon: ShoppingBag, color: "text-brand" },
+  sale: { label: "مبيعة", icon: TrendingUp, color: "text-brand" },
+  expense: { label: "مصروف", icon: ArrowDownRight, color: "text-warn-deep" },
+  purchase: { label: "شراء", icon: ShoppingCart, color: "text-warn-deep" },
 };
 
 export default function ActivitiesPage() {
@@ -38,7 +38,7 @@ export default function ActivitiesPage() {
       <AppShellHeader title="كل الحركات المالية" />
       <div className="space-y-3 pb-28">
         <div className="flex items-center gap-2 px-1 py-2">
-          <Clock className="h-5 w-5 text-info" />
+          <Clock className="h-5 w-5 text-brand" />
           <h2 className="text-sm font-black text-ink">سجل الحركات المالية</h2>
           <span className="text-[10px] text-ink/40">كل العمليات بالترتيب الزمني</span>
         </div>
@@ -80,7 +80,7 @@ export default function ActivitiesPage() {
                   </div>
                   <div className="text-end shrink-0">
                     {act.hasCashImpact && act.amount > 0 ? (
-                      <span className={`text-sm font-bold font-mono whitespace-nowrap ${act.type === "order" || act.type === "sale" ? "text-info" : "text-amber-600"}`}>
+                      <span className={`text-sm font-bold font-mono whitespace-nowrap ${act.type === "order" || act.type === "sale" ? "text-brand" : "text-warn-deep"}`}>
                         {act.type === "order" || act.type === "sale" ? "+" : "−"}
                         <AmountText amount={act.amount} />
                       </span>

@@ -81,12 +81,12 @@ export function ServiceWorkerRegister() {
   };
 
   return updateReady ? (
-    <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 flex items-center gap-3 rounded-xl border border-info/20 bg-paper px-3 py-2.5 text-sm text-ink shadow-lg">
+    <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-50 flex items-center gap-3 rounded-xl border border-brand/20 bg-paper px-3 py-2.5 text-sm text-ink shadow-lg">
       <span className="flex-1 leading-relaxed">تحديث جديد جاهز. حدّث التطبيق لتظهر آخر التحسينات.</span>
       <button
         type="button"
         onClick={applyUpdate}
-        className="min-h-[44px] rounded-lg bg-info px-3 font-bold text-paper active:scale-95 transition-transform"
+        className="min-h-[44px] rounded-lg bg-brand px-3 font-bold text-paper active:scale-95 transition-transform"
       >
         تحديث الآن
       </button>

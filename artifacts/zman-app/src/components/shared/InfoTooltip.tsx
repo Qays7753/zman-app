@@ -41,7 +41,7 @@ export function InfoTooltip({ text }: { text: string }) {
         onKeyDown={(e) => {
           if (e.key === "Escape") setOpen(false);
         }}
-        className="text-ink/30 hover:text-info transition-colors min-h-[44px] min-w-[44px] -m-3 p-3 inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+        className="text-ink/30 hover:text-brand transition-colors min-h-[44px] min-w-[44px] -m-3 p-3 inline-flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         aria-label="مزيد من المعلومات"
         aria-describedby={open ? tooltipId : undefined}
         aria-expanded={open}

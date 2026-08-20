@@ -115,7 +115,7 @@ export function DepreciationPromptModal({
           onClick={() => setSelected("deduct_once")}
           className={`w-full text-start p-4 rounded-lg border-2 transition-all ${
             selected === "deduct_once"
-              ? "border-info bg-info-soft"
+              ? "border-brand bg-brand-soft"
               : "border-hairline bg-paper hover:border-ink/30"
           }`}
         >
@@ -123,7 +123,7 @@ export function DepreciationPromptModal({
             <div
               className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                 selected === "deduct_once"
-                  ? "border-info bg-info"
+                  ? "border-brand bg-brand"
                   : "border-hairline-2"
               }`}
             >
@@ -133,7 +133,7 @@ export function DepreciationPromptModal({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <TrendingDown className="w-4 h-4 text-info flex-shrink-0" />
+                <TrendingDown className="w-4 h-4 text-brand flex-shrink-0" />
                 <span className="font-bold text-ink text-sm">
                   (أ) خصم مرة واحدة
                 </span>
@@ -153,7 +153,7 @@ export function DepreciationPromptModal({
           onClick={() => setSelected("spread")}
           className={`w-full text-start p-4 rounded-lg border-2 transition-all ${
             selected === "spread"
-              ? "border-info bg-info-soft"
+              ? "border-brand bg-brand-soft"
               : "border-hairline bg-paper hover:border-ink/30"
           }`}
         >
@@ -161,7 +161,7 @@ export function DepreciationPromptModal({
             <div
               className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                 selected === "spread"
-                  ? "border-info bg-info"
+                  ? "border-brand bg-brand"
                   : "border-hairline-2"
               }`}
             >
@@ -171,7 +171,7 @@ export function DepreciationPromptModal({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <Calculator className="w-4 h-4 text-info flex-shrink-0" />
+                <Calculator className="w-4 h-4 text-brand flex-shrink-0" />
                 <span className="font-bold text-ink text-sm">
                   (ب) توزيع شهري (إهلاك)
                 </span>
@@ -193,7 +193,7 @@ export function DepreciationPromptModal({
               htmlFor="depreciation-useful-life"
               className="text-sm font-bold text-ink/75 flex items-center gap-1.5"
             >
-              <Clock className="w-4 h-4 text-info" />
+              <Clock className="w-4 h-4 text-brand" />
               العمر النافع (بالأشهر)
             </label>
             <input
@@ -213,7 +213,7 @@ export function DepreciationPromptModal({
               </p>
             )}
             {isLifeValid && (
-              <div className="text-xs text-info bg-info-soft/50 rounded-md p-2.5 space-y-1">
+              <div className="text-xs text-ink-2 bg-warm rounded-md p-2.5 space-y-1">
                 <div className="flex items-center justify-between">
                   <span>الإهلاك الشهري:</span>
                   <strong className="font-bold" dir="ltr">

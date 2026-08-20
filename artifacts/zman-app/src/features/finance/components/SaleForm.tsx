@@ -215,7 +215,7 @@ export function SaleForm({
             </span>
             <Link
               href={`/orders?view=${initialData.orderId}`}
-              className="text-info font-bold hover:underline"
+              className="text-brand font-bold hover:underline"
             >
               عرض تفاصيل الطلب الأصلي
             </Link>

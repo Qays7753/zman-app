@@ -142,7 +142,7 @@ export function OrderList({
                     <td className="px-6 py-4">
                       <StatusBadge status={ord.status} />
                     </td>
-                    <td className="px-6 py-4 font-bold text-info">
+                    <td className="px-6 py-4 font-bold text-brand">
                       <AmountText amount={ord.totalPriceCents} />
                     </td>
                     <td className="px-6 py-4 text-ink-3">
@@ -161,7 +161,7 @@ export function OrderList({
                             onClick={() =>
                               window.open(buildOrderWhatsAppLink(ord), "_blank")
                             }
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-canvas text-info transition-colors"
+                            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded hover:bg-canvas text-whatsapp transition-colors"
                             title="إرسال تفاصيل واتساب"
                           >
                             <MessageSquare className="w-4 h-4" />

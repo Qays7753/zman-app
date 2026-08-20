@@ -592,10 +592,10 @@ function CatalogForm({
                   }
                   onChange(checked);
                 }}
-                className="h-5 w-5 rounded border-hairline-2 text-info focus:ring-info"
+                className="h-5 w-5 rounded border-hairline-2 text-brand focus:ring-brand"
               />
               <span className="text-sm font-bold text-ink/75 flex items-center gap-1.5">
-                <PackageCheck className="w-4 h-4 text-info" />
+                <PackageCheck className="w-4 h-4 text-brand" />
                 متتبَّع (تفعيل خصم/إضافة المخزون عند الشراء والتوصيل)
               </span>
               <InfoTooltip text="عند تفعيل التتبَّع: الشراء لهذا الصنف يُسجَّل كمخزون (لا يخفض الربح في شهر الشراء)، وعند البيع تُخصم تكلفة البضاعة المباعة من الربح. الأصناف غير المتتبَّعة تُعالَج كمصروف تشغيلي مباشر." />
@@ -741,7 +741,7 @@ function MovementsList({ catalogComponentId }: { catalogComponentId: string }) {
                 <span
                   className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
                     m.direction === "in"
-                      ? "bg-info-soft text-info"
+                      ? "bg-brand-soft text-brand"
                       : "bg-alert-soft text-alert"
                   }`}
                 >
@@ -843,7 +843,7 @@ function AdjustStockForm({
             onClick={() => setDirection("in")}
             className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
               direction === "in"
-                ? "border-info text-info bg-info-soft"
+                ? "border-brand text-brand bg-brand-soft"
                 : "border-hairline text-ink-2 bg-paper hover:bg-canvas"
             }`}
           >

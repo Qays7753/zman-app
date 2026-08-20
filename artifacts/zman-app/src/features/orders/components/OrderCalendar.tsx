@@ -133,7 +133,7 @@ function DayOrdersPanel({ dateStr, status, q, onClose, onViewDetail, onCreateNew
                     <p className="text-xs text-ink-3 mt-0.5 truncate">{ord.productName}</p>
                   </div>
                   <div className="shrink-0 text-end">
-                    <p className="text-sm font-bold text-info">
+                    <p className="text-sm font-bold text-brand">
                       <AmountText amount={ord.totalPriceCents} />
                     </p>
                     <span className="text-xs text-ink-3">
@@ -151,7 +151,7 @@ function DayOrdersPanel({ dateStr, status, q, onClose, onViewDetail, onCreateNew
           <button
             type="button"
             onClick={onCreateNew}
-            className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-info hover:bg-info/90 text-paper font-bold text-sm transition-colors"
+            className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-lg bg-brand hover:bg-brand-deep text-paper font-bold text-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             إضافة طلب جديد
@@ -268,11 +268,11 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
                 type="button"
                 onClick={() => handleDayClick(date)}
                 className={cn(
-                  "relative flex flex-col items-center justify-center min-h-[52px] transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-inset",
+                  "relative flex flex-col items-center justify-center min-h-[52px] transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-inset",
                   isSelected
-                    ? "bg-info"
+                    ? "bg-brand"
                     : isToday
-                      ? "bg-info-soft hover:bg-info-soft"
+                      ? "bg-brand-soft hover:bg-brand-soft"
                       : "hover:bg-canvas",
                 )}
               >
@@ -282,7 +282,7 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
                     isSelected
                       ? "text-paper font-bold"
                       : isToday
-                        ? "text-info font-bold"
+                        ? "text-brand font-bold"
                         : "text-ink",
                   )}
                 >
@@ -295,8 +295,8 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
                     className={cn(
                       "absolute top-1 end-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center leading-none tabular-nums",
                       isSelected
-                        ? "bg-paper/90 text-info"
-                        : "bg-info text-paper",
+                        ? "bg-paper/90 text-brand"
+                        : "bg-brand text-paper",
                     )}
                   >
                     {dayCount}
@@ -352,7 +352,7 @@ export function OrderCalendar({ onViewDetail, onCreateNew }: OrderCalendarProps)
           <span>ملغى</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="min-w-[16px] h-4 px-1 rounded-full bg-info text-paper text-[9px] font-bold flex items-center justify-center leading-none">3</span>
+          <span className="min-w-[16px] h-4 px-1 rounded-full bg-brand text-paper text-[9px] font-bold flex items-center justify-center leading-none">3</span>
           <span>عدد الطلبات</span>
         </div>
       </div>

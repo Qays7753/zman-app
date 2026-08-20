@@ -39,14 +39,14 @@ const ENTITY_META: Record<
   string,
   { label: string; icon: typeof ShoppingBag; color: string }
 > = {
-  purchase: { label: "مشتريات", icon: ShoppingCart, color: "text-amber-600" },
-  expense: { label: "مصروف", icon: ArrowDownRight, color: "text-amber-600" },
-  sale: { label: "مبيعة", icon: ArrowUpRight, color: "text-info" },
-  order: { label: "طلب", icon: ShoppingBag, color: "text-info" },
-  capital_asset: { label: "أصل رأسمالي", icon: History, color: "text-purple-600" },
-  account: { label: "حساب", icon: Wallet, color: "text-info" },
-  transfer: { label: "تحويل", icon: ArrowLeft, color: "text-info" },
-  owner_transaction: { label: "معاملة مالك", icon: Wallet, color: "text-info" },
+  purchase: { label: "مشتريات", icon: ShoppingCart, color: "text-ink-2" },
+  expense: { label: "مصروف", icon: ArrowDownRight, color: "text-ink-2" },
+  sale: { label: "مبيعة", icon: ArrowUpRight, color: "text-ink-2" },
+  order: { label: "طلب", icon: ShoppingBag, color: "text-ink-2" },
+  capital_asset: { label: "أصل رأسمالي", icon: History, color: "text-ink-2" },
+  account: { label: "حساب", icon: Wallet, color: "text-ink-2" },
+  transfer: { label: "تحويل", icon: ArrowLeft, color: "text-ink-2" },
+  owner_transaction: { label: "معاملة مالك", icon: Wallet, color: "text-ink-2" },
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -98,9 +98,9 @@ function actionVerb(action: string): {
 }
 
 const TONE_COLOR: Record<string, string> = {
-  create: "text-emerald-600",
-  update: "text-info",
-  delete: "text-rose-600",
+  create: "text-brand",
+  update: "text-brand",
+  delete: "text-alert",
   info: "text-ink-2",
 };
 
@@ -192,7 +192,7 @@ export default function AuditLogClient() {
 
       <div className="flex-1 p-4 max-w-2xl mx-auto w-full space-y-4 pb-28">
         <div className="flex items-center gap-2 px-1 py-1">
-          <ShieldCheck className="h-5 w-5 text-info" />
+          <ShieldCheck className="h-5 w-5 text-brand" />
           <h2 className="text-sm font-black text-ink">سجل عمليات الإنشاء والتعديل والحذف</h2>
         </div>
 

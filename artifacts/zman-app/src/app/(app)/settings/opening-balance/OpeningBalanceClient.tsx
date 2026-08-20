@@ -47,7 +47,7 @@ export default function OpeningBalanceClient() {
 
               <div className="flex items-center justify-between pt-3">
                 <span className="text-sm font-bold text-ink">رأس المال الافتتاحي</span>
-                <AmountText amount={opBal.capitalCents} className="text-sm font-bold text-info" />
+                <AmountText amount={opBal.capitalCents} className="text-sm font-bold text-brand" />
               </div>
             </div>
 

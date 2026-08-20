@@ -503,7 +503,7 @@ export function OrderForm({
                 setValue("additionalProfitCents", 0);
               }
             }}
-            className="h-4 w-4 rounded border-hairline text-info focus:ring-info cursor-pointer"
+            className="h-4 w-4 rounded border-hairline text-brand focus:ring-brand cursor-pointer"
           />
           <label htmlFor="delivery-as-profit" className="text-xs font-semibold text-ink cursor-pointer select-none">
             هل أدخله كإيراد وأرباح إضافية للمشروع عند التسليم؟ ✓
@@ -545,7 +545,7 @@ export function OrderForm({
                   error={errors.depositCents?.message as string}
                 />
                 {watchedDeposit > 0 && (
-                  <span className="text-xs text-info font-medium">
+                  <span className="text-xs text-brand font-medium">
                     المبلغ المتبقي للاستيفاء: <AmountText amount={remainingCents} />
                   </span>
                 )}
@@ -616,14 +616,14 @@ export function OrderForm({
           </div>
           <div className="flex justify-between items-center px-5 py-3">
             <span className="text-sm text-ink-2">السعر المتفق عليه</span>
-            <span className="text-sm font-semibold text-info">
+            <span className="text-sm font-semibold text-brand">
               <AmountText amount={watchedTotalPrice} />
             </span>
           </div>
           {watchedAdditionalProfit > 0 && (
             <div className="flex justify-between items-center px-5 py-3">
               <span className="text-sm text-ink-2">أرباح إضافية</span>
-              <span className="text-sm font-semibold text-info">
+              <span className="text-sm font-semibold text-brand">
                 +<AmountText amount={watchedAdditionalProfit} />
               </span>
             </div>
@@ -632,7 +632,7 @@ export function OrderForm({
             <>
               <div className="flex justify-between items-center px-5 py-3">
                 <span className="text-sm text-ink-2">العربون المستلم</span>
-                <span className="text-sm font-semibold text-info">
+                <span className="text-sm font-semibold text-brand">
                   <AmountText amount={watchedDeposit} />
                 </span>
               </div>
@@ -647,20 +647,20 @@ export function OrderForm({
           {/* صافي الربح / الخسارة */}
           <div
             className={`flex justify-between items-center px-5 py-4 ${
-              isProfit ? "bg-info-soft" : "bg-alert-soft"
+              isProfit ? "bg-brand-soft" : "bg-alert-soft"
             }`}
           >
             <div className="flex items-center gap-2">
               {isProfit ? (
-                <TrendingUp className="w-4 h-4 text-info" />
+                <TrendingUp className="w-4 h-4 text-brand" />
               ) : (
                 <TrendingDown className="w-4 h-4 text-alert" />
               )}
-              <span className={`text-sm font-bold ${isProfit ? "text-info" : "text-alert"}`}>
+              <span className={`text-sm font-bold ${isProfit ? "text-brand" : "text-alert"}`}>
                 صافي الربح (مرجعي/مُقدّر)
               </span>
             </div>
-            <span className={`text-base font-bold ${isProfit ? "text-info" : "text-alert"}`}>
+            <span className={`text-base font-bold ${isProfit ? "text-brand" : "text-alert"}`}>
               {isProfit ? "+" : "−"}
               <AmountText amount={Math.abs(netProfitCents)} />
             </span>
@@ -866,11 +866,11 @@ function TrackedStockBanner({
         className={`p-3 rounded-md border text-xs flex items-start gap-2 ${
           isShort
             ? "border-warn/40 bg-warn-soft text-warn-deep"
-            : "border-info/30 bg-info-soft text-info"
+            : "border-brand/30 bg-brand-soft text-brand"
         }`}
       >
         <AlertTriangle
-          className={`w-4 h-4 shrink-0 mt-0.5 ${isShort ? "text-warn-deep" : "text-info"}`}
+          className={`w-4 h-4 shrink-0 mt-0.5 ${isShort ? "text-warn-deep" : "text-brand"}`}
         />
         <div className="leading-relaxed">
           <span className="font-bold">

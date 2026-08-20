@@ -24,7 +24,7 @@ export function EmptyState({
       {isFilterResult ? (
         <AlertCircle className="w-12 h-12 text-warn-deep mb-3 shrink-0" />
       ) : (
-        <FileQuestion className="w-12 h-12 text-info mb-3 shrink-0" />
+        <FileQuestion className="w-12 h-12 text-brand mb-3 shrink-0" />
       )}
 
       <h3 className="text-base sm:text-lg font-bold text-ink mb-1.5 leading-tight">{title}</h3>
@@ -37,7 +37,7 @@ export function EmptyState({
           <p className="font-bold text-ink">خطوات سريعة للبدء:</p>
           {steps.map((step, idx) => (
             <div key={idx} className="text-ink-2 font-medium flex items-start gap-2">
-              <span className="w-4 h-4 rounded-full bg-info/10 text-info font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+              <span className="w-4 h-4 rounded-full bg-brand-soft text-brand font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
                 {idx + 1}
               </span>
               <span>{step}</span>
@@ -50,7 +50,7 @@ export function EmptyState({
         <button
           type="button"
           onClick={onAction}
-          className="min-h-[44px] px-6 py-2.5 rounded-xl bg-info text-paper font-bold hover:bg-info/90 active:scale-95 transition-all text-xs sm:text-sm shadow-sm"
+          className="min-h-[44px] px-6 py-2.5 rounded-xl bg-brand text-paper font-bold hover:bg-brand-deep active:scale-95 transition-all text-xs sm:text-sm shadow-sm"
         >
           {actionLabel}
         </button>

@@ -51,23 +51,23 @@ export function FinanceComparePanel({
     {
       label: "مبيعات",
       value: actualSales,
-      barClass: "bg-info",
-      textClass: "text-info",
+      barClass: "bg-brand",
+      textClass: "text-brand",
       subtracted: false,
     },
     {
       label: "تكلفة المبيعات",
       value: cogsCents,
-      barClass: "bg-amber-500",
-      textClass: "text-amber-600",
+      barClass: "bg-hairline-2",
+      textClass: "text-ink-2",
       subtracted: true,
       tooltip: "ثمن الخامات والمواد التي استُخدمت فعلياً في الطلبات المُسلمة فقط.",
     },
     {
       label: "مصاريف تشغيلية",
       value: operatingExpenses,
-      barClass: "bg-orange-400",
-      textClass: "text-orange-600",
+      barClass: "bg-hairline-2",
+      textClass: "text-ink-2",
       subtracted: true,
     },
     ...(operatingPurchases > 0
@@ -75,8 +75,8 @@ export function FinanceComparePanel({
           {
             label: "مشتريات تشغيلية",
             value: operatingPurchases,
-            barClass: "bg-rose-400",
-            textClass: "text-rose-600",
+            barClass: "bg-hairline-2",
+            textClass: "text-ink-2",
             subtracted: true,
           },
         ]
@@ -86,8 +86,8 @@ export function FinanceComparePanel({
           {
             label: "إهلاك الفترة",
             value: depreciation,
-            barClass: "bg-slate-400",
-            textClass: "text-slate-500",
+            barClass: "bg-warm",
+            textClass: "text-ink-3",
             subtracted: true,
             tooltip: "توزيع تكلفة الآلة أو الأصل على عدة أشهر حتى لا تُسجل كخسارة في شهر واحد.",
           },
@@ -105,7 +105,7 @@ export function FinanceComparePanel({
     <div className="bg-paper rounded-lg border border-hairline shadow-sm p-4 sm:p-5 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold text-ink flex items-center gap-1.5">
-          <BarChart3 className="h-4.5 w-4.5 text-info" />
+          <BarChart3 className="h-4.5 w-4.5 text-brand" />
           الربح التشغيلي
           <InfoTooltip text="الربح التشغيلي = مبيعات − تكلفة البضاعة المباعة (COGS) − مصاريف تشغيلية − إهلاك الفترة. تكلفة البضاعة المباعة ≠ مشتريات المخزون — المشتريات تزيد قيمة مخزونك، والتكلفة تُحتسب فقط عند تسليم الطلبات." />
         </h3>
@@ -147,11 +147,11 @@ export function FinanceComparePanel({
 
       {/* Fix D — تلميح توعوي: مشتريات مخزون + رأسمالية فقط (لم تُطرح من الربح) */}
       {nonOperatingPurchases > 0 && (
-        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-info/8 border border-info/15">
-          <PackageOpen className="h-3.5 w-3.5 text-info shrink-0 mt-0.5" />
-          <p className="text-[11px] text-info/80 leading-relaxed">
+        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-warm border border-hairline">
+          <PackageOpen className="h-3.5 w-3.5 text-brand shrink-0 mt-0.5" />
+          <p className="text-[11px] text-ink-2 leading-relaxed">
             اشتريت مخزوناً أو أصولاً بـ{" "}
-            <strong className="text-info font-black"><AmountText amount={nonOperatingPurchases} hideCurrency /></strong>{" "}
+            <strong className="text-brand font-black"><AmountText amount={nonOperatingPurchases} hideCurrency /></strong>{" "}
             هذه الفترة —{" "}
             <span className="font-semibold">هذا المبلغ لم يُطرَح من ربحك</span>، بل أضيف لقيمة مخزونك أو أصولك. الربح يتأثر فقط عند تسليم الطلبات.
           </p>
@@ -166,12 +166,12 @@ export function FinanceComparePanel({
       {/* الربح التشغيلي — الرقم الأساسي */}
       <div
         className={`flex items-center justify-between gap-2 pt-3 border-t-2 ${
-          isProfit ? "border-info/30" : "border-alert/30"
+          isProfit ? "border-brand/30" : "border-alert/30"
         }`}
       >
         <span className="text-sm font-bold text-ink flex items-center gap-1.5">
           {isProfit ? (
-            <TrendingUp className="h-4.5 w-4.5 text-info" />
+            <TrendingUp className="h-4.5 w-4.5 text-brand" />
           ) : (
             <TrendingDown className="h-4.5 w-4.5 text-alert" />
           )}
@@ -180,7 +180,7 @@ export function FinanceComparePanel({
         </span>
         <span
           className={`text-lg font-black font-mono whitespace-nowrap flex items-baseline gap-1 ${
-            isProfit ? "text-info" : "text-alert"
+            isProfit ? "text-brand" : "text-alert"
           }`}
         >
           <AmountText amount={netProfit} hideCurrency parenNegative />
@@ -196,7 +196,7 @@ export function FinanceComparePanel({
           </span>
           <span
             className={`text-sm font-bold font-mono whitespace-nowrap ${
-              isAfterDrawPositive ? "text-info" : "text-alert"
+              isAfterDrawPositive ? "text-brand" : "text-alert"
             }`}
           >
             <AmountText amount={afterDraw} hideCurrency parenNegative />
@@ -208,12 +208,12 @@ export function FinanceComparePanel({
       {expectedRemaining > 0 && (
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-dashed border-hairline">
           <span className="text-xs font-semibold text-ink/60 flex items-center gap-1">
-            <TrendingUp className="h-3.5 w-3.5 text-info/50" />
+            <TrendingUp className="h-3.5 w-3.5 text-brand/60" />
             الربح المتوقّع بعد تسليم طلباتك
           </span>
           <span
             className={`text-sm font-bold font-mono whitespace-nowrap ${
-              isFutureProfit ? "text-info" : "text-alert"
+              isFutureProfit ? "text-brand" : "text-alert"
             }`}
           >
             <AmountText amount={futureProfit} hideCurrency parenNegative />

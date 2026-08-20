@@ -109,7 +109,7 @@ export function QuickAdjustStockForm({ items, onDone }: QuickAdjustStockFormProp
       {selectedId && (
         <div className="p-3 bg-canvas/30 rounded-md text-sm text-ink-2 flex items-center justify-between">
           <span>الرصيد الحالي:</span>
-          <span className="font-bold text-info">{currentStock} {itemUnit}</span>
+          <span className="font-bold text-brand">{currentStock} {itemUnit}</span>
         </div>
       )}
 
@@ -136,7 +136,7 @@ export function QuickAdjustStockForm({ items, onDone }: QuickAdjustStockFormProp
             onClick={() => setDirection("in")}
             className={`min-h-[44px] py-2.5 rounded-md border text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
               direction === "in"
-                ? "border-info text-info bg-info-soft"
+                ? "border-brand text-brand bg-brand-soft"
                 : "border-hairline text-ink-2 bg-paper hover:bg-canvas"
             }`}
           >

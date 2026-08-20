@@ -140,7 +140,7 @@ export function ComponentsEditor({
                         اسم المكوّن
                       </label>
                       {getValues(`components.${index}.catalogComponentId`) ? (
-                        <span className="text-[10px] text-info ms-2">
+                        <span className="text-[10px] text-brand ms-2">
                           مربوط بصنف
                         </span>
                       ) : (
@@ -231,7 +231,7 @@ export function ComponentsEditor({
         <button
           type="button"
           onClick={() => setIsPickerOpen(true)}
-          className="min-h-[44px] py-3 rounded-md border border-info/30 text-info hover:bg-info-soft transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
+          className="min-h-[44px] py-3 rounded-md border border-brand/30 text-brand hover:bg-brand-soft transition-colors flex items-center justify-center gap-2 font-semibold text-sm bg-paper"
         >
           <Boxes className="w-4 h-4" />
           <span>اختيار من الكتالوج</span>
@@ -262,7 +262,7 @@ export function ComponentsEditor({
           <div className="max-h-[40vh] overflow-y-auto divide-y divide-hairline -mx-5 px-5">
             {isCatalogLoading ? (
               <div className="flex items-center justify-center py-10 text-ink/40 gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-info" />
+                <Loader2 className="h-5 w-5 animate-spin text-brand" />
                 <span className="text-sm">جارٍ التحميل…</span>
               </div>
             ) : catalogItems.length === 0 ? (
@@ -317,15 +317,15 @@ function CatalogPickerItem({
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className="w-full flex items-center gap-4 py-3.5 hover:bg-info-soft transition-colors text-start group"
+      className="w-full flex items-center gap-4 py-3.5 hover:bg-brand-soft transition-colors text-start group"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="text-sm font-semibold text-ink group-hover:text-info truncate">
+          <p className="text-sm font-semibold text-ink group-hover:text-brand truncate">
             {item.name}
           </p>
           {item.tracked && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info-soft text-info border border-info/30 flex items-center gap-1 shrink-0">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-soft text-brand border border-brand/30 flex items-center gap-1 shrink-0">
               <PackageCheck className="w-3 h-3" />
               متتبَّع
             </span>
@@ -337,7 +337,7 @@ function CatalogPickerItem({
           {item.tracked && (
             <span
               className={`text-[10px] font-medium ${
-                isZeroStockTracked ? "text-warn-deep" : "text-info"
+                isZeroStockTracked ? "text-warn-deep" : "text-brand"
               } flex items-center gap-0.5`}
               title={
                 isZeroStockTracked
@@ -357,7 +357,7 @@ function CatalogPickerItem({
         )}
       </div>
       <div className="text-end flex-shrink-0">
-        <p className="text-sm font-bold text-info">
+        <p className="text-sm font-bold text-brand">
           {(item.defaultCostCents / 1000).toLocaleString("en-JO", {
             minimumFractionDigits: 3,
             maximumFractionDigits: 3,

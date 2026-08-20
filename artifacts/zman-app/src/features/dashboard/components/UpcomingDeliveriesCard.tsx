@@ -73,10 +73,10 @@ export function UpcomingDeliveriesCard() {
       {/* الترويسة */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 bg-canvas border-b border-hairline">
         <div className="flex items-center gap-2 min-w-0">
-          <Truck className="h-4 w-4 text-info shrink-0" />
+          <Truck className="h-4 w-4 text-brand shrink-0" />
           <span className="text-sm font-bold text-ink truncate">طلبات تحتاج تسليم قريباً</span>
         </div>
-        <span className="text-[11px] font-bold text-info bg-info-soft px-2 py-0.5 rounded-full shrink-0">
+        <span className="text-[11px] font-bold text-brand bg-brand-soft px-2 py-0.5 rounded-full shrink-0">
           {upcoming.length}
         </span>
       </div>
@@ -119,10 +119,10 @@ export function UpcomingDeliveriesCard() {
       {/* الرابط السفلي */}
       <Link
         href="/orders?sort=delivery"
-        className="flex items-center justify-between gap-2 px-4 py-2.5 bg-info/5 border-t border-info/10 hover:bg-info/10 transition-colors min-h-[44px]"
+        className="flex items-center justify-between gap-2 px-4 py-2.5 bg-brand-soft/60 border-t border-brand/10 hover:bg-brand-soft transition-colors min-h-[44px]"
       >
-        <span className="text-xs font-bold text-info">عرض كل الطلبات</span>
-        <ArrowLeft className="h-3.5 w-3.5 text-info opacity-70 shrink-0" />
+        <span className="text-xs font-bold text-brand">عرض كل الطلبات</span>
+        <ArrowLeft className="h-3.5 w-3.5 text-brand opacity-70 shrink-0" />
       </Link>
     </div>
   );

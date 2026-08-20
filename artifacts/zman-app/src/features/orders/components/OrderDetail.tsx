@@ -482,7 +482,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
       {orderData.status === "delivered" && consumedMovements.length > 0 && (
         <div className="bg-paper p-6 rounded-lg border border-hairline shadow-sm space-y-3">
           <h4 className="text-base font-bold text-ink border-b border-hairline pb-2 flex items-center gap-1.5">
-            <PackageMinus className="w-4 h-4 text-info" />
+            <PackageMinus className="w-4 h-4 text-brand" />
             المواد المستهلكة من المخزون
           </h4>
           <ul className="divide-y divide-hairline">
@@ -521,7 +521,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
         <div className="space-y-3">
           <div className="flex justify-between items-center text-sm">
             <span className="text-ink-2">السعر النهائي المتفق عليه:</span>
-            <span className="text-lg font-bold text-info">
+            <span className="text-lg font-bold text-brand">
               <AmountText amount={orderData.totalPriceCents} />
             </span>
           </div>
@@ -530,7 +530,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
             <>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-ink-2">العربون المتبقي القابل للرد:</span>
-                <span className="font-semibold text-info">
+                <span className="font-semibold text-brand">
                   <AmountText amount={orderData.depositCents} />
                   {orderData.depositDate && (
                     <span className="text-xs text-ink-3 font-normal ms-1">
@@ -559,7 +559,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           {(orderData.additionalProfitCents ?? 0) > 0 && (
             <div className="flex justify-between items-center text-sm">
               <span className="text-ink-2">أرباح إضافية:</span>
-              <span className="font-semibold text-info">
+              <span className="font-semibold text-brand">
                 +<AmountText amount={orderData.additionalProfitCents ?? 0} />
               </span>
             </div>
@@ -570,7 +570,7 @@ export function OrderDetail({ orderId, onEdit, onBack }: OrderDetailProps) {
           <div className="flex justify-between items-center text-base font-bold">
             <span className="text-ink-2">صافي الربح المرجعي (المقدر):</span>
             <span
-              className={cn(estimatedProfit >= 0 ? "text-info" : "text-alert")}
+              className={cn(estimatedProfit >= 0 ? "text-brand" : "text-alert")}
             >
               <AmountText amount={estimatedProfit} />
             </span>
