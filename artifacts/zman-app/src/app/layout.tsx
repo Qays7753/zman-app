@@ -76,11 +76,11 @@ export default function RootLayout({
             toastOptions={{
               style: {
                 fontFamily: "var(--font-sans), system-ui, sans-serif",
-                zIndex: 50,
+                zIndex: 700,
               },
               classNames: {
                 toast: "bg-paper text-ink border border-hairline-2",
-                success: "bg-emerald-soft text-emerald-deep border-emerald/20",
+                success: "bg-brand-soft text-brand-deep border-brand/20",
                 error: "bg-alert-soft text-alert border-alert/20",
                 warning: "bg-warn-soft text-warn-deep border-warn/20",
                 info: "bg-info-soft text-info border-info/20",

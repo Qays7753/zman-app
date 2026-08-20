@@ -1,29 +1,62 @@
+/**
+ * Zman brand tokens.
+ *
+ * The semantic contract lives in docs/DESIGN_SYSTEM_V2_1_CONTRACT.md.
+ * Keep legacy aliases below until every consumer migrates to a semantic role.
+ */
 export const BRAND_TOKENS = {
+  // Core brand values
   forest: "#2E7D32",
   forestDeep: "#1B5E20",
+  forestHover: "#276B2B",
+  forestPressed: "#215C24",
   succulent: "#4CAF50",
   leaf: "#81C784",
-  gold: "#FBC02D",
-  goldDeep: "#F9A825",
+
+  // Surfaces
   cream: "#FAFAF5",
-  warm: "#F5F0E8",
   white: "#FFFFFF",
+  warm: "#F5F0E8",
+  analytic: "#EEF2F5",
+  softGreen: "#E8F5E9",
+  softInfo: "#E8F0F8",
+  softDanger: "#FBE9E6",
+  softWarning: "#FFF8E1",
+
+  // Typography
   dark: "#1A2E1A",
   textSecondary: "#3D5A35",
-  textMuted: "#7A9B6F",
+  textMuted: "#5A7850",
+  placeholder: "#5A7850",
+
+  // Structural colors
   border: "#E4EDD8",
-  softGreen: "#E8F5E9",
+  borderField: "#7F9372",
+  borderStrong: "#51606F",
+
+  // Accents and semantics
+  gold: "#FBC02D",
+  goldDeep: "#8A5B00",
+  alert: "#C0392B",
+  alertDeep: "#8B2718",
+  info: "#1565C0",
+  analyticNeutral: "#51606F",
+
   semantic: {
-    success: "#2E7D32",
+    success: "#1B5E20",
     successSoft: "#E8F5E9",
-    warning: "#F9A825",
+    warning: "#8A5B00",
+    warningAccent: "#FBC02D",
     warningSoft: "#FFF8E1",
-    danger: "#C0392B",
+    danger: "#8B2718",
+    dangerStrong: "#C0392B",
     dangerSoft: "#FBE9E6",
     info: "#1565C0",
     infoSoft: "#E8F0F8",
+    analytic: "#51606F",
   },
-  // لون خدمة خارجية — يستخدم فقط لأزرار WhatsApp
+
+  // External service brand: WhatsApp button only.
   whatsapp: "#25D366",
 } as const;
 
