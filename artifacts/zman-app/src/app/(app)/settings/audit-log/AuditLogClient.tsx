@@ -175,6 +175,7 @@ export default function AuditLogClient() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
   } = useAuditLog();
 
   const allItems = useMemo(() => {
@@ -198,7 +199,7 @@ export default function AuditLogClient() {
 
         {isLoading ? (
           <SkeletonList count={8} />
-        ) : isError ? (
+        ) : isError && !data ? (
           <ErrorState
             message="تعذّر تحميل سجل التدقيق. تحقّق من اتصالك ثم أعد المحاولة."
             onRetry={() => refetch()}
@@ -223,21 +224,40 @@ export default function AuditLogClient() {
 
             {hasNextPage && (
               <div className="flex justify-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                  className="min-h-12 px-6 py-2.5 rounded-xl bg-paper border border-hairline text-ink font-bold hover:bg-canvas active:scale-95 transition-all text-xs sm:text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                >
-                  {isFetchingNextPage ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      جارٍ التحميل…
-                    </>
-                  ) : (
-                    "تحميل المزيد"
-                  )}
-                </button>
+                {isFetchNextPageError ? (
+                  <div
+                    role="alert"
+                    className="w-full rounded-lg border border-alert/30 bg-alert-soft px-4 py-3 text-center"
+                  >
+                    <p className="text-sm font-semibold text-alert-deep">
+                      تعذر تحميل السجل التالي دون فقدان السجل الحالي.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="mt-3 min-h-12 w-full rounded-lg bg-alert-deep px-6 py-2.5 text-sm font-bold text-paper transition-colors hover:bg-alert disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      إعادة محاولة التحميل
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="min-h-12 px-6 py-2.5 rounded-xl bg-paper border border-hairline text-ink font-bold hover:bg-canvas active:scale-95 transition-all text-xs sm:text-sm shadow-sm disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  >
+                    {isFetchingNextPage ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        جارٍ التحميل…
+                      </>
+                    ) : (
+                      "تحميل المزيد"
+                    )}
+                  </button>
+                )}
               </div>
             )}
 

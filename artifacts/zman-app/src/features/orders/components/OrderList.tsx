@@ -42,6 +42,7 @@ export function OrderList({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
     isLoading,
     isError,
     refetch,
@@ -64,7 +65,7 @@ export function OrderList({
     return <SkeletonList />;
   }
 
-  if (isError) {
+  if (isError && !data) {
     return <ErrorState onRetry={refetch} />;
   }
 
@@ -196,16 +197,35 @@ export function OrderList({
           {/* 5. زر تحميل المزيد (عرض المزيد) للكيرسر (§10.1) */}
           {hasNextPage && (
             <div className="pt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                className="w-full lg:w-auto min-h-12 px-8 py-2.5 bg-paper hover:bg-canvas border border-hairline-2 rounded-md text-sm font-semibold text-ink-2 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isFetchingNextPage
-                  ? "جاري تحميل المزيد..."
-                  : "تحميل المزيد من الطلبات"}
-              </button>
+              {isFetchNextPageError ? (
+                <div
+                  role="alert"
+                  className="w-full lg:w-auto rounded-lg border border-alert/30 bg-alert-soft px-4 py-3 text-center"
+                >
+                  <p className="text-sm font-semibold text-alert-deep">
+                    تعذر تحميل الطلبات التالية دون فقدان القائمة الحالية.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="mt-3 min-h-12 w-full px-6 rounded-md bg-alert-deep text-paper text-sm font-bold transition-colors hover:bg-alert disabled:opacity-50"
+                  >
+                    إعادة محاولة تحميل الطلبات
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="w-full lg:w-auto min-h-12 px-8 py-2.5 bg-paper hover:bg-canvas border border-hairline-2 rounded-md text-sm font-semibold text-ink-2 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isFetchingNextPage
+                    ? "جاري تحميل المزيد..."
+                    : "تحميل المزيد من الطلبات"}
+                </button>
+              )}
             </div>
           )}
         </>
