@@ -37,12 +37,6 @@ export default function ActivitiesPage() {
     <>
       <AppShellHeader title="كل الحركات المالية" />
       <div className="space-y-3 pb-28">
-        <div className="flex items-center gap-2 px-1 py-2">
-          <Clock className="h-5 w-5 text-brand" />
-          <h2 className="text-sm font-black text-ink">سجل الحركات المالية</h2>
-          <span className="text-[10px] text-ink/40">كل العمليات بالترتيب الزمني</span>
-        </div>
-
         {isLoading ? (
           <SkeletonList count={8} />
         ) : !activities || activities.length === 0 ? (

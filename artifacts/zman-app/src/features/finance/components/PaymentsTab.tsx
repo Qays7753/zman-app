@@ -396,28 +396,13 @@ export function PaymentsTab() {
         />
       ) : (
         <div className="space-y-3 flex-1 flex flex-col">
-          {/* شريط معلومات القائمة: عدّاد الحركات المعروضة + مفتاح الشارات */}
-          <div className="flex items-center justify-between gap-2 px-1 text-xs text-ink/50 font-medium flex-wrap">
+          {/* شريط معلومات خفيف؛ شرح التصنيفات عند الطلب فقط */}
+          <div className="flex items-center justify-between gap-2 px-1 text-xs text-ink/50 font-medium">
             <span>{visiblePayments.length} حركة معروضة</span>
-            {/* مفتاح الشارات (legend) مع InfoTooltip */}
-            <div className="flex items-center gap-2 text-[10px] flex-wrap">
-              <span className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 bg-warn-soft text-warn-deep rounded-full font-bold">
-                  رأس مال
-                </span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 bg-brand-soft text-brand-deep rounded-full font-bold">
-                  ثابتة
-                </span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="px-1.5 py-0.5 bg-canvas text-ink-3 rounded-full font-bold">
-                  متغيّرة
-                </span>
-              </span>
-              <InfoTooltip text="«رأس مال»: آلة أو أثاث يخدم المشروع لسنوات — لا يُخصم من الربح التشغيلي في الشهر، بل يُهلَّك عبر الزمن (إن فعّلت الإهلاك). «ثابتة»: مصروف شهري ثابت تقريباً (إيجار، راتب). «متغيّرة»: مصروف يرتفع وينخفض مع حجم العمل (خامات، تغليف، وقود)." />
-            </div>
+            <span className="inline-flex items-center gap-1 text-[10px] text-ink-3">
+              شرح التصنيفات
+              <InfoTooltip text="رأس مال: أصل يخدم المشروع لسنوات. ثابتة: مصروف شهري ثابت تقريباً. متغيّرة: مصروف يتغير مع حجم العمل." />
+            </span>
           </div>
 
           <div className="space-y-3">
@@ -463,7 +448,7 @@ export function PaymentsTab() {
                               : "شراء مواد")}
                       </span>
 
-                      {/* شارة نوع الحركة — توضح معنى الرقم قبل تصنيف المصروف */}
+                      {/* شارة نوع واحدة، ثم تصنيف أو حالة واحدة عند الحاجة */}
                       <span
                         className={cn(
                           "px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0 border",
@@ -486,45 +471,29 @@ export function PaymentsTab() {
                         {movementKindLabel}
                       </span>
 
-                      {/* شارة التصنيف */}
                       {item.kind === "receivable" ? (
-                        <>
-                          <span className="px-2 py-0.5 bg-canvas text-ink-2 text-[10px] rounded-full font-bold shrink-0">
-                            دَين
-                          </span>
-                          {item.debtStatus === "paid" ? (
-                            <span className="px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] rounded-full font-bold shrink-0">
-                              مسدَّد
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 bg-warn-soft text-warn-deep text-[10px] rounded-full font-bold shrink-0">
-                              قائم
-                            </span>
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0",
+                            item.debtStatus === "paid"
+                              ? "bg-brand-soft text-brand-deep"
+                              : "bg-warn-soft text-warn-deep",
                           )}
-                        </>
-                      ) : item.isCapitalAsset ? (
-                        <span className="px-2 py-0.5 bg-warn-soft text-warn-deep text-[10px] rounded-full font-bold shrink-0">
-                          رأس مال
+                        >
+                          {item.debtStatus === "paid" ? "مسدَّد" : "قائم"}
                         </span>
-                      ) : item.costNature === "fixed" ? (
-                        <span className="px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] rounded-full font-bold shrink-0">
-                          ثابتة
-                        </span>
-                      ) : !isWriteoff ? (
-                        <span className="px-2 py-0.5 bg-canvas text-ink-3 text-[10px] rounded-full font-bold shrink-0">
-                          متغيّرة
+                      ) : !isWriteoff && !item.isCapitalAsset ? (
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 text-[10px] rounded-full font-bold shrink-0",
+                            item.costNature === "fixed"
+                              ? "bg-brand-soft text-brand-deep"
+                              : "bg-canvas text-ink-3",
+                          )}
+                        >
+                          {item.costNature === "fixed" ? "ثابتة" : "متغيّرة"}
                         </span>
                       ) : null}
-
-                      {/* شارة تلقائي لهدر المخزون */}
-                      {isWriteoff && (
-                        <span
-                          className="px-2 py-0.5 bg-brand-soft text-brand-deep text-[10px] rounded-full font-bold shrink-0"
-                          title="خسارة غير نقدية ناتجة تلقائياً عن تسوية مخزون — لا تُحرَّر من هنا"
-                        >
-                          تلقائي
-                        </span>
-                      )}
 
                       {/* زر إيقاف الإهلاك للأصول ذات الإهلاك النشط */}
                       {item.activeCapitalAssetId && (
@@ -893,7 +862,17 @@ export function PaymentsTab() {
       <CardActionSheet
         isOpen={actionSheetItem !== null}
         onClose={() => setActionSheetItem(null)}
-        title="إجراءات"
+        title="إجراءات الحركة"
+        subtitle={
+          actionSheetItem ? (
+            <>
+              {actionSheetItem.title ||
+                (actionSheetItem.kind === "expense" ? "مصروف تشغيلي" : "شراء مواد")}
+              <span className="mx-1">·</span>
+              <AmountText amount={actionSheetItem.amountCents} />
+            </>
+          ) : undefined
+        }
         actions={
           actionSheetItem
             ? actionSheetItem.kind === "receivable"

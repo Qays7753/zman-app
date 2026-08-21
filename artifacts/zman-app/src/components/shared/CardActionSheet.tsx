@@ -21,6 +21,7 @@ interface CardActionSheetProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  subtitle?: ReactNode;
   actions: CardActionSheetAction[];
 }
 
@@ -38,10 +39,16 @@ export function CardActionSheet({
   isOpen,
   onClose,
   title = "إجراءات",
+  subtitle,
   actions,
 }: CardActionSheetProps) {
   return (
     <ResponsiveModal isOpen={isOpen} onClose={onClose} title={title}>
+      {subtitle && (
+        <div className="px-4 pb-2 text-xs font-medium text-ink-3">
+          {subtitle}
+        </div>
+      )}
       <div className="flex flex-col gap-1">
         {actions.map((action, idx) => (
           <button

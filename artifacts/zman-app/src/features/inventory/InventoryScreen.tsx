@@ -5,6 +5,8 @@ import { AlertTriangle, ArrowUpDown, Package, PackageMinus, Plus } from "lucide-
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShellHeader } from "@/providers/app-shell-context";
+import { PageToolbar } from "@/components/shared/PageToolbar";
+import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 import { AmountText } from "@/components/shared/AmountText";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -29,6 +31,7 @@ export function InventoryScreen() {
   const searchParams = useSearchParams();
   const [sort, setSort] = useState<SortKey>("alpha");
   const [isFabOpen, setIsFabOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [isQuickAdjustOpen, setIsQuickAdjustOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const { data, isLoading, isError, refetch } = useInventoryValuation();
@@ -46,9 +49,56 @@ export function InventoryScreen() {
     return 0;
   });
 
+  const selectedSortLabel =
+    SORT_OPTIONS.find((option) => option.key === sort)?.label ?? "أبجدي";
+
   return (
     <>
-      <AppShellHeader title="المخزون" />
+      <AppShellHeader
+        title="المخزون"
+        action={
+          <PageToolbar
+            filterSlot={
+              <>
+                <HeaderIconButton
+                  label={`ترتيب المخزون: ${selectedSortLabel}`}
+                  isActive={sort !== "alpha"}
+                  onClick={() => setIsSortOpen(true)}
+                >
+                  <ArrowUpDown className="w-5 h-5" />
+                </HeaderIconButton>
+                <ResponsiveModal
+                  isOpen={isSortOpen}
+                  onClose={() => setIsSortOpen(false)}
+                  title="ترتيب المخزون"
+                >
+                  <div className="flex flex-col gap-1">
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          setSort(opt.key);
+                          setIsSortOpen(false);
+                        }}
+                        className={cn(
+                          "min-h-[56px] flex items-center justify-between gap-3 px-4 rounded-lg text-start text-sm font-bold transition-colors",
+                          sort === opt.key
+                            ? "bg-brand-soft text-brand-deep"
+                            : "text-ink hover:bg-canvas",
+                        )}
+                      >
+                        <span>{opt.label}</span>
+                        {sort === opt.key && <span aria-hidden="true">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </ResponsiveModal>
+              </>
+            }
+          />
+        }
+      />
 
       <div className="lg:pb-0">
       {/* تنبيه الرصيد المنخفض */}
@@ -97,29 +147,7 @@ export function InventoryScreen() {
         </div>
       )}
 
-      {/* شريط الترتيب */}
-      {!isLoading && visibleItems.length > 1 && (
-        <div className="flex items-center gap-2 mb-4">
-          <ArrowUpDown className="w-3.5 h-3.5 text-ink-3 flex-shrink-0" />
-          <div className="flex gap-1.5 flex-wrap">
-            {SORT_OPTIONS.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setSort(opt.key)}
-                className={cn(
-                  "min-h-12 px-3 rounded-full text-sm font-medium transition-colors border focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
-                  sort === opt.key
-                    ? "bg-brand text-paper border-brand"
-                    : "bg-paper text-ink-2 border-hairline hover:border-brand/40",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* الحالات */}
       {isLoading && <SkeletonList count={5} />}

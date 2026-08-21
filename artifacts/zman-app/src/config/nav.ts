@@ -17,10 +17,12 @@ export interface NavItem {
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  description?: string;
 }
 
 export interface MoreNavGroup {
   label: string;
+  description?: string;
   items: NavItem[];
 }
 
@@ -68,49 +70,58 @@ export const mainNavItems: NavItem[] = [
 
 const moreNavGroups: MoreNavGroup[] = [
   {
-    label: "العمل والتحليل",
+    label: "المتابعة والتحليل",
+    description: "وجهات تساعدك في متابعة العمل وقراءة النتائج",
     items: [
-      navItems[5], // التقارير
-      navItems[4], // الملاحظات
+      { ...navItems[5], description: "قراءة المؤشرات والنتائج" }, // التقارير
+      { ...navItems[4], description: "حفظ ملاحظات الورشة" }, // الملاحظات
       {
         label: "الأصول الرأسمالية",
         href: "/assets",
         icon: Building2,
+        description: "متابعة الأصول والإهلاك",
       },
       {
         label: "سجل النشاط",
         href: "/activities",
         icon: Clock,
+        description: "تصفح الحركات بترتيبها الزمني",
       },
     ],
   },
   {
-    label: "المالية والإعداد",
+    label: "الإدارة المالية",
+    description: "ضبط الأساس المالي والحسابات",
     items: [
       {
         label: "الأرصدة الافتتاحية",
         href: "/settings/opening-balance",
         icon: Settings,
+        description: "تثبيت الأرصدة الأساسية للمشروع",
       },
       {
         label: "الحسابات والصناديق",
         href: "/finance/accounts",
         icon: Landmark,
+        description: "إدارة الصناديق والحسابات البنكية",
       },
       {
         label: "أصناف الشراء",
         href: "/finance?manageCatalog=purchases",
         icon: Boxes,
+        description: "تنظيم الأصناف المستخدمة في الشراء",
       },
     ],
   },
   {
-    label: "المراجعة",
+    label: "المراجعة والأمان",
+    description: "تتبع التغييرات والعمليات الحساسة",
     items: [
       {
         label: "سجل التدقيق",
         href: "/settings/audit-log",
         icon: ShieldCheck,
+        description: "تتبع التغييرات والعمليات الحساسة",
       },
     ],
   },

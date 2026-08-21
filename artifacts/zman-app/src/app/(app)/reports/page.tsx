@@ -23,6 +23,8 @@ import { AppShellHeader } from "@/providers/app-shell-context";
 import { AmountText } from "@/components/shared/AmountText";
 import { Button } from "@/components/shared/Button";
 import { SegmentedControl } from "@/components/shared/SegmentedControl";
+import { PageToolbar } from "@/components/shared/PageToolbar";
+import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { STATUS_COLORS } from "@/lib/status-colors";
 import { DESIGN_TOKENS } from "@/lib/design-system-contract";
@@ -207,38 +209,37 @@ export default function ReportsPage() {
       <AppShellHeader
         title="التقارير"
         action={
-          <div className="flex items-center gap-2">
-            {/* زر التحديث — يبقى وحده في الرأس حتى لا تتزاحم الأفعال */}
-            <Button
-              onClick={() => {
-                void refetch();
-                void refetchPosition();
-              }}
-              isLoading={isLoading || positionLoading}
-              size="icon"
-              variant="secondary"
-              className="rounded-lg"
-              aria-label="تحديث البيانات"
-              title="تحديث البيانات"
-            >
-              <RefreshCw className="h-4.5 w-4.5" />
-            </Button>
-          </div>
+          <PageToolbar
+            trailing={
+              <HeaderIconButton
+                label="تحديث البيانات"
+                onClick={() => {
+                  void refetch();
+                  void refetchPosition();
+                }}
+                disabled={isLoading || positionLoading}
+              >
+                <RefreshCw className="h-4.5 w-4.5" />
+              </HeaderIconButton>
+            }
+            leading={
+              <SegmentedControl
+                value={activeSection}
+                onChange={(val) => setActiveSection(val as any)}
+                tone="underline"
+                compact
+                scrollable={false}
+                options={[
+                  { value: "analytics", label: "التقارير", icon: <BarChart2 className="h-4 w-4" /> },
+                  { value: "balance_sheet", label: "الوضع المالي", icon: <Wallet className="h-4 w-4" /> },
+                ]}
+              />
+            }
+          />
         }
       />
 
       <div className="space-y-5">
-        <SegmentedControl
-          value={activeSection}
-          onChange={(val) => setActiveSection(val as any)}
-          tone="underline"
-          scrollable={false}
-          className="w-full"
-          options={[
-            { value: "analytics", label: "التقارير", icon: <BarChart2 className="h-4 w-4" /> },
-            { value: "balance_sheet", label: "الوضع المالي", icon: <Wallet className="h-4 w-4" /> },
-          ]}
-        />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-hairline">
           <div>
             <p className="text-xs text-ink/50">
