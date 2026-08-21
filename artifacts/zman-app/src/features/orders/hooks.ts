@@ -47,10 +47,14 @@ export function useOrderStatusCounts() {
 /**
  * هوك جلب قائمة الطلبات بفلترة ديناميكية
  */
-export function useOrders(filters: GetOrdersFilters) {
+export function useOrders(
+  filters: GetOrdersFilters,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: () => getOrders(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 

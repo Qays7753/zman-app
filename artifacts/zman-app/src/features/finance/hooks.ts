@@ -205,6 +205,7 @@ export function useDeletePurchase() {
 // 2. هوك المصاريف (Expenses)
 export function useInfiniteExpenses(
   filters: Omit<GetExpensesFilters, "cursor">,
+  options?: { enabled?: boolean },
 ) {
   return useInfiniteQuery({
     queryKey: financeKeys.expenseList(filters),
@@ -217,6 +218,7 @@ export function useInfiniteExpenses(
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? null,
     staleTime: 0,
     refetchOnMount: "always",
+    enabled: options?.enabled ?? true,
   });
 }
 

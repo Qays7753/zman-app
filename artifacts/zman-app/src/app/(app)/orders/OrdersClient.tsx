@@ -7,7 +7,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { AppShellHeader } from "@/providers/app-shell-context";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { SkeletonList } from "@/components/shared/SkeletonList";
-import { HeaderIconButton } from "@/components/shared/HeaderIconButton";
+import { SegmentedControl } from "@/components/shared/SegmentedControl";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { PageToolbar } from "@/components/shared/PageToolbar";
 import { StatusFilterSheet } from "@/features/orders/components/StatusFilterSheet";
@@ -134,16 +134,25 @@ export default function OrdersClient() {
     return (
       <PageToolbar
         leading={
-          <HeaderIconButton
-            label={tab === "calendar" ? "عرض القائمة" : "عرض التقويم"}
-            onClick={() => setTab(tab === "calendar" ? "list" : "calendar")}
-          >
-            {tab === "calendar" ? (
-              <LayoutList className="w-5 h-5" />
-            ) : (
-              <CalendarDays className="w-5 h-5" />
-            )}
-          </HeaderIconButton>
+          <SegmentedControl
+            value={tab}
+            onChange={(value) => setTab(value as "list" | "calendar")}
+            options={[
+              {
+                value: "list",
+                label: "القائمة",
+                icon: <LayoutList className="w-4 h-4" />,
+              },
+              {
+                value: "calendar",
+                label: "التقويم",
+                icon: <CalendarDays className="w-4 h-4" />,
+              },
+            ]}
+            compact
+            scrollable={false}
+            tone="underline"
+          />
         }
         search={{
           value: searchInput,

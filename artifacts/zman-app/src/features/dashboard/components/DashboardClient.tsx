@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   Calendar,
+  ChevronDown,
   TrendingDown,
   TrendingUp,
   ClipboardList,
@@ -93,6 +94,7 @@ export function DashboardClient() {
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isAdvisorReady, setIsAdvisorReady] = useState(false);
+  const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setIsAdvisorReady(true), 400);
@@ -255,55 +257,55 @@ export function DashboardClient() {
         ) : (
           <div className="space-y-4">
             {hasAttentionItems && (
-              <h2 className="text-sm font-black text-ink" id="dashboard-attention-title">
-                يحتاج انتباهك
-              </h2>
-            )}
-            <SmartAlertsBar
-              lowStockCount={lowStockCount}
-              pendingOrdersCount={pendingOrdersCount}
-              isLowCash={asOfRealCashCents < 50000}
-            />
+              <section aria-labelledby="dashboard-attention-title" className="space-y-2">
+                <h2 className="text-sm font-black text-ink" id="dashboard-attention-title">
+                  يحتاج انتباهك
+                </h2>
+                <SmartAlertsBar
+                  lowStockCount={lowStockCount}
+                  pendingOrdersCount={pendingOrdersCount}
+                  isLowCash={asOfRealCashCents < 50000}
+                />
 
-            {/* طلبات تحتاج تسليم قريباً — إجراء يومي واضح عند وجودها */}
-            <UpcomingDeliveriesCard />
-
-            {/* إعداد أولي — البنود الأربعة */}
-            {(!openingBal || !openingBal.isLocked) && (
-              <Link
-                href="/settings/opening-balance"
-                className="flex flex-col gap-2.5 p-4 rounded-lg border border-warn/40 bg-warn-soft hover:bg-warn/10 transition-colors"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <AlertCircle className="h-5 w-5 text-warn-deep shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-ink truncate">أكمل الإعداد الأولي للمشروع</p>
-                      <p className="text-xs text-ink-2 truncate">اضبط الميزان الافتتاحي واقفل الأرقام لتثبيت الدفتر المحاسبي</p>
+                {/* التسليمات والإعداد الأولي ضمن مركز تشغيل واحد */}
+                <UpcomingDeliveriesCard />
+                {(!openingBal || !openingBal.isLocked) && (
+                  <Link
+                    href="/settings/opening-balance"
+                    className="flex flex-col gap-2.5 p-4 rounded-lg border border-warn/40 bg-warn-soft hover:bg-warn/10 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <AlertCircle className="h-5 w-5 text-warn-deep shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-ink truncate">أكمل الإعداد الأولي للمشروع</p>
+                          <p className="text-xs text-ink-2 truncate">اضبط الميزان الافتتاحي واقفل الأرقام لتثبيت الدفتر المحاسبي</p>
+                        </div>
+                      </div>
+                      <Settings className="h-5 w-5 text-warn-deep shrink-0" />
                     </div>
-                  </div>
-                  <Settings className="h-5 w-5 text-warn-deep shrink-0" />
-                </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-warn/20 text-xs">
-                  <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal && openingBal.cashCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
-                    <span className="text-ink-2">رصيد الصندوق</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal && openingBal.bankCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
-                    <span className="text-ink-2">رصيد البنك</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal && openingBal.capitalCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
-                    <span className="text-ink-2">رأس المال</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 font-medium">
-                    {openingBal?.isLocked ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
-                    <span className="text-ink-2">تأكيد القفل</span>
-                  </div>
-                </div>
-              </Link>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-warn/20 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {openingBal && openingBal.cashCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
+                        <span className="text-ink-2">رصيد الصندوق</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {openingBal && openingBal.bankCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
+                        <span className="text-ink-2">رصيد البنك</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {openingBal && openingBal.capitalCents > 0 ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
+                        <span className="text-ink-2">رأس المال</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {openingBal?.isLocked ? <span className="text-brand-deep font-bold">✓</span> : <span className="text-alert font-bold">✗</span>}
+                        <span className="text-ink-2">تأكيد القفل</span>
+                      </div>
+                    </div>
+                  </Link>
+                )}
+              </section>
             )}
 
             <section aria-labelledby="dashboard-summary-title" className="space-y-2">
@@ -322,66 +324,90 @@ export function DashboardClient() {
               <h2 className="text-sm font-black text-ink" id="dashboard-actions-title">الوصول السريع</h2>
               <GlobalSearch />
               <div className="grid grid-cols-2 gap-2">
-              <Link
-                href="/activities"
-                className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-brand shrink-0" />
-                  <span className="font-bold text-ink">كل الحركات</span>
-                </span>
-                <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
-              </Link>
-              <Link
-                href="/snippets"
-                className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-brand shrink-0" />
-                  <span className="font-bold text-ink">الملاحظات</span>
-                </span>
-                <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
-              </Link>
+                <Link
+                  href="/activities"
+                  className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-brand shrink-0" />
+                    <span className="font-bold text-ink">كل الحركات</span>
+                  </span>
+                  <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
+                </Link>
+                <Link
+                  href="/snippets"
+                  className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm hover:bg-canvas transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-brand shrink-0" />
+                    <span className="font-bold text-ink">الملاحظات</span>
+                  </span>
+                  <ArrowLeft className="h-3 w-3 opacity-50 shrink-0" />
+                </Link>
               </div>
             </section>
 
-            <section aria-labelledby="dashboard-analysis-title" className="space-y-2">
-              <h2 className="text-sm font-black text-ink" id="dashboard-analysis-title">التحليل المالي</h2>
-
-              {/* الربح التشغيلي — أشرطة مقارنة للفترة المختارة */}
-              {summary && (
-              <FinanceComparePanel
-                periodLabel={periodLabel}
-                actualSales={summary.actualSales ?? 0}
-                cogsCents={summary.cogsCents ?? 0}
-                operatingExpenses={summary.operatingExpensesCents ?? 0}
-                operatingPurchases={summary.operatingPurchasesCents ?? 0}
-                depreciation={summary.monthlyDepreciationCents ?? 0}
-                netProfit={summary.netProfit ?? 0}
-                ownerDraw={summary.ownerDraw ?? 0}
-                expectedRemaining={cashSummary?.expectedRemainingCents ?? 0}
-                nonOperatingPurchases={
-                  Math.max((summary.purchases ?? 0) - (summary.operatingPurchasesCents ?? 0), 0)
-                }
-              />
-            )}
-
-            {/* حركة الكاش */}
-            {summary && (
-              <LiquidityFlowPanel
-                periodLabel={periodLabel}
-                actualSales={summary.actualSales ?? 0}
-                deposits={summary.deposits ?? 0}
-                ownerInject={summary.ownerInject ?? 0}
-                purchases={summary.purchases ?? 0}
-                expenses={summary.expenses ?? 0}
-                ownerDraw={summary.ownerDraw ?? 0}
-              />
-            )}
-
-            {/* ربح كل شهر */}
-              {monthlyProfit && monthlyProfit.length > 0 && (
+            {monthlyProfit && monthlyProfit.length > 0 && (
+              <section aria-labelledby="dashboard-trend-title" className="space-y-2">
+                <h2 id="dashboard-trend-title" className="sr-only">اتجاه الربح الشهري</h2>
                 <MonthlyProfitPanel data={monthlyProfit} />
+              </section>
+            )}
+
+            <section aria-labelledby="dashboard-analysis-title" className="space-y-2">
+              <h2 id="dashboard-analysis-title">
+                <button
+                  type="button"
+                  aria-expanded={isAnalysisOpen}
+                  aria-controls="dashboard-analysis-content"
+                  onClick={() => setIsAnalysisOpen((open) => !open)}
+                  className="w-full min-h-12 flex items-center justify-between gap-3 rounded-lg border border-hairline bg-paper px-3 text-sm font-black text-ink hover:bg-canvas transition-colors focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                >
+                  <span className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-brand shrink-0" />
+                    <span>التحليل المالي</span>
+                  </span>
+                  <span className="flex items-center gap-2 text-xs font-semibold text-ink-3">
+                    <span>{isAnalysisOpen ? "إخفاء" : "عرض"}</span>
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-200 ${isAnalysisOpen ? "rotate-180" : ""}`}
+                    />
+                  </span>
+                </button>
+              </h2>
+
+              {isAnalysisOpen && (
+                <div id="dashboard-analysis-content" className="space-y-3 pt-1">
+                  {summary && (
+                    <FinanceComparePanel
+                      periodLabel={periodLabel}
+                      actualSales={summary.actualSales ?? 0}
+                      cogsCents={summary.cogsCents ?? 0}
+                      operatingExpenses={summary.operatingExpensesCents ?? 0}
+                      operatingPurchases={summary.operatingPurchasesCents ?? 0}
+                      depreciation={summary.monthlyDepreciationCents ?? 0}
+                      netProfit={summary.netProfit ?? 0}
+                      ownerDraw={summary.ownerDraw ?? 0}
+                      expectedRemaining={cashSummary?.expectedRemainingCents ?? 0}
+                      nonOperatingPurchases={
+                        Math.max((summary.purchases ?? 0) - (summary.operatingPurchasesCents ?? 0), 0)
+                      }
+                    />
+                  )}
+
+                  {summary && (
+                    <LiquidityFlowPanel
+                      periodLabel={periodLabel}
+                      actualSales={summary.actualSales ?? 0}
+                      deposits={summary.deposits ?? 0}
+                      ownerInject={summary.ownerInject ?? 0}
+                      purchases={summary.purchases ?? 0}
+                      expenses={summary.expenses ?? 0}
+                      ownerDraw={summary.ownerDraw ?? 0}
+                    />
+                  )}
+
+                </div>
               )}
             </section>
 
@@ -397,7 +423,7 @@ export function DashboardClient() {
             />
 
             {/* المستشار المالي — يُحمّل بعد ظهور المحتوى الأساسي */}
-            {isAdvisorReady && summary && cashSummary && accountBalances && (
+            {isAnalysisOpen && isAdvisorReady && summary && cashSummary && accountBalances && (
               <DeferredFinancialAdvisor
                 periodLabel={periodLabel}
                 data={{
