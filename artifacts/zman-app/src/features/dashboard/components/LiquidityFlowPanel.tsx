@@ -50,6 +50,7 @@ function FlowRow({
 }
 
 export function LiquidityFlowPanel({
+  periodLabel,
   actualSales,
   deposits,
   ownerInject,
@@ -57,6 +58,7 @@ export function LiquidityFlowPanel({
   expenses,
   ownerDraw,
 }: {
+  periodLabel: string;
   actualSales: number;
   deposits: number;
   ownerInject: number;
@@ -76,6 +78,7 @@ export function LiquidityFlowPanel({
           حركة الكاش
           <InfoTooltip text="كل ما دخل وخرج من الصندوق خلال الفترة المختارة. يشمل المبيعات والعربونات والمشتريات والمصاريف وحركة المالك. هذا ليس ربحاً — العربون نقد لكنه التزام حتى التسليم، وسحب المالك ليس مصروفاً." />
         </h3>
+          <span className="text-[10px] font-semibold text-ink/45 whitespace-nowrap">الفترة: {periodLabel} · كاش</span>
       </div>
       <p className="text-[10px] font-semibold text-ink-3">
         طول الشريط = حجم الحركة مقارنة بأكبر حركة في هذه الفترة

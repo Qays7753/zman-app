@@ -20,6 +20,7 @@ import { AmountText } from "@/components/shared/AmountText";
 import { InfoTooltip } from "@/components/shared/InfoTooltip";
 
 interface FinanceComparePanelProps {
+  periodLabel: string;
   actualSales: number;
   /** UX Round 4 — COGS للفترة (بدلاً من إجمالي المشتريات). */
   cogsCents: number;
@@ -37,6 +38,7 @@ interface FinanceComparePanelProps {
 }
 
 export function FinanceComparePanel({
+  periodLabel,
   actualSales,
   cogsCents,
   operatingExpenses,
@@ -109,6 +111,7 @@ export function FinanceComparePanel({
           الربح التشغيلي
           <InfoTooltip text="الربح التشغيلي = مبيعات − تكلفة البضاعة المباعة (COGS) − مصاريف تشغيلية − إهلاك الفترة. تكلفة البضاعة المباعة ≠ مشتريات المخزون — المشتريات تزيد قيمة مخزونك، والتكلفة تُحتسب فقط عند تسليم الطلبات." />
         </h3>
+        <span className="text-[10px] font-semibold text-ink/45 whitespace-nowrap">الفترة: {periodLabel}</span>
       </div>
       <p className="text-[10px] font-semibold text-ink-3">
         طول الشريط = نسبة من أكبر قيمة في هذه البطاقة
