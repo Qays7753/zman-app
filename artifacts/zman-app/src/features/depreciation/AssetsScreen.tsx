@@ -330,7 +330,8 @@ export function AssetsScreen() {
       <CardActionSheet
         isOpen={actionSheet !== null}
         onClose={() => setActionSheet(null)}
-        title="إجراءات"
+        title="إجراءات الأصل"
+        subtitle={actionSheet?.asset.name}
         actions={
           actionSheet
             ? [

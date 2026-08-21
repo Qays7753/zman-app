@@ -1,10 +1,11 @@
 "use client";
 
-import { Edit3, Plus, Trash2 } from "lucide-react";
+import { Edit3, Trash2 } from "lucide-react";
 import { useState, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { AppShellHeader } from "@/providers/app-shell-context";
+import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -64,31 +65,28 @@ export default function SnippetsClient() {
     return acc;
   }, {});
 
-  const pageAction = useMemo(() => (
-    <PageToolbar
-      search={{
-        value: search,
-        onChange: handleSearchChange,
-        placeholder: "بحث في الملاحظات...",
-      }}
-      trailing={
-        <Button
-          onClick={() => setCreating(true)}
-          size="icon"
-          className="rounded-lg"
-          aria-label="إضافة ملاحظة"
-          title="إضافة ملاحظة"
-        >
-          <Plus className="w-5 h-5" />
-        </Button>
-      }
-    />
-  ), [search, handleSearchChange]);
+  const pageAction = useMemo(
+    () => (
+      <PageToolbar
+        search={{
+          value: search,
+          onChange: handleSearchChange,
+          placeholder: "بحث في الملاحظات...",
+        }}
+      />
+    ),
+    [search, handleSearchChange],
+  );
 
   return (
     <>
       <AppShellHeader title="الملاحظات" action={pageAction} />
-      <div className="flex-1 flex flex-col gap-4">
+      <FloatingActionButton
+        onClick={() => setCreating(true)}
+        label="ملاحظة جديدة"
+        showLabel
+      />
+      <div className="flex-1 flex flex-col gap-4 pb-28 lg:pb-0">
 
         {/* المحتوى */}
         {isLoading ? (

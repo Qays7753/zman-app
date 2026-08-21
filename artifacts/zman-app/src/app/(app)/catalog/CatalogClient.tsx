@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { toast } from "sonner";
 import { AppShellHeader } from "@/providers/app-shell-context";
+import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { MoneyInput } from "@/components/shared/MoneyInput";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
@@ -122,17 +123,6 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
           onChange: handleSearch,
           placeholder: "بحث في المكوّنات...",
         }}
-        trailing={
-          <Button
-            onClick={() => setCreating(true)}
-            size="icon"
-            className="rounded-lg"
-            aria-label="إضافة مكوّن جديد"
-            title="إضافة مكوّن جديد"
-          >
-            <Plus className="w-5 h-5" />
-          </Button>
-        }
       />
     );
   }, [hideHeader, search, handleSearch]);
@@ -140,7 +130,14 @@ export default function CatalogClient({ hideHeader = false }: { hideHeader?: boo
   return (
     <>
       {!hideHeader && <AppShellHeader title="الكتالوج" action={pageAction} />}
-      <div className="flex-1 flex flex-col gap-4">
+      {!hideHeader && (
+        <FloatingActionButton
+          onClick={() => setCreating(true)}
+          label="مكوّن جديد"
+          showLabel
+        />
+      )}
+      <div className="flex-1 flex flex-col gap-4 pb-28 lg:pb-0">
         {/* شريط البحث والإضافة */}
         {hideHeader && (
           <ListHeader
