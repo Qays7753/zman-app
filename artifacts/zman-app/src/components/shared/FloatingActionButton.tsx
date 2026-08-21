@@ -26,7 +26,7 @@ export function FloatingActionButton({
       aria-label={label}
       title={label}
       className={cn(
-        "fixed bottom-[calc(80px+env(safe-area-inset-bottom))] end-4 lg:bottom-6 lg:end-[264px] z-fab",
+        "fixed bottom-[calc(72px+env(safe-area-inset-bottom))] end-4 lg:bottom-6 lg:end-[264px] z-fab",
         showLabel
           ? "min-h-14 min-w-14 px-4 gap-2 rounded-full"
           : "h-14 w-14 min-h-14 min-w-14",
