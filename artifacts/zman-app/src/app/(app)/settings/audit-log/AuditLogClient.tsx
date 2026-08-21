@@ -11,7 +11,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  ShieldCheck,
   ShoppingBag,
   ShoppingCart,
   Trash2,
@@ -192,10 +191,9 @@ export default function AuditLogClient() {
       <AppShellHeader title="سجل التدقيق" />
 
       <div className="flex-1 p-4 max-w-2xl mx-auto w-full space-y-4 pb-28">
-        <div className="flex items-center gap-2 px-1 py-1">
-          <ShieldCheck className="h-5 w-5 text-brand" />
-          <h2 className="text-sm font-black text-ink">سجل عمليات الإنشاء والتعديل والحذف</h2>
-        </div>
+        <p className="px-1 text-xs font-medium text-ink-3">
+          سجل محمي لعمليات الإنشاء والتعديل والحذف.
+        </p>
 
         {isLoading ? (
           <SkeletonList count={8} />
