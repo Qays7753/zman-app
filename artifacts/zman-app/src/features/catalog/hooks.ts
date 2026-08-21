@@ -32,12 +32,16 @@ export type CreateCatalogComponentInput = Omit<
   openingStock?: number;
 };
 
-export function useCatalogComponents(search?: string) {
+export function useCatalogComponents(
+  search?: string,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: catalogKeys.list(search),
     queryFn: () => getCatalogComponents(search),
     staleTime: 60_000,
     refetchOnMount: true,
+    enabled: options?.enabled ?? true,
   });
 }
 

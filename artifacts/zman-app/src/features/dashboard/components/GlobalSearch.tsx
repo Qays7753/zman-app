@@ -12,9 +12,18 @@ export function GlobalSearch() {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { data: ordersData } = useOrders({ limit: 100 });
-  const { data: catalogData } = useCatalogComponents();
-  const { data: expensesData } = useInfiniteExpenses({ limit: 100 });
+  const hasQuery = query.trim().length > 0;
+  const { data: ordersData } = useOrders(
+    { limit: 100 },
+    { enabled: hasQuery },
+  );
+  const { data: catalogData } = useCatalogComponents(undefined, {
+    enabled: hasQuery,
+  });
+  const { data: expensesData } = useInfiniteExpenses(
+    { limit: 100 },
+    { enabled: hasQuery },
+  );
 
   const allExpenses = useMemo(() => {
     return expensesData?.pages.flatMap((p) => p.items) || [];
