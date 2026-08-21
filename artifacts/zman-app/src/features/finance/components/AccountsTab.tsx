@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Landmark, Loader2, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import {
+  Landmark,
+  Loader2,
+  Archive,
+  ArchiveRestore,
+  Trash2,
+  MoreVertical,
+} from "lucide-react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useAccountBalancesQuery, useCreateAccount, useTransferBetweenAccounts, useArchiveAccount, useUnarchiveAccount, useDeleteAccount } from "../hooks";
 import { AmountText } from "@/components/shared/AmountText";
 import { Button } from "@/components/shared/Button";
 import { ResponsiveModal } from "@/components/shared/ResponsiveModal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { CardActionSheet } from "@/components/shared/CardActionSheet";
 
 export function AccountsTab() {
   const router = useRouter();
@@ -45,6 +53,7 @@ export function AccountsTab() {
   };
 
   const [deleteAccountId, setDeleteAccountId] = useState<string | null>(null);
+  const [actionAccountId, setActionAccountId] = useState<string | null>(null);
 
   const confirmDelete = () => {
     if (!deleteAccountId) return;
@@ -210,40 +219,16 @@ export function AccountsTab() {
                 <AmountText amount={acc.balanceCents} />
               </span>
             </div>
-            {/* أزرار الإجراءات - أيقونات فقط بدون أي نصوص لتفادي ازدحام الواجهة */}
-            <div className="flex gap-2 pt-2 border-t border-hairline justify-end">
-              {!acc.isArchived ? (
-                <button
-                  type="button"
-                  onClick={() => handleArchive(acc.id)}
-                  disabled={archiveMutation.isPending}
-                  title={`أرشفة حساب ${acc.name}`}
-                  aria-label={`أرشفة حساب ${acc.name}`}
-                  className="min-h-12 min-w-12 p-2.5 rounded-md border border-hairline-2 text-ink-2 hover:bg-canvas transition-colors disabled:opacity-50 flex items-center justify-center"
-                >
-                  <Archive className="h-4 w-4" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleUnarchive(acc.id)}
-                  disabled={unarchiveMutation.isPending}
-                  title={`إلغاء أرشفة حساب ${acc.name}`}
-                  aria-label={`إلغاء أرشفة حساب ${acc.name}`}
-                  className="min-h-12 min-w-12 p-2.5 rounded-md border border-brand/30 text-brand hover:bg-brand-soft transition-colors disabled:opacity-50 flex items-center justify-center"
-                >
-                  <ArchiveRestore className="h-4 w-4" />
-                </button>
-              )}
+            {/* إجراء واحد واضح يفتح أفعال الحساب المسماة */}
+            <div className="flex justify-end pt-2 border-t border-hairline">
               <button
                 type="button"
-                onClick={() => setDeleteAccountId(acc.id)}
-                disabled={deleteMutation.isPending}
-                title={`حذف حساب ${acc.name}`}
-                aria-label={`حذف حساب ${acc.name}`}
-                className="min-h-12 min-w-12 p-2.5 rounded-md border border-alert/30 text-alert hover:bg-alert-soft transition-colors disabled:opacity-50 flex items-center justify-center"
+                onClick={() => setActionAccountId(acc.id)}
+                aria-label={`إجراءات حساب ${acc.name}`}
+                title={`إجراءات حساب ${acc.name}`}
+                className="min-h-12 min-w-12 p-2.5 rounded-lg border border-hairline-2 text-ink-2 hover:bg-canvas transition-colors flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
-                <Trash2 className="h-4 w-4" />
+                <MoreVertical className="h-5 w-5" />
               </button>
             </div>
           </div>
@@ -256,6 +241,49 @@ export function AccountsTab() {
           </div>
         )}
       </div>
+
+      <CardActionSheet
+        isOpen={actionAccountId !== null}
+        onClose={() => setActionAccountId(null)}
+        title="إجراءات الحساب"
+        subtitle={accounts?.find((account) => account.id === actionAccountId)?.name}
+        actions={
+          actionAccountId
+            ? (() => {
+                const selected = accounts?.find(
+                  (account) => account.id === actionAccountId,
+                );
+                if (!selected) return [];
+                return [
+                  {
+                    label: selected.isArchived
+                      ? "إلغاء أرشفة الحساب"
+                      : "أرشفة الحساب",
+                    icon: selected.isArchived ? (
+                      <ArchiveRestore className="h-5 w-5" />
+                    ) : (
+                      <Archive className="h-5 w-5" />
+                    ),
+                    onClick: () => {
+                      setActionAccountId(null);
+                      if (selected.isArchived) handleUnarchive(selected.id);
+                      else handleArchive(selected.id);
+                    },
+                  },
+                  {
+                    label: "حذف الحساب",
+                    icon: <Trash2 className="h-5 w-5" />,
+                    variant: "danger" as const,
+                    onClick: () => {
+                      setActionAccountId(null);
+                      setDeleteAccountId(selected.id);
+                    },
+                  },
+                ];
+              })()
+            : []
+        }
+      />
 
       {/* ملخص الحسابات النشطة */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-canvas p-4 rounded-lg border border-hairline font-medium text-sm text-ink-3">

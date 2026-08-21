@@ -171,7 +171,14 @@ export function AppShell({
       {/* هيدر الموبايل */}
       <header className="lg:hidden flex-shrink-0 w-full h-14 bg-paper border-b border-hairline shadow-none flex items-center justify-between gap-2 px-3 z-sticky">
         {title ? (
-          <h1 className="min-w-0 max-w-[32%] shrink-0 text-base font-bold text-ink truncate">{title}</h1>
+          <h1
+            className={cn(
+              "min-w-0 shrink-0 text-base font-bold text-ink truncate",
+              action ? "max-w-[32%]" : "max-w-full",
+            )}
+          >
+            {title}
+          </h1>
         ) : null}
         {action && (
           <div className={cn("flex items-center min-w-0 overflow-visible", !title ? "flex-1 w-full" : "ms-2 flex-1 justify-end")}>
@@ -290,12 +297,22 @@ export function AppShell({
         onClose={() => setIsMoreOpen(false)}
         title="المزيد"
       >
+        <div className="px-4 pt-1 pb-2 text-xs font-medium text-ink-3">
+          اختر وجهتك التالية أو افتح أداة من أدوات النظام.
+        </div>
         <div className="py-1">
           {moreNavGroups.map((group) => (
             <section key={group.label} className="space-y-1">
-              <h3 className="px-4 pt-3 pb-1 text-[11px] font-bold tracking-wide text-ink-3">
-                {group.label}
-              </h3>
+              <div className="px-4 pt-3 pb-1">
+                <h3 className="text-[11px] font-bold tracking-wide text-ink-2">
+                  {group.label}
+                </h3>
+                {group.description && (
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-ink-3">
+                    {group.description}
+                  </p>
+                )}
+              </div>
               {group.items.map((item) => {
                 const isActive =
                   !item.href.includes("?") &&
@@ -309,32 +326,48 @@ export function AppShell({
                     prefetch={false}
                     onClick={() => setIsMoreOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg",
-                      isActive ? "text-brand-deep font-bold bg-brand-soft"
+                      "flex items-start gap-3 px-4 py-2.5 min-h-[56px] text-sm transition-colors rounded-lg",
+                      isActive
+                        ? "text-brand-deep font-bold bg-brand-soft"
                         : "text-ink-2 hover:bg-canvas hover:text-ink",
                     )}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span>{item.label}</span>
+                    <Icon className="mt-0.5 w-5 h-5 flex-shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block leading-5">{item.label}</span>
+                      {item.description && (
+                        <span className="block truncate text-[11px] font-medium leading-4 text-ink-3">
+                          {item.description}
+                        </span>
+                      )}
+                    </span>
                   </Link>
                 );
               })}
             </section>
           ))}
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsMoreOpen(false);
-              setIsBackupOpen(true);
-            }}
-            className="w-full flex items-center gap-3 px-4 min-h-[48px] text-sm transition-colors rounded-lg text-ink-2 hover:bg-canvas hover:text-ink font-medium"
-          >
-            <Database className="w-5 h-5 flex-shrink-0 text-brand" />
-            <span>تصدير نسخة احتياطية</span>
-          </button>
+          <div className="mx-3 mt-3 rounded-lg border border-hairline bg-canvas/60 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsMoreOpen(false);
+                setIsBackupOpen(true);
+              }}
+              className="w-full flex items-start gap-3 px-3 py-2.5 min-h-[56px] text-sm transition-colors rounded-lg text-ink-2 hover:bg-paper hover:text-ink font-medium text-start"
+            >
+              <Database className="mt-0.5 w-5 h-5 flex-shrink-0 text-brand" />
+              <span>
+                <span className="block leading-5">تصدير نسخة احتياطية</span>
+                <span className="block text-[11px] leading-4 text-ink-3">
+                  حفظ نسخة من بيانات المشروع للتنزيل
+                </span>
+              </span>
+            </button>
+          </div>
         </div>
-        <div className="pt-4 border-t border-hairline mt-2">
+        <div className="pt-3 border-t border-hairline mt-3">
+          <p className="px-1 pb-2 text-[11px] font-bold text-ink-2">على الهاتف</p>
           <InstallButton />
         </div>
       </ResponsiveModal>

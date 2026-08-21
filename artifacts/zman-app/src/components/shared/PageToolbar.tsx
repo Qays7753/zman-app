@@ -129,9 +129,21 @@ export function PageToolbar({
       {/* يمين (start في RTL): زر الإضافة (الإجراء الأساسي) */}
       <div className="flex items-center shrink-0">{trailing}</div>
 
-      {/* الوسط: فلتر + بحث + تبديل العرض (مجموعة متماسكة تتمدد وتتوسط) */}
+      {/* الوسط: سياق الصفحة ثم البحث ثم الفلتر — مفهوم المالية الموحد */}
       <div className="flex items-center justify-end gap-1 flex-nowrap flex-1 min-w-0 overflow-visible">
-        {/* فلتر مخصّص (يحلّ محلّ الفلتر الافتراضي) */}
+        {leading}
+
+        {search && (
+          <HeaderIconButton
+            label="بحث"
+            tone="quiet"
+            isActive={!!search.value}
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="w-5 h-5" />
+          </HeaderIconButton>
+        )}
+
         {filterSlot}
 
         {!filterSlot && filters && filters.length > 0 && (
@@ -181,20 +193,6 @@ export function PageToolbar({
             )}
           </div>
         )}
-
-        {/* فاصل بسيط قبل البحث */}
-        {search && (
-          <HeaderIconButton
-            label="بحث"
-            tone="quiet"
-            isActive={!!search.value}
-            onClick={() => setSearchOpen(true)}
-          >
-            <Search className="w-5 h-5" />
-          </HeaderIconButton>
-        )}
-
-        {leading}
       </div>
 
       {/* يسار (end في RTL): زر الإعدادات */}
